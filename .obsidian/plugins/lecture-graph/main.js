@@ -1897,6 +1897,8 @@ var __LG_CORE__ = (function () {
         p.x += (p.tx - p.x) * 0.35;
         p.y += (p.ty - p.y) * 0.35;
       });
+      // Радиальные кольца особенно чувствительны к позднему сдвигу label-polish:
+      // держим подписи разведёнными прямо в ходе twopi, как было изначально.
       collide(tn, cfg, graph._byId, 0.4, 0.9, cfg.packLabels !== false, true);
       return 0;
     }
@@ -2026,55 +2028,123 @@ var __LG_CORE__ = (function () {
    * Раздвигает пересекающиеся круги; если `useRect` — то и прямоугольники подписей
    * (требование: метки не наезжают ни друг на друга, ни на чужие круги).
    */
-  function collide(nodes, cfg, byId, alpha, k, useRect, plainPush) {
+  function collide(nodes, cfg, byId, alpha, k, useRect, plainPush, reserveGrid) {
     var kk = k === undefined ? 0.5 : k;
-    // ячейка сетки = самый большой «след» вершины (круг + подпись): иначе пары,
-    // которые ещё перекрываются подписями, просто не попадают в окно поиска
-    var far = (cfg.maxRadius || DEFAULTS.maxRadius || 34);
-    for (var fi = 0; fi < nodes.length; fi++) {
-      var f2 = effR(nodes[fi], cfg);
-      if (f2 > far) far = f2;
+    // В горячем цикле движков расталкиваем только круги. Подписи гарантированно
+    // раскладываются финальным polishNoOverlap(), поэтому не стоит на каждом шаге
+    // создавать прямоугольники для тысяч заведомо далёких пар. Для кластерной
+    // упаковки `useRect` остаётся true — там подписи задают размер сектора.
+    var withRects = !!useRect;
+    var far = cfg.maxRadius || DEFAULTS.maxRadius || 34;
+    var radii = new Array(nodes.length);
+    // labelRectOf() создаёт два объекта на каждую соседнюю пару. В label-aware
+    // проходе сначала держим неизменные размеры прямоугольников и вызываем её
+    // только для пары, чьи реальные границы уже пересекаются.
+    var labels = withRects ? new Array(nodes.length) : null;
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      // Даже в быстром круговом проходе оставляем вокруг подписанного узла
+      // его резервное место: так финальному label-polish остаётся заметно меньше работы.
+      radii[i] = effR(node, cfg);
+      // Для ширины клетки достаточно реального круга. Резерв подписи остаётся в
+      // силе ниже, но не заставляет обходить огромные разреженные ячейки.
+      var cellRadius = (withRects || reserveGrid) ? radii[i] : (node.r || 6) + 2;
+      if (cellRadius > far) far = cellRadius;
+      if (labels) {
+        labels[i] = node.labelShown && node.lw ? {
+          hw: node.lw / 2,
+          y0: (node.r || 0) + 1,
+          y1: (node.r || 0) + 1 + node.lh,
+        } : null;
+      }
+      node._lgCollisionIndex = i;
     }
+    // Размер клетки не меньше диаметра самого крупного объекта: достаточно девяти
+    // соседних клеток, а не всего графа. Для кругов это существенно меньше ширины
+    // самой длинной подписи и снимает главный источник фризов на 1000+ вершинах.
     var cell = Math.max(60, far * 2 + 8);
     var grid = {};
-    nodes.forEach(function (p) {
+    for (i = 0; i < nodes.length; i++) {
+      var p0 = nodes[i];
+      if (!isFinite(p0.x) || !isFinite(p0.y)) continue;
+      var gx0 = Math.floor(p0.x / cell);
+      var gy0 = Math.floor(p0.y / cell);
+      var key0 = gx0 + ":" + gy0;
+      (grid[key0] || (grid[key0] = [])).push(p0);
+    }
+    var hits = 0;
+    for (i = 0; i < nodes.length; i++) {
+      var p = nodes[i];
+      if (!isFinite(p.x) || !isFinite(p.y)) continue;
       var gx = Math.floor(p.x / cell);
       var gy = Math.floor(p.y / cell);
-      var key = gx + ":" + gy;
-      (grid[key] || (grid[key] = [])).push(p);
-    });
-    nodes.forEach(function (p) {
-      var gx = Math.floor(p.x / cell);
-      var gy = Math.floor(p.y / cell);
+      var pr = radii[i];
       for (var ix = gx - 1; ix <= gx + 1; ix++) {
         for (var iy = gy - 1; iy <= gy + 1; iy++) {
           var bucket = grid[ix + ":" + iy];
           if (!bucket) continue;
           for (var bi = 0; bi < bucket.length; bi++) {
             var q = bucket[bi];
+            var qi = q._lgCollisionIndex;
+            // Сохраняем детерминированный порядок прежнего алгоритма: результат
+            // раскладки не начинает прыгать из-за порядка файлов в vault.
             if (q === p || q.id < p.id) continue;
             var dx = q.x - p.x;
             var dy = q.y - p.y;
-            var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-            var min = (effR(p, cfg) + effR(q, cfg)) * 1.04 + 3;
-            if (useRect) separateLabels(p, q, k === undefined ? 0.5 : k, plainPush);
-            if (d < min) {
-              var push = ((min - d) / d) * kk * (0.75 + 0.25 * alpha);
-              var mx = dx * push;
-              var my = dy * push;
-              if (!p.fixed) {
-                p.x -= mx;
-                p.y -= my;
+            var min = (pr + radii[qi]) * 1.04 + 3;
+            if (withRects) {
+              // Сохраняем порядок старого label-aware пути: его устойчивое
+              // взаимодействие с радиальными целями twopi нельзя менять. Но
+              // skip безопасен: separateLabels для непересекающихся rect ничего
+              // не делает, а геометрия их размеров неизменна в этом проходе.
+              var lp = labels[i], lq = labels[qi];
+              var touches = false;
+              if (lp && lq) {
+                touches = p.x - lp.hw < q.x + lq.hw && q.x - lq.hw < p.x + lp.hw &&
+                  p.y + lp.y0 < q.y + lq.y1 && q.y + lq.y0 < p.y + lp.y1;
+              } else if (lp) {
+                var qr = (q.r || 6) + 1;
+                touches = p.x - lp.hw < q.x + qr && q.x - qr < p.x + lp.hw &&
+                  p.y + lp.y0 < q.y + qr && q.y - qr < p.y + lp.y1;
+              } else if (lq) {
+                var prCircle = (p.r || 6) + 1;
+                touches = q.x - lq.hw < p.x + prCircle && p.x - prCircle < q.x + lq.hw &&
+                  q.y + lq.y0 < p.y + prCircle && p.y - prCircle < q.y + lq.y1;
               }
-              if (!q.fixed) {
-                q.x += mx;
-                q.y += my;
-              }
+              var dRect = Math.sqrt(dx * dx + dy * dy) || 0.01;
+              if (touches) separateLabels(p, q, kk, plainPush);
+              if (dRect >= min) continue;
+              var pushRect = ((min - dRect) / dRect) * kk * (0.75 + 0.25 * alpha);
+              var mxRect = dx * pushRect;
+              var myRect = dy * pushRect;
+              if (!p.fixed) { p.x -= mxRect; p.y -= myRect; }
+              if (!q.fixed) { q.x += mxRect; q.y += myRect; }
+              hits++;
+              continue;
             }
+            var d2 = dx * dx + dy * dy;
+            // sqrt — только у действительно пересекающихся кругов; на разреженном
+            // графе подавляющее большинство соседей отсеивается этой проверкой.
+            if (d2 >= min * min) continue;
+            var d = Math.sqrt(d2) || 0.01;
+            var push = ((min - d) / d) * kk * (0.75 + 0.25 * alpha);
+            var mx = dx * push;
+            var my = dy * push;
+            if (!p.fixed) {
+              p.x -= mx;
+              p.y -= my;
+            }
+            if (!q.fixed) {
+              q.x += mx;
+              q.y += my;
+            }
+            hits++;
           }
         }
       }
-    });
+    }
+    return hits;
   }
 
   /* ======================================================================== *
@@ -2198,7 +2268,7 @@ var __LG_CORE__ = (function () {
       p.vx = mvx; p.vy = mvy;
       disp += Math.abs(mvx) + Math.abs(mvy);
     });
-    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.7, cfg.packLabels !== false, true);
+    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.7, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
     return disp / Math.max(1, nodes.length);
   }
 
@@ -2219,7 +2289,7 @@ var __LG_CORE__ = (function () {
     var blend = 0.35 + 0.45 * alpha;
     var disp = 0;
     // Graphviz neato для связного графа отталкивания не имеет (не нужно), но у нас
-    // подписи шире рёбер, поэтому короткий отпор оставляем явным
+    // подписи шире рёбер, поэтому короткий отпор оставляем явным.
     if (cfg.neatoRepel) {
       var cell = want * 1.6, rg = {};
       nodes.forEach(function (p) {
@@ -2244,6 +2314,8 @@ var __LG_CORE__ = (function () {
       });
     }
     nodes.forEach(function (p) {
+      // SMACOF начинает шаг с чистой силой; не смешиваем отпор прошлого шага с
+      // вычислением новых средних координат.
       p._fx = 0; p._fy = 0;
       var list = adj[p.id];
       if (!list || !list.length) return;
@@ -2276,7 +2348,7 @@ var __LG_CORE__ = (function () {
       p.x += p._fx * 0.6 + (cx - p.x) * (cfg.gravity || 0.014) * alpha;
       p.y += p._fy * 0.6 + (cy - p.y) * (cfg.gravity || 0.014) * alpha;
     });
-    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.55, cfg.packLabels !== false, true);
+    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.55, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
     return disp / Math.max(1, nodes.length);
   }
 
@@ -2500,7 +2572,9 @@ var __LG_CORE__ = (function () {
       var wantCircles = opts.circles !== false;
       for (var i = 0; i < maxPasses; i++) {
         if (useRect) separateRows(nodes, cfg);
-        if (wantCircles) collide(nodes, cfg, byId, 0.3, 0.9, false, true);
+        // Финальный проход обязан увидеть все пары с label-reserve; горячие
+        // итерации могут использовать мелкую circle-grid, но здесь важна точность.
+        if (wantCircles) collide(nodes, cfg, byId, 0.3, 0.9, false, true, true);
         if (useRect) separateRows(nodes, cfg);
         if (isFinite(cap)) clampShift(nodes, start, cap);
         report.passes++;
@@ -2565,7 +2639,13 @@ var __LG_CORE__ = (function () {
     // потолок развода: меткам нужно место, но множитель обязан быть конечен - иначе на
     // редком графе с крупными подписями холст раздувается в десятки раз и Fit показывает
     // точки с микроскопическим текстом. Остальное доделают полосы и ступени «на вырост».
-    f = Math.min(f, cfg.spreadMax === undefined ? 12 : cfg.spreadMax);
+    // При neato глобальный ×12 разлёт даёт изолированные острова: Fit вынужден
+    // уменьшать весь рисунок, а поиск соседей и управление становятся хуже. Grow-
+    // проходы ниже всё равно добавят место под метки, поэтому держим плотный, но
+    // чистый результат в пределах разумного локального масштаба.
+    var maxSpread = cfg.spreadMax === undefined ? 12 : cfg.spreadMax;
+    if (cfg.mode === "neato") maxSpread = Math.min(maxSpread, 5.1);
+    f = Math.min(f, maxSpread);
     var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     nodes.forEach(function (n) {
       n.x = cx + (n.x - cx) * f;
@@ -2697,8 +2777,13 @@ var __LG_CORE__ = (function () {
       seedBlobs(graph, cfg, opts);
       var iters = opts.iterations || cfg[mode === "fdp" ? "fdpIters" : "neatoIters"] || (mode === "fdp" ? 260 : 140);
       var alpha = 1;
+      // Большую часть итераций достаточно быстро расталкивать круги; несколько
+      // последних label-aware шагов сохраняют характерную форму движка и уменьшают
+      // работу дорогостоящей финальной полировки.
+      var labelTail = Math.min(20, Math.max(4, Math.round(iters * 0.15)));
       for (var i = 0; i < iters; i++) {
-        var d = mode === "fdp" ? frStep(graph, cfg, opts, alpha) : smStep(graph, cfg, opts, alpha);
+        var stepOpts = i >= iters - labelTail ? Object.assign({}, opts, { labelCollision: true }) : opts;
+        var d = mode === "fdp" ? frStep(graph, cfg, stepOpts, alpha) : smStep(graph, cfg, stepOpts, alpha);
         alpha = Math.max(0.02, Math.pow(1 - i / iters, mode === "fdp" ? 1.4 : 1) * (mode === "fdp" ? 1 : 0.8));
         if (opts.onStep && i % 25 === 0) opts.onStep(i, d, alpha);
         if (d < wantDistance(cfg) * 0.003 && alpha <= 0.05) break;
@@ -2744,12 +2829,23 @@ var __LG_CORE__ = (function () {
       });
     }
     if (cfg.mode === "clusters" && graph._center) {
-      // раскладка уже построена секторами: физика только портит картинку,
-      // нужны ещё пара проходов упаковки (подписи могли подрасти)
-      for (var ci = 0; ci < (opts && opts.packs ? opts.packs : 4); ci++) {
+      // placeClusters() уже сделал полный проход упаковки. Четыре одинаковых
+      // повторных прохода почти не меняли геометрию, но блокировали интерфейс на
+      // больших графах. Внешний вызов с `packs` сохраняет прежнюю возможность
+      // запросить полную дополнительную упаковку.
+      if (opts && opts.packs) {
+        for (var ci = 0; ci < opts.packs; ci++) {
+          packAroundAnchors(graph, {
+            layout: cfg, passes: cfg.packPasses, config: opts.config,
+            pull: ci === 0 ? 0.5 : 0.14,
+          });
+        }
+      } else {
         packAroundAnchors(graph, {
-          layout: cfg, passes: cfg.packPasses, config: opts && opts.config,
-          pull: ci === 0 ? 0.5 : 0.14, // первый проход собирает по слотам, дальше — расталкиваем
+          layout: cfg,
+          passes: Math.max(10, Math.round(cfg.packPasses * 0.2)),
+          config: opts && opts.config,
+          pull: 0.18,
         });
       }
       return { alpha: 0, history: [], clusters: true };
@@ -3576,6 +3672,9 @@ class LectureGraphView extends obsidian.ItemView {
     this.view = { k: 1, x: 0, y: 0 };
     this.nodeEls = {};
     this.raf = null;
+    // Полный путь из тысяч рёбер во время drag обновляем с ограничением частоты;
+    // выделенные рёбра остаются живыми в отдельном лёгком слое.
+    this.dragEdgesTimer = null;
   }
 
   /** Плагин: привязывается в registerView, иначе ищем в реестре плагинов. */
@@ -3601,7 +3700,9 @@ class LectureGraphView extends obsidian.ItemView {
 
   async onOpen() {
     this.buildChrome();
-    await this.refresh(true);
+    // Первый open построит пустой кэш, повторный — мгновенно примет уже готовый
+    // снимок. Явная кнопка Rebuild по-прежнему передаёт force:true.
+    await this.refresh(false);
     this.registerDomEvent(this.svg, "pointerdown", (ev) => this.onPointerDown(ev));
     this.registerDomEvent(window, "pointermove", (ev) => this.onPointerMove(ev));
     this.registerDomEvent(window, "pointerup", (ev) => this.onPointerUp(ev));
@@ -3637,6 +3738,8 @@ class LectureGraphView extends obsidian.ItemView {
   onClose() {
     this.stopLoop();
     clearTimeout(this.cardTimer);
+    clearTimeout(this.dragEdgesTimer);
+    this.dragEdgesTimer = null;
     return Promise.resolve();
   }
 
@@ -3838,14 +3941,17 @@ class LectureGraphView extends obsidian.ItemView {
       return rep;
     }
     core.initPositions(g.nodes, { width: this.width(), height: this.height(), graph: g, layout: lay });
-    // «кластеры» и «физика» тоже должны быть закончены синхронно: иначе до первого
-    // кадра анимации метки наезжают друг на друга (а кадр может и не настать)
+    var liveForce = lay.mode === "force";
+    // Полный 700-шаговый прогрев force выполнялся синхронно и надолго замораживал
+    // Obsidian. Для живой физики достаточно короткого посева: перед первым кадром
+    // он завершается полировкой, а дальнейшие шаги идут по одному в startLoop().
     core.run(g, {
       layout: lay, config: buildOptions(this.plugin.settings),
       width: this.width() || 1400, height: this.height() || 900,
-      iterations: lay.iterations || 700,
+      iterations: liveForce ? Math.min(24, Math.max(1, num(lay.iterations, 700))) : (lay.iterations || 700),
+      polishNoOverlap: true,
     });
-    return { mode: lay.mode };
+    return { mode: lay.mode, warming: liveForce };
   }
 
   /** Только пост-обработка (после правки size:/переводов): метки и круги без наездов. */
@@ -3861,15 +3967,17 @@ class LectureGraphView extends obsidian.ItemView {
   }
 
   /** Кнопка «✎ Layout» и смена режима: пересобираем, а для физики ещё и запускаем цикл. */
-  relayoutNow(forceLoop) {
+  relayoutNow() {
     if (!this.graph) return;
+    // Старый live-цикл не должен сделать ещё один force-шаг поверх уже готового
+    // fdp/neato/twopi результата после смены режима.
+    this.stopLoop();
     this.layoutNow(this.graph);
     this.buildDom();
+    // applyFilters() строит и базовые пути, и видимость; повторять 7k путей ниже не нужно.
     this.applyFilters();
-    this.updateLabels();
-    this.redraw();
     this.fit();
-    if (!this.engineMode() || forceLoop === true && this.engineMode() === false) {
+    if (!this.engineMode()) {
       this.alpha = 1;
       this.frozen = false;
       if (this.freezeBtn) this.freezeBtn.setText("▶ Physics");
@@ -3896,7 +4004,13 @@ class LectureGraphView extends obsidian.ItemView {
   async refresh(relayout) {
     this.setStatus("loading…");
     var graph = await this.plugin.getGraph(relayout === true);
-    this.adoptGraph(graph, relayout !== true);
+    // getGraph() синхронизирует все открытые представления с новым кэшем. Раньше
+    // refresh(true) раскладывал тот же граф ещё раз здесь — главный источник фриза.
+    // При повторном onOpen() buildChrome() создаёт новый пустой SVG, хотя снимок
+    // графа может быть тем же объектом. В таком случае достаточно заново принять
+    // уже разложенные позиции; иначе nodeEls остались бы в отсоединённом DOM.
+    var needsDom = !this.nodesLayer || !this.nodesLayer.firstChild;
+    if (this.graph !== graph || needsDom) this.adoptGraph(graph, true);
   }
 
   /**
@@ -3919,12 +4033,14 @@ class LectureGraphView extends obsidian.ItemView {
     this.fillChapters();
     if (!keepPositions || !graph.nodes[0] || graph.nodes[0].x === undefined) {
       this.layoutNow(graph);
-      if (!this.engineMode()) this.alpha = 1;
     }
+    if (!this.engineMode()) this.alpha = Math.max(this.alpha, 1);
     this.buildDom();
     this.applyFilters();
     this.updateStatus();
-    if (!this.frozen) this.startLoop();
+    // Engine modes уже вернули завершённый снимок. Не запускаем на следующем RAF
+    // лишний force-шаг, который мог испортить только что выполненную полировку.
+    if (!this.frozen && !this.engineMode() && this.alpha > 0.02) this.startLoop();
     this.fit();
   }
 
@@ -3959,8 +4075,13 @@ class LectureGraphView extends obsidian.ItemView {
       l2.textContent = (n.labelZh === undefined ? n.nameZh : n.labelZh) || "";
       t.appendChild(l1);
       t.appendChild(l2);
+      // updateLabels() меняет DOM только при реальном изменении значения. Первый
+      // проход после построения обязан заполнить все атрибуты.
+      t.__lgLabelState = null;
       g.appendChild(t);
       g.__t = t;
+      g.__lgTransform = null;
+      g.__lgDisplay = null;
       frag.appendChild(g);
       this.nodeEls[n.id] = g;
     });
@@ -3992,11 +4113,15 @@ class LectureGraphView extends obsidian.ItemView {
     this.drawn = g2;
     for (var id in this.nodeEls) {
       var el = this.nodeEls[id];
-      if (visible[id]) el.removeAttribute("style");
-      else el.style.display = "none";
+      var display = visible[id] ? "" : "none";
+      if (el.__lgDisplay !== display) {
+        el.style.display = display;
+        el.__lgDisplay = display;
+      }
     }
     this.updateLabels();
-    this.redraw();
+    // Фильтр меняет набор рёбер, поэтому здесь нужен полный пересчёт путей.
+    this.redraw({ geometry: true });
     this.setStatus(
       "nodes " + shown + " / " + g.stats.nodes + " · edges " + g2.edges.length + " / " + g.stats.edges +
         " · refs max " + g.stats.maxDegree + (g.stats.unresolved ? " · unresolved " + g.stats.unresolved : ""),
@@ -4012,73 +4137,138 @@ class LectureGraphView extends obsidian.ItemView {
       var n = this.byId[id];
       var el = this.nodeEls[id];
       var t = el.__t;
-      if (!t) continue;
+      if (!n || !t) continue;
       // базовое правило «показывать ли подпись» живёт в ядре — то же, по которому вершины
       // расталкивались при упаковке; поверх него: наведение, выделение и изоляция соседей
       var on = core.labelShown(n, this.plugin.settings);
       if (mode === "hover") on = this.hoverId === id || this.selected === id;
       if (this.selected === id || this.hoverId === id) on = mode !== "none";
       if (this.neigh && !this.neigh[id]) on = false;
-      // кегль и сдвиг пишем всегда: иначе скрытая подпись «теряет» размер, а он нужен
-      // и для отладки, и для плавного появления при наведении
+      if (!this.visible[id]) on = false;
+      // для наведённой/выбранной вершины показываем название целиком; для остальных —
+      // обрезанную подпись, для которой уже оставлено место при упаковке.
+      var focus = this.hoverId === id || this.selected === id;
+      var en = focus ? n.name : (n.labelEn === undefined ? n.name : n.labelEn);
+      var zh = focus ? n.nameZh : (n.labelZh === undefined ? n.nameZh : n.labelZh);
       var fs = n.font || this.plugin.settings.labelFontSize || 10;
+      var y = (n.r || 6) + fs * 0.95;
+      var dy = fs * 1.12;
+      var lw = n.lw || 0;
+      var state = (on ? "1" : "0") + "|" + fs.toFixed(1) + "|" + y.toFixed(1) + "|" + dy.toFixed(1) +
+        "|" + lw.toFixed(1) + "|" + en + "\u0000" + (zh || "");
+      // Hover / zoom генерируют много событий. Не трогаем SVG-атрибуты, если результат
+      // не поменялся: это исключает тысячи style/layout invalidations за один жест.
+      if (t.__lgLabelState === state) continue;
+      t.__lgLabelState = state;
       t.setAttribute("font-size", fs.toFixed(1));
-      t.setAttribute("y", ((n.r || 6) + fs * 0.95).toFixed(1));
+      t.setAttribute("y", y.toFixed(1));
+      t.setAttribute("data-lw", lw.toFixed(1));
       t.setAttribute("style", on ? "display:block" : "display:none");
-      if (on) {
-        // для наведённой/выбранной вершины показываем название ЦЕЛИКОМ (место под это
-        // оставлено: она всё равно рисуется поверх остальных), для остальных — обрезанную
-        var focus = this.hoverId === id || this.selected === id;
-        var en = focus ? n.name : (n.labelEn === undefined ? n.name : n.labelEn);
-        var zh = focus ? n.nameZh : (n.labelZh === undefined ? n.nameZh : n.labelZh);
-        t.childNodes[0].textContent = en || "";
-        t.childNodes[1].textContent = zh || "";
-        t.childNodes[1].setAttribute("dy", (fs * 1.12).toFixed(1));
-      }
+      if (t.childNodes[0].textContent !== (en || "")) t.childNodes[0].textContent = en || "";
+      if (t.childNodes[1].textContent !== (zh || "")) t.childNodes[1].textContent = zh || "";
+      t.childNodes[1].setAttribute("dy", dy.toFixed(1));
     }
   }
 
   /* -------------------------------------------------- drawing */
 
-  redraw() {
+  /** Преобразование камеры не меняет геометрию графа — это один SVG transform. */
+  applyViewTransform() {
+    if (!this.layer) return;
     var v = this.view;
-    this.layer.setAttribute("transform", "translate(" + v.x + "," + v.y + ") scale(" + v.k + ")");
-    var g = this.drawn || this.graph;
-    if (!g) return;
+    var value = "translate(" + v.x + "," + v.y + ") scale(" + v.k + ")";
+    if (this._viewTransform !== value) {
+      this.layer.setAttribute("transform", value);
+      this._viewTransform = value;
+    }
+  }
+
+  /** Полные пути рёбер. Вызывается только после раскладки, фильтра или перетаскивания. */
+  redrawBaseEdges(g, bow, ctr) {
     var byId = this.byId;
-    var cfg = this.plugin.settings;
-    var bow = num(cfg.curvature, core.DEFAULTS.curvature);
-    var ctr = this.graph && this.graph._center ? { x: this.graph._center.cx, y: this.graph._center.cy } : null;
     var dRef = "";
     var dStruct = "";
-    var dSel = "";
-    var sel = this.selected;
     for (var i = 0; i < g.edges.length; i++) {
       var e = g.edges[i];
       var a = byId[e.source];
       var b = byId[e.target];
       if (!a || !b || !isFinite(a.x) || !isFinite(b.x)) continue;
-      var path = core.edgePath(a, b, bow, ctr, e.kind); // дуги, не прямые линии
-      if (sel && (e.source === sel || e.target === sel)) dSel += path;
-      else if (e.kind === "structure") dStruct += path;
+      var path = core.edgePath(a, b, bow, ctr, e.kind);
+      if (e.kind === "structure") dStruct += path;
       else dRef += path;
     }
-    this.edgesRef.setAttribute("d", dRef);
-    this.edgesStruct.setAttribute("d", dStruct);
-    this.edgesSel.setAttribute("d", dSel);
-    for (var id in this.nodeEls) {
-      var n = byId[id];
-      if (!n) continue;
-      var el = this.nodeEls[id];
-      if (this.visible[id]) el.setAttribute("transform", "translate(" + n.x.toFixed(1) + "," + n.y.toFixed(1) + ")");
-      var cls = "lg-node lg-node--" + n.type;
-      if (this.selected === id) cls += " lg-node--selected";
-      if (this.bubbleFor === id) cls += " lg-node--captioned";
-      if (this.neigh && !this.neigh[id]) cls += " lg-node--dim";
-      if (this.neigh && this.neigh[id] && this.selected !== id) cls += " lg-node--neigh";
-      if (el.__cls !== cls) {
-        el.setAttribute("class", cls);
-        el.__cls = cls;
+    if (this._dStruct !== dStruct) {
+      this.edgesStruct.setAttribute("d", dStruct);
+      this._dStruct = dStruct;
+    }
+    if (this._dRef !== dRef) {
+      this.edgesRef.setAttribute("d", dRef);
+      this._dRef = dRef;
+    }
+  }
+
+  /** Выделенные рёбра — короткий отдельный слой; базовые пути перестраивать не нужно. */
+  redrawSelectedEdges(g, bow, ctr) {
+    var sel = this.selected;
+    var dSel = "";
+    if (sel) {
+      var byId = this.byId;
+      for (var i = 0; i < g.edges.length; i++) {
+        var e = g.edges[i];
+        if (e.source !== sel && e.target !== sel) continue;
+        var a = byId[e.source];
+        var b = byId[e.target];
+        if (!a || !b || !isFinite(a.x) || !isFinite(b.x)) continue;
+        dSel += core.edgePath(a, b, bow, ctr, e.kind);
+      }
+    }
+    if (this._dSel !== dSel) {
+      this.edgesSel.setAttribute("d", dSel);
+      this._dSel = dSel;
+    }
+  }
+
+  redraw(opts) {
+    // По умолчанию сохраняем прежнюю семантику redraw(): перерисовать геометрию.
+    // Жесты камеры передают geometry:false и обновляют только transform слоя.
+    opts = opts || {};
+    var geometry = opts.geometry !== false;
+    var classes = opts.classes !== false;
+    var selection = opts.selection !== false;
+    this.applyViewTransform();
+    var g = this.drawn || this.graph;
+    if (!g) return;
+    var cfg = this.plugin.settings;
+    var bow = num(cfg.curvature, core.DEFAULTS.curvature);
+    var ctr = this.graph && this.graph._center ? { x: this.graph._center.cx, y: this.graph._center.cy } : null;
+    if (geometry) this.redrawBaseEdges(g, bow, ctr);
+    if (geometry || selection) this.redrawSelectedEdges(g, bow, ctr);
+    if (geometry) {
+      for (var id in this.nodeEls) {
+        var n = this.byId[id];
+        if (!n || !this.visible[id]) continue;
+        var el = this.nodeEls[id];
+        var transform = "translate(" + n.x.toFixed(1) + "," + n.y.toFixed(1) + ")";
+        if (el.__lgTransform !== transform) {
+          el.setAttribute("transform", transform);
+          el.__lgTransform = transform;
+        }
+      }
+    }
+    if (classes) {
+      for (var id2 in this.nodeEls) {
+        var n2 = this.byId[id2];
+        if (!n2) continue;
+        var el2 = this.nodeEls[id2];
+        var cls = "lg-node lg-node--" + n2.type;
+        if (this.selected === id2) cls += " lg-node--selected";
+        if (this.bubbleFor === id2) cls += " lg-node--captioned";
+        if (this.neigh && !this.neigh[id2]) cls += " lg-node--dim";
+        if (this.neigh && this.neigh[id2] && this.selected !== id2) cls += " lg-node--neigh";
+        if (el2.__cls !== cls) {
+          el2.setAttribute("class", cls);
+          el2.__cls = cls;
+        }
       }
     }
     this.placeBubble();
@@ -4117,9 +4307,10 @@ class LectureGraphView extends obsidian.ItemView {
       self.tickOnce();
       if (self.alpha > 0.02) self.raf = window.requestAnimationFrame(tick);
       else {
-        // после живого цикла (в т.ч. после перетаскивания вершин) метки и круги обязаны остаться чистыми
+        // После живого цикла (в т.ч. после перетаскивания) метки и круги обязаны
+        // остаться чистыми. polishNow уже обновляет геометрию, не рисуем её второй раз.
         if ((self.plugin.settings.layout || {}).mode !== "clusters") self.polishNow();
-        self.redraw();
+        else self.redraw();
         self.fit();
       }
     };
@@ -4146,7 +4337,9 @@ class LectureGraphView extends obsidian.ItemView {
       this.redraw();
       return;
     }
-    var steps = (this.graph.nodes.length > 600 ? 2 : 1);
+    // Одна тяжёлая итерация на кадр сохраняет управление отзывчивым на 1000+ узлах.
+    // Цикл всё равно продолжается до той же alpha, только не крадёт кадры у интерфейса.
+    var steps = 1;
     for (var i = 0; i < steps; i++) {
       var d = core.step(this.graph, {
         layout: this.plugin.settings.layout,
@@ -4171,8 +4364,7 @@ class LectureGraphView extends obsidian.ItemView {
     var gh = Math.max(1, b.maxY - b.minY);
     var k = clamp(Math.min((w - 40) / gw, (h - 40) / gh), 0.05, 4);
     this.view = { k: k, x: (w - (b.minX + b.maxX) * k) / 2, y: (h - (b.minY + b.maxY) * k) / 2 };
-    this.redraw();
-    this.updateLabels();
+    this.redraw({ geometry: false, classes: false, selection: false });
   }
 
   /**
@@ -4368,8 +4560,7 @@ class LectureGraphView extends obsidian.ItemView {
     var w = this.width();
     var h = this.height();
     this.view = { k: k, x: w / 2 - n.x * k, y: h * 0.42 - n.y * k };
-    this.redraw();
-    this.updateLabels();
+    this.redraw({ geometry: false, classes: false, selection: false });
   }
 
   copyLink(n) {
@@ -4412,7 +4603,6 @@ class LectureGraphView extends obsidian.ItemView {
       // даём кадру перерисоваться, т.к. меняются размеры сцены
       setTimeout(function () {
         self.fit();
-        self.redraw();
       }, 30);
     } else {
       setTimeout(function () {
@@ -4469,6 +4659,35 @@ class LectureGraphView extends obsidian.ItemView {
     if (this.legendEl) this.renderLegend();
   }
 
+  /** Обновить transform только той вершины, которую пользователь тащит. */
+  redrawDraggedNode(node) {
+    if (!node || !this.visible[node.id]) return;
+    var el = this.nodeEls[node.id];
+    if (!el) return;
+    var transform = "translate(" + node.x.toFixed(1) + "," + node.y.toFixed(1) + ")";
+    if (el.__lgTransform !== transform) {
+      el.setAttribute("transform", transform);
+      el.__lgTransform = transform;
+    }
+  }
+
+  scheduleDragEdges() {
+    if (this.dragEdgesTimer != null) return;
+    var self = this;
+    this.dragEdgesTimer = setTimeout(function () {
+      self.dragEdgesTimer = null;
+      self.redraw({ geometry: true, classes: false, selection: true });
+    }, 80);
+  }
+
+  flushDragEdges() {
+    if (this.dragEdgesTimer != null) {
+      clearTimeout(this.dragEdgesTimer);
+      this.dragEdgesTimer = null;
+    }
+    this.redraw({ geometry: true, classes: false, selection: true });
+  }
+
   /* -------------------------------------------------- coordinates */
 
   toGraph(ev) {
@@ -4517,19 +4736,25 @@ class LectureGraphView extends obsidian.ItemView {
       this.view.x = this.drag.vx + (ev.clientX - this.drag.sx);
       this.view.y = this.drag.vy + (ev.clientY - this.drag.sy);
       this.drag.moved = true;
-      this.redraw();
+      this.redraw({ geometry: false, classes: false, selection: false });
       return;
     }
     var p = this.toGraph(ev);
-    this.drag.node.x = p.x + this.drag.dx;
-    this.drag.node.y = p.y + this.drag.dy;
+    var node = this.drag.node;
+    node.x = p.x + this.drag.dx;
+    node.y = p.y + this.drag.dy;
     this.drag.moved = true;
-    this.redraw();
+    this.redrawDraggedNode(node);
+    // Рёбра выбранной вершины (обычно их десятки, а не тысячи) следуют за курсором
+    // сразу. Полную подложку обновляем максимум раз в 80 мс и обязательно на отпускании.
+    this.redraw({ geometry: false, classes: false, selection: true });
+    this.scheduleDragEdges();
   }
 
   onPointerUp() {
     if (this.drag && this.drag.node) {
       this.drag.node.fixed = false;
+      this.flushDragEdges();
     }
     this.drag = null;
   }
@@ -4544,8 +4769,7 @@ class LectureGraphView extends obsidian.ItemView {
     this.view.x = mx - ((mx - this.view.x) / this.view.k) * k;
     this.view.y = my - ((my - this.view.y) / this.view.k) * k;
     this.view.k = k;
-    this.redraw();
-    this.updateLabels();
+    this.redraw({ geometry: false, classes: false, selection: false });
   }
 
   onHover(ev) {
@@ -4602,7 +4826,7 @@ class LectureGraphView extends obsidian.ItemView {
       this.selected = null;
       this.neigh = null;
       this.showBubble(null);
-      this.redraw();
+      this.redraw({ geometry: false });
       this.updateLabels();
       return;
     }
@@ -4613,7 +4837,7 @@ class LectureGraphView extends obsidian.ItemView {
     // сообщение положено любой вершине: у своего типа свой шаблон, а если заметки
     // сообщения ещё нет — пузырёк сам предложит её создать
     this.showBubble(n ? n.id : null);
-    this.redraw();
+    this.redraw({ geometry: false });
     this.updateLabels();
   }
 
@@ -4943,7 +5167,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
 
     this.cache = null;
+    this.cacheDirty = true;
+    this.cacheVersion = 0;
+    this.graphBuildPromise = null;
     this.pending = null;
+    this.refreshing = false;
+    this.refreshQueued = false;
+    // Пути, которые прямо сейчас пишет сам плагин. Их modify-события не должны
+    // запускать сотни одинаковых refresh/layout во время пакетных команд.
+    this.internalWrites = {};
 
     this.addRibbonIcon("git-fork", "Lecture graph (полный экран — Shift+клик)", (ev) => this.activateView(!!(ev && (ev.shiftKey || ev.ctrlKey))));
     this.addCommand({
@@ -4996,7 +5228,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       name: "Export current graph as SVG",
       callback: async () => {
         var view = this.view();
-        await this.exportSVG(view ? view.exportGraph() : await this.getGraph(true));
+        await this.exportSVG(view ? view.exportGraph() : await this.getGraph(false));
       },
     });
     this.addCommand({
@@ -5004,7 +5236,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       name: "Export current graph as JSON",
       callback: async () => {
         var view = this.view();
-        await this.exportJSON(view ? view.exportGraph() : await this.getGraph(true));
+        await this.exportJSON(view ? view.exportGraph() : await this.getGraph(false));
       },
     });
     this.addCommand({
@@ -5022,7 +5254,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       id: "export-csv",
       name: "Export labels + reference counts (CSV)",
       callback: async () => {
-        var g = await this.getGraph(true);
+        var g = await this.getGraph(false);
         await this.writeFile(this.settings.exportFolder + "/lecture-labels-" + stamp() + ".csv", core.toCsv(g));
       },
     });
@@ -5030,7 +5262,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       id: "labels-note",
       name: "Save labels table as a note (markdown)",
       callback: async () => {
-        var g = await this.getGraph(true);
+        var g = await this.getGraph(false);
         await this.writeFile(this.settings.exportFolder + "/Labels table.md", core.toMarkdown(g, { limit: 120 }));
       },
     });
@@ -5084,6 +5316,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     this.registerEvent(
       this.app.vault.on("modify", (f) => {
         if (!this.settings.autoRefresh || !f || f.extension !== "md") return;
+        if (this.isInternalWrite(f.path) || !this.isGraphPath(f.path)) return;
         this.changed();
       })
     );
@@ -5093,6 +5326,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
 
   onunload() {
     this.cache = null;
+    this.graphBuildPromise = null;
+    clearTimeout(this.pending);
+    this.pending = null;
   }
 
   async activateView(fullscreen) {
@@ -5137,103 +5373,191 @@ class LectureGraphPlugin extends obsidian.Plugin {
   }
 
   relayout() {
-    var v = this.view();
-    if (v && v.graph) {
+    var any = false;
+    this.forEachView((v) => {
+      if (!v || !v.graph) return;
+      any = true;
       v.relayoutNow();
-      if (v.engineMode()) return;
-      v.alpha = 1;
-      v.frozen = false;
-      v.startLoop();
+    });
+    // Открытый вид уже переложил тот же объект кэша. Старый код после этого ещё
+    // запускал changed() и строил/раскладывал граф второй раз, особенно заметно в
+    // force и clusters. Без открытого вида координаты пересчитаются лениво при open.
+    if (!any) this.markGraphDirty();
+  }
+
+  /** Инвалидация модели с версией защищает от результата устаревшего async-чтения. */
+  markGraphDirty() {
+    this.cacheDirty = true;
+    this.cacheVersion = (this.cacheVersion || 0) + 1;
+  }
+
+  /** Список папок из настройки в нормализованном виде. */
+  graphFolderList(key) {
+    return String(this.settings[key] || "")
+      .split(",")
+      .map((x) => x.trim().replace(/\\/g, "/").replace(/\/+$/, ""))
+      .filter(Boolean);
+  }
+
+  /** Может ли изменение этого пути вообще изменить модель графа? */
+  isGraphPath(path) {
+    var p = String(path || "").replace(/\\/g, "/").replace(/^\/+/, "");
+    var folders = this.graphFolderList("folders");
+    var excluded = this.graphFolderList("excludeFolders");
+    var inFolders = !folders.length || folders.some(function (d) { return p === d || p.indexOf(d + "/") === 0; });
+    return inFolders && !excluded.some(function (d) { return p === d || p.indexOf(d + "/") === 0; });
+  }
+
+  isInternalWrite(path) {
+    var key = String(path || "").replace(/\\/g, "/");
+    return !!(this.internalWrites && this.internalWrites[key]);
+  }
+
+  /** Выполнить собственную запись, не реагируя на её же vault modify-событие. */
+  async withInternalWrite(path, action) {
+    var key = String(path || "").replace(/\\/g, "/");
+    var writes = this.internalWrites || (this.internalWrites = {});
+    writes[key] = (writes[key] || 0) + 1;
+    try {
+      return await action();
+    } finally {
+      if (--writes[key] <= 0) delete writes[key];
     }
-    this.changed();
+  }
+
+  async processInternal(file, updater) {
+    var self = this;
+    return this.withInternalWrite(file.path, function () {
+      return self.app.vault.process(file, updater);
+    });
   }
 
   changed(rebuild) {
-    if (this.pending) return;
-    this.cacheDirty = true;
+    // Сначала помечаем кэш: события modify могут прийти во время уже идущей сборки.
+    this.markGraphDirty();
     if (rebuild) this.captions = {}; // тексты читались из старых объектов — перечитаем
-    this.pending = obsidian.debounce(
-      () => {
-        this.pending = null;
-        if (rebuild) this.cache = null;
-        var leaves = this.app.workspace.getLeavesOfType(VIEW_TYPE);
-        leaves.forEach((l) => l.view.refresh(!!rebuild));
-      },
-      600,
-      true
-    );
-    this.pending();
+    // Trailing debounce собирает серию сохранений в одну пересборку. Это особенно
+    // важно для writeCounts / keyword materializer, которые меняют много заметок.
+    if (this.pending) clearTimeout(this.pending);
+    var self = this;
+    this.pending = setTimeout(async function () {
+      self.pending = null;
+      if (self.refreshing) {
+        self.refreshQueued = true;
+        return;
+      }
+      self.refreshing = true;
+      try {
+        do {
+          self.refreshQueued = false;
+          var leaves = self.app.workspace.getLeavesOfType(VIEW_TYPE);
+          // cacheDirty уже выставлен, поэтому force не нужен и не отменит совместную сборку.
+          await Promise.all(leaves.map(function (l) { return l.view && l.view.refresh(false); }));
+        } while (self.refreshQueued);
+      } finally {
+        self.refreshing = false;
+      }
+    }, 600);
   }
 
   /* -------------------------------------------------- данные */
 
   async getGraph(force) {
-    if (this.cache && !force && !this.cacheDirty) return this.cache;
-    var opts = buildOptions(this.settings);
-    var notes = await this.collectNotes(opts);
-    var graph = core.buildGraph(notes, opts);
-    // прогреваем раскладку, чтобы при открытии не было «взрыва»
-    core.initPositions(graph.nodes, { width: 1200, height: 800, graph: graph, layout: this.settings.layout });
-    // Раскладку доводим до конца именно здесь: вьюха принимает уже готовый граф и по
-    // возможности не перекладывает его. Иначе она осталась бы либо на посеве, либо
-    // «на середине процесса» - а пост-обработка чистых меток входит в результат.
-    var lay = this.settings.layout || {};
-    var big = graph.nodes.length > 800;
-    core.run(graph, {
-      layout: lay, config: buildOptions(this.settings), width: 1600, height: 1100,
-      iterations: big ? 420 : 560,
-    });
-    this.cache = graph;
-    this.cacheDirty = false;
-    this.lastStats = graph.stats;
-    // синхронизируем открытые вьюхи с новым экземпляром графа (см. adoptGraph)
-    this.forEachView(function (v) {
-      if (v.graph !== graph) v.adoptGraph(graph, true);
-    });
-    return graph;
+    if (force) this.markGraphDirty();
+    while (!this.cache || this.cacheDirty) {
+      var build = this.graphBuildPromise;
+      if (!build) {
+        var version = this.cacheVersion || 0;
+        var self = this;
+        build = (async function () {
+          var opts = buildOptions(self.settings);
+          var graph = await self.buildGraphModel(opts);
+          // Прогреваем раскладку до готового снимка. Для force оставляем короткий
+          // старт с полировкой: дальнейшая физика идёт кадрами в View, а не блокирует UI.
+          var lay = self.settings.layout || {};
+          var liveForce = lay.mode === "force";
+          core.initPositions(graph.nodes, { width: 1200, height: 800, graph: graph, layout: lay });
+          core.run(graph, {
+            layout: lay, config: opts, width: 1600, height: 1100,
+            iterations: liveForce ? Math.min(24, Math.max(1, num(lay.iterations, 700))) : (graph.nodes.length > 800 ? 420 : 560),
+            polishNoOverlap: true,
+          });
+          graph._lgCacheVersion = version;
+          // Не публикуем снимок, если пока читали файлы пришло новое изменение.
+          if ((self.cacheVersion || 0) !== version) return graph;
+          self.cache = graph;
+          self.cacheDirty = false;
+          self.lastStats = graph.stats;
+          self.nodeByPathIndex = {};
+          graph.nodes.forEach(function (n) { self.nodeByPathIndex[n.path] = n; });
+          // Открытые view получают ровно этот объект. refresh() ниже заметит это и
+          // не будет повторно запускать дорогую раскладку.
+          self.forEachView(function (v) {
+            if (v.graph !== graph) v.adoptGraph(graph, true);
+          });
+          return graph;
+        })();
+        this.graphBuildPromise = build;
+      }
+      var graph;
+      try {
+        graph = await build;
+      } finally {
+        // Ошибка чтения не должна навечно оставить rejected Promise в кэше in-flight.
+        if (this.graphBuildPromise === build) this.graphBuildPromise = null;
+      }
+      if (this.cache === graph && !this.cacheDirty) return graph;
+      // Снимок устарел во время чтения; следующий проход либо подхватит уже
+      // начатую сборку, либо создаст одну новую — параллельных layout не будет.
+    }
+    return this.cache;
+  }
+
+  /** Собрать модель из свежих файлов без координат: для операций с метаданными. */
+  async buildGraphModel(opts) {
+    opts = opts || buildOptions(this.settings);
+    return core.buildGraph(await this.collectNotes(opts), opts);
   }
 
   async collectNotes(opts) {
-    var folders = (this.settings.folders || "")
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    var excl = (this.settings.excludeFolders || "")
-      .split(",")
-      .map((x) => x.trim())
-      .filter(Boolean);
-    var files = this.app.vault.getMarkdownFiles();
-    if (folders.length) {
-      files = files.filter((f) => folders.some((d) => f.path === d || f.path.startsWith(d.endsWith("/") ? d : d + "/")));
-    }
-    if (excl.length) {
-      files = files.filter((f) => !excl.some((d) => f.path.startsWith(d.endsWith("/") ? d : d + "/")));
-    }
+    var files = this.app.vault.getMarkdownFiles().filter((f) => this.isGraphPath(f.path));
     var limit = num(this.settings.maxNodes, 4000);
     if (files.length > limit) {
       new obsidian.Notice("Узлов больше лимита (" + limit + "): часть заметок не вошла. Увеличьте «Лимит узлов» или сузьте папки.");
       files = files.slice(0, limit);
     }
-    var out = [];
-    for (var i = 0; i < files.length; i++) {
-      var f = files[i];
-      var text;
-      try {
-        text = await this.app.vault.cachedRead(f);
-      } catch (e) {
-        continue;
+    // cachedRead в Obsidian асинхронный. Последовательное чтение тысячи заметок
+    // превращало холодный старт в цепочку I/O await. Ограниченный пул бережёт диск,
+    // сохраняет порядок файлов и заметно сокращает время сборки на больших vault.
+    var out = new Array(files.length);
+    var cursor = 0;
+    var workers = Math.min(24, Math.max(1, files.length));
+    var self = this;
+    async function readWorker() {
+      while (true) {
+        var i = cursor++;
+        if (i >= files.length) return;
+        var f = files[i];
+        var text;
+        try {
+          text = await self.app.vault.cachedRead(f);
+        } catch (e) {
+          continue;
+        }
+        var parsed = core.parseFrontmatter(text);
+        var type = String((parsed.data && parsed.data[opts.typeKey]) || "").trim().toLowerCase();
+        if (TYPES.indexOf(type) >= 0) out[i] = { path: f.path, frontmatter: parsed.data, body: parsed.body };
       }
-      var parsed = core.parseFrontmatter(text);
-      var type = String((parsed.data && parsed.data[opts.typeKey]) || "").trim().toLowerCase();
-      if (TYPES.indexOf(type) < 0) continue;
-      out.push({ path: f.path, frontmatter: parsed.data, body: parsed.body });
     }
-    return out;
+    var jobs = [];
+    for (var w = 0; w < workers; w++) jobs.push(readWorker());
+    await Promise.all(jobs);
+    return out.filter(Boolean);
   }
 
   nodeByPath(path) {
     if (!this.cache) return null;
-    return this.cache.nodes.find((n) => n.path === path) || null;
+    return (this.nodeByPathIndex && this.nodeByPathIndex[path]) || this.cache.nodes.find((n) => n.path === path) || null;
   }
 
   fileName(path, key) {
@@ -5274,7 +5598,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     patch[this.settings.nameKey] = (nameEn || "").trim();
     patch[this.settings.nameZhKey] = (nameZh || "").trim();
     try {
-      await this.app.vault.process(file, (data) => core.setFrontmatterValues(data, patch));
+      await this.processInternal(file, (data) => core.setFrontmatterValues(data, patch));
       // обновим узел на лету, не перестраивая граф
       node.name = core.sanitizeLabel((nameEn || "").trim() || node.stem);
       node.nameZh = core.sanitizeLabel((nameZh || "").trim());
@@ -5364,14 +5688,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
   }
 
   async writeCounts() {
-    var g = await this.getGraph(true);
+    // refs — производное поле: берём готовый снимок и не раскладываем его заново.
+    var g = await this.getGraph(false);
     var n = 0;
     for (var i = 0; i < g.nodes.length; i++) {
       var node = g.nodes[i];
       if (node.inline) continue;
       var file = this.app.vault.getAbstractFileByPath(node.path);
       if (!(file instanceof obsidian.TFile)) continue;
-      await this.app.vault.process(file, (data) => {
+      await this.processInternal(file, (data) => {
         var fm = core.parseFrontmatter(data);
         if (Number(fm.data.refs) === node.degree) return data;
         return core.setFrontmatterValues(data, { refs: node.degree });
@@ -5403,7 +5728,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
    */
   async recomputeKeywords() {
     var opts = buildOptions(this.settings);
-    var g = await this.getGraph(true);
+    // Плану keyword-ссылок нужны свежие frontmatter/body, но не координаты. Читаем
+    // модель напрямую, чтобы не делать полную раскладку и до, и после batch-записи.
+    var g = await this.buildGraphModel(opts);
     var abs = await this.keywordCorpusNotes();
     if (!abs.length) {
       new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — ключевые фразы искать негде");
@@ -5421,7 +5748,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
       if (!(n.keywords && n.keywords.length)) {
         if (!hasRegion) continue; // блок живёт только на ручных ссылках — не трогаем
-        await this.app.vault.process(file, (data) => {
+        await this.processInternal(file, (data) => {
           var off = {};
           off[weightKey] = "";
           var next = core.setFrontmatterValues(core.applyKeywordRegion(data, ""), off);
@@ -5436,7 +5763,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       sumWeight += plan.weight;
       if (plan.dominant && n.chapter && plan.dominant !== n.chapter) flipped++;
       var want = core.keywordRegionText(plan, opts);
-      await this.app.vault.process(file, (data) => {
+      await this.processInternal(file, (data) => {
         var patch = {};
         patch[weightKey] = plan.weight;
         var next = core.setFrontmatterValues(core.applyKeywordRegion(data, want), patch);
@@ -5445,7 +5772,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
         return next;
       });
     }
-    this.cache = null; // ссылки появились в телах — граф обязан перестроиться
+    // После серии внутренних записей строим и публикуем один свежий снимок.
     var fresh = await this.getGraph(true);
     var kw = fresh.edges.filter(function (e) { return e.kind === "keyword"; }).length;
     var msg =
@@ -5454,7 +5781,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
       (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
     new obsidian.Notice(msg);
-    this.changed(true);
+    // getGraph(true) выше уже обновил cache и все View; повторный changed() только
+    // запустил бы ещё одну полную пересборку через debounce.
     return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
   }
 
@@ -5483,7 +5811,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
     var existing = this.app.vault.getAbstractFileByPath(p);
     if (existing instanceof obsidian.TFile) {
-      await this.app.vault.modify(existing, content);
+      // Экспорт/оглавление тоже могут лежать в папке обхода. Это наша служебная
+      // запись, а не пользовательская правка исходной заметки.
+      await this.withInternalWrite(p, () => this.app.vault.modify(existing, content));
       return existing;
     }
     return await this.app.vault.create(p, content);
@@ -5604,7 +5934,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     if (src instanceof obsidian.TFile) {
       var patch = {};
       patch[this.settings.captionKey || "caption"] = "[[" + name + "]]";
-      await this.app.vault.process(src, function (data) {
+      await this.processInternal(src, function (data) {
         return core.setFrontmatterValues(data, patch);
       });
     }
@@ -5613,7 +5943,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
     node.caption = name;
     node.captionPath = path;
     new obsidian.Notice("Заметка сообщения создана: " + path);
-    this.changed();
+    // Поле caption уже обновлено в текущем объекте node; новая заметка лежит вне
+    // модели. Полная пересборка графа здесь ничего не меняет.
     return file;
   }
 
