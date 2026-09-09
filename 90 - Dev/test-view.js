@@ -9,7 +9,8 @@ const assert = require("assert");
 const { JSDOM } = require("jsdom");
 const core = require("./src/graph-core.js");
 
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// Dev находится внутри корня vault, поэтому fixture — родительская папка.
+const ROOT = path.resolve(__dirname, "..");
 const TMP = fs.mkdtempSync(path.join(os.tmpdir(), "lg-vault-"));
 const PLUGIN_DIR = path.join(ROOT, ".obsidian", "plugins", "lecture-graph");
 
@@ -743,7 +744,7 @@ const plugin = new PluginClass(app, manifest);
       for (let i = 0; i < boxes.length; i++)
         for (let j = i + 1; j < boxes.length; j++) {
           const a = boxes[i], b = boxes[j];
-          if (a.x < b.x + b.w - 0.5 && b.x < a.x + b.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + b.h - 0.5) bad++;
+          if (a.x < b.x + b.w - 0.5 && b.x < a.x + a.w - 0.5 && a.y < b.y + b.h - 0.5 && b.y < a.y + a.h - 0.5) bad++;
         }
       return { bad, boxes: boxes.length };
     };

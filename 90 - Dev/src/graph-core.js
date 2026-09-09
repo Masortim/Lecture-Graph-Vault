@@ -1893,6 +1893,8 @@
         p.x += (p.tx - p.x) * 0.35;
         p.y += (p.ty - p.y) * 0.35;
       });
+      // Радиальные кольца особенно чувствительны к позднему сдвигу label-polish:
+      // держим подписи разведёнными прямо в ходе twopi, как было изначально.
       collide(tn, cfg, graph._byId, 0.4, 0.9, cfg.packLabels !== false, true);
       return 0;
     }
@@ -2022,55 +2024,123 @@
    * Раздвигает пересекающиеся круги; если `useRect` — то и прямоугольники подписей
    * (требование: метки не наезжают ни друг на друга, ни на чужие круги).
    */
-  function collide(nodes, cfg, byId, alpha, k, useRect, plainPush) {
+  function collide(nodes, cfg, byId, alpha, k, useRect, plainPush, reserveGrid) {
     var kk = k === undefined ? 0.5 : k;
-    // ячейка сетки = самый большой «след» вершины (круг + подпись): иначе пары,
-    // которые ещё перекрываются подписями, просто не попадают в окно поиска
-    var far = (cfg.maxRadius || DEFAULTS.maxRadius || 34);
-    for (var fi = 0; fi < nodes.length; fi++) {
-      var f2 = effR(nodes[fi], cfg);
-      if (f2 > far) far = f2;
+    // В горячем цикле движков расталкиваем только круги. Подписи гарантированно
+    // раскладываются финальным polishNoOverlap(), поэтому не стоит на каждом шаге
+    // создавать прямоугольники для тысяч заведомо далёких пар. Для кластерной
+    // упаковки `useRect` остаётся true — там подписи задают размер сектора.
+    var withRects = !!useRect;
+    var far = cfg.maxRadius || DEFAULTS.maxRadius || 34;
+    var radii = new Array(nodes.length);
+    // labelRectOf() создаёт два объекта на каждую соседнюю пару. В label-aware
+    // проходе сначала держим неизменные размеры прямоугольников и вызываем её
+    // только для пары, чьи реальные границы уже пересекаются.
+    var labels = withRects ? new Array(nodes.length) : null;
+    var i;
+    for (i = 0; i < nodes.length; i++) {
+      var node = nodes[i];
+      // Даже в быстром круговом проходе оставляем вокруг подписанного узла
+      // его резервное место: так финальному label-polish остаётся заметно меньше работы.
+      radii[i] = effR(node, cfg);
+      // Для ширины клетки достаточно реального круга. Резерв подписи остаётся в
+      // силе ниже, но не заставляет обходить огромные разреженные ячейки.
+      var cellRadius = (withRects || reserveGrid) ? radii[i] : (node.r || 6) + 2;
+      if (cellRadius > far) far = cellRadius;
+      if (labels) {
+        labels[i] = node.labelShown && node.lw ? {
+          hw: node.lw / 2,
+          y0: (node.r || 0) + 1,
+          y1: (node.r || 0) + 1 + node.lh,
+        } : null;
+      }
+      node._lgCollisionIndex = i;
     }
+    // Размер клетки не меньше диаметра самого крупного объекта: достаточно девяти
+    // соседних клеток, а не всего графа. Для кругов это существенно меньше ширины
+    // самой длинной подписи и снимает главный источник фризов на 1000+ вершинах.
     var cell = Math.max(60, far * 2 + 8);
     var grid = {};
-    nodes.forEach(function (p) {
+    for (i = 0; i < nodes.length; i++) {
+      var p0 = nodes[i];
+      if (!isFinite(p0.x) || !isFinite(p0.y)) continue;
+      var gx0 = Math.floor(p0.x / cell);
+      var gy0 = Math.floor(p0.y / cell);
+      var key0 = gx0 + ":" + gy0;
+      (grid[key0] || (grid[key0] = [])).push(p0);
+    }
+    var hits = 0;
+    for (i = 0; i < nodes.length; i++) {
+      var p = nodes[i];
+      if (!isFinite(p.x) || !isFinite(p.y)) continue;
       var gx = Math.floor(p.x / cell);
       var gy = Math.floor(p.y / cell);
-      var key = gx + ":" + gy;
-      (grid[key] || (grid[key] = [])).push(p);
-    });
-    nodes.forEach(function (p) {
-      var gx = Math.floor(p.x / cell);
-      var gy = Math.floor(p.y / cell);
+      var pr = radii[i];
       for (var ix = gx - 1; ix <= gx + 1; ix++) {
         for (var iy = gy - 1; iy <= gy + 1; iy++) {
           var bucket = grid[ix + ":" + iy];
           if (!bucket) continue;
           for (var bi = 0; bi < bucket.length; bi++) {
             var q = bucket[bi];
+            var qi = q._lgCollisionIndex;
+            // Сохраняем детерминированный порядок прежнего алгоритма: результат
+            // раскладки не начинает прыгать из-за порядка файлов в vault.
             if (q === p || q.id < p.id) continue;
             var dx = q.x - p.x;
             var dy = q.y - p.y;
-            var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-            var min = (effR(p, cfg) + effR(q, cfg)) * 1.04 + 3;
-            if (useRect) separateLabels(p, q, k === undefined ? 0.5 : k, plainPush);
-            if (d < min) {
-              var push = ((min - d) / d) * kk * (0.75 + 0.25 * alpha);
-              var mx = dx * push;
-              var my = dy * push;
-              if (!p.fixed) {
-                p.x -= mx;
-                p.y -= my;
+            var min = (pr + radii[qi]) * 1.04 + 3;
+            if (withRects) {
+              // Сохраняем порядок старого label-aware пути: его устойчивое
+              // взаимодействие с радиальными целями twopi нельзя менять. Но
+              // skip безопасен: separateLabels для непересекающихся rect ничего
+              // не делает, а геометрия их размеров неизменна в этом проходе.
+              var lp = labels[i], lq = labels[qi];
+              var touches = false;
+              if (lp && lq) {
+                touches = p.x - lp.hw < q.x + lq.hw && q.x - lq.hw < p.x + lp.hw &&
+                  p.y + lp.y0 < q.y + lq.y1 && q.y + lq.y0 < p.y + lp.y1;
+              } else if (lp) {
+                var qr = (q.r || 6) + 1;
+                touches = p.x - lp.hw < q.x + qr && q.x - qr < p.x + lp.hw &&
+                  p.y + lp.y0 < q.y + qr && q.y - qr < p.y + lp.y1;
+              } else if (lq) {
+                var prCircle = (p.r || 6) + 1;
+                touches = q.x - lq.hw < p.x + prCircle && p.x - prCircle < q.x + lq.hw &&
+                  q.y + lq.y0 < p.y + prCircle && p.y - prCircle < q.y + lq.y1;
               }
-              if (!q.fixed) {
-                q.x += mx;
-                q.y += my;
-              }
+              var dRect = Math.sqrt(dx * dx + dy * dy) || 0.01;
+              if (touches) separateLabels(p, q, kk, plainPush);
+              if (dRect >= min) continue;
+              var pushRect = ((min - dRect) / dRect) * kk * (0.75 + 0.25 * alpha);
+              var mxRect = dx * pushRect;
+              var myRect = dy * pushRect;
+              if (!p.fixed) { p.x -= mxRect; p.y -= myRect; }
+              if (!q.fixed) { q.x += mxRect; q.y += myRect; }
+              hits++;
+              continue;
             }
+            var d2 = dx * dx + dy * dy;
+            // sqrt — только у действительно пересекающихся кругов; на разреженном
+            // графе подавляющее большинство соседей отсеивается этой проверкой.
+            if (d2 >= min * min) continue;
+            var d = Math.sqrt(d2) || 0.01;
+            var push = ((min - d) / d) * kk * (0.75 + 0.25 * alpha);
+            var mx = dx * push;
+            var my = dy * push;
+            if (!p.fixed) {
+              p.x -= mx;
+              p.y -= my;
+            }
+            if (!q.fixed) {
+              q.x += mx;
+              q.y += my;
+            }
+            hits++;
           }
         }
       }
-    });
+    }
+    return hits;
   }
 
   /* ======================================================================== *
@@ -2194,7 +2264,7 @@
       p.vx = mvx; p.vy = mvy;
       disp += Math.abs(mvx) + Math.abs(mvy);
     });
-    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.7, cfg.packLabels !== false, true);
+    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.7, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
     return disp / Math.max(1, nodes.length);
   }
 
@@ -2215,7 +2285,7 @@
     var blend = 0.35 + 0.45 * alpha;
     var disp = 0;
     // Graphviz neato для связного графа отталкивания не имеет (не нужно), но у нас
-    // подписи шире рёбер, поэтому короткий отпор оставляем явным
+    // подписи шире рёбер, поэтому короткий отпор оставляем явным.
     if (cfg.neatoRepel) {
       var cell = want * 1.6, rg = {};
       nodes.forEach(function (p) {
@@ -2240,6 +2310,8 @@
       });
     }
     nodes.forEach(function (p) {
+      // SMACOF начинает шаг с чистой силой; не смешиваем отпор прошлого шага с
+      // вычислением новых средних координат.
       p._fx = 0; p._fy = 0;
       var list = adj[p.id];
       if (!list || !list.length) return;
@@ -2272,7 +2344,7 @@
       p.x += p._fx * 0.6 + (cx - p.x) * (cfg.gravity || 0.014) * alpha;
       p.y += p._fy * 0.6 + (cy - p.y) * (cfg.gravity || 0.014) * alpha;
     });
-    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.55, cfg.packLabels !== false, true);
+    if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.55, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
     return disp / Math.max(1, nodes.length);
   }
 
@@ -2496,7 +2568,9 @@
       var wantCircles = opts.circles !== false;
       for (var i = 0; i < maxPasses; i++) {
         if (useRect) separateRows(nodes, cfg);
-        if (wantCircles) collide(nodes, cfg, byId, 0.3, 0.9, false, true);
+        // Финальный проход обязан увидеть все пары с label-reserve; горячие
+        // итерации могут использовать мелкую circle-grid, но здесь важна точность.
+        if (wantCircles) collide(nodes, cfg, byId, 0.3, 0.9, false, true, true);
         if (useRect) separateRows(nodes, cfg);
         if (isFinite(cap)) clampShift(nodes, start, cap);
         report.passes++;
@@ -2561,7 +2635,13 @@
     // потолок развода: меткам нужно место, но множитель обязан быть конечен - иначе на
     // редком графе с крупными подписями холст раздувается в десятки раз и Fit показывает
     // точки с микроскопическим текстом. Остальное доделают полосы и ступени «на вырост».
-    f = Math.min(f, cfg.spreadMax === undefined ? 12 : cfg.spreadMax);
+    // При neato глобальный ×12 разлёт даёт изолированные острова: Fit вынужден
+    // уменьшать весь рисунок, а поиск соседей и управление становятся хуже. Grow-
+    // проходы ниже всё равно добавят место под метки, поэтому держим плотный, но
+    // чистый результат в пределах разумного локального масштаба.
+    var maxSpread = cfg.spreadMax === undefined ? 12 : cfg.spreadMax;
+    if (cfg.mode === "neato") maxSpread = Math.min(maxSpread, 5.1);
+    f = Math.min(f, maxSpread);
     var cx = (x0 + x1) / 2, cy = (y0 + y1) / 2;
     nodes.forEach(function (n) {
       n.x = cx + (n.x - cx) * f;
@@ -2693,8 +2773,13 @@
       seedBlobs(graph, cfg, opts);
       var iters = opts.iterations || cfg[mode === "fdp" ? "fdpIters" : "neatoIters"] || (mode === "fdp" ? 260 : 140);
       var alpha = 1;
+      // Большую часть итераций достаточно быстро расталкивать круги; несколько
+      // последних label-aware шагов сохраняют характерную форму движка и уменьшают
+      // работу дорогостоящей финальной полировки.
+      var labelTail = Math.min(20, Math.max(4, Math.round(iters * 0.15)));
       for (var i = 0; i < iters; i++) {
-        var d = mode === "fdp" ? frStep(graph, cfg, opts, alpha) : smStep(graph, cfg, opts, alpha);
+        var stepOpts = i >= iters - labelTail ? Object.assign({}, opts, { labelCollision: true }) : opts;
+        var d = mode === "fdp" ? frStep(graph, cfg, stepOpts, alpha) : smStep(graph, cfg, stepOpts, alpha);
         alpha = Math.max(0.02, Math.pow(1 - i / iters, mode === "fdp" ? 1.4 : 1) * (mode === "fdp" ? 1 : 0.8));
         if (opts.onStep && i % 25 === 0) opts.onStep(i, d, alpha);
         if (d < wantDistance(cfg) * 0.003 && alpha <= 0.05) break;
@@ -2740,12 +2825,23 @@
       });
     }
     if (cfg.mode === "clusters" && graph._center) {
-      // раскладка уже построена секторами: физика только портит картинку,
-      // нужны ещё пара проходов упаковки (подписи могли подрасти)
-      for (var ci = 0; ci < (opts && opts.packs ? opts.packs : 4); ci++) {
+      // placeClusters() уже сделал полный проход упаковки. Четыре одинаковых
+      // повторных прохода почти не меняли геометрию, но блокировали интерфейс на
+      // больших графах. Внешний вызов с `packs` сохраняет прежнюю возможность
+      // запросить полную дополнительную упаковку.
+      if (opts && opts.packs) {
+        for (var ci = 0; ci < opts.packs; ci++) {
+          packAroundAnchors(graph, {
+            layout: cfg, passes: cfg.packPasses, config: opts.config,
+            pull: ci === 0 ? 0.5 : 0.14,
+          });
+        }
+      } else {
         packAroundAnchors(graph, {
-          layout: cfg, passes: cfg.packPasses, config: opts && opts.config,
-          pull: ci === 0 ? 0.5 : 0.14, // первый проход собирает по слотам, дальше — расталкиваем
+          layout: cfg,
+          passes: Math.max(10, Math.round(cfg.packPasses * 0.2)),
+          config: opts && opts.config,
+          pull: 0.18,
         });
       }
       return { alpha: 0, history: [], clusters: true };

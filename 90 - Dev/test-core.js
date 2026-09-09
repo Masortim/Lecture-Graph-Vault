@@ -7,7 +7,8 @@ const path = require("path");
 const assert = require("assert");
 const core = require("./src/graph-core.js");
 
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// Dev находится внутри корня vault, поэтому fixture — родительская папка.
+const ROOT = path.resolve(__dirname, "..");
 const NODE_DIRS = ["10 - Chapters", "20 - Sections", "25 - Headings", "30 - Blocks"];
 
 let pass = 0;

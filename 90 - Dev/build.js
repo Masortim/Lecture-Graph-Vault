@@ -4,7 +4,9 @@ const path = require("path");
 const { execFileSync } = require("child_process");
 
 const SRC = __dirname;
-const OUT = path.resolve(__dirname, "..", "Lecture-Graph-Vault", ".obsidian", "plugins", "lecture-graph");
+// Dev-исходники теперь лежат внутри самого vault, поэтому результат собираем
+// рядом с ними в корневой .obsidian, а не в несуществующую вложенную копию vault.
+const OUT = path.resolve(__dirname, "..", ".obsidian", "plugins", "lecture-graph");
 
 const core = fs.readFileSync(path.join(SRC, "src", "graph-core.js"), "utf8");
 const ui = fs.readFileSync(path.join(SRC, "src", "ui.js"), "utf8");
