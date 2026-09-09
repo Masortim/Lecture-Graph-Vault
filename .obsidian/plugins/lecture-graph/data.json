@@ -1,0 +1,149 @@
+{
+  "folders": "10 - Chapters,20 - Sections,25 - Headings,30 - Blocks",
+  "excludeFolders": "40 - Templates,45 - Captions,50 - Dashboard,00 - Start Here,35 - Abstracts,60 - Drawings,90 - Exports,90 - Dev,99 - Attachments",
+  "nameKey": "name",
+  "nameZhKey": "name_zh",
+  "typeKey": "type",
+  "minRadius": 6,
+  "maxRadius": 34,
+  "degreeGamma": 0.55,
+  "degreeBase": "min",
+  "sizeMode": "hybrid",
+  "labelFontSize": 10,
+  "labelFontMin": 9,
+  "labelFontMax": 19,
+  "labelFontBySize": true,
+  "countStructural": false,
+  "includeInlineAnchors": false,
+  "indexNote": "Course Index.md",
+  "indexGraphDoc": "02 Graph — как читать и править",
+  "labelMode": "size",
+  "labelRadiusThreshold": 11,
+  "sizeFloor": {
+    "chapter": 16,
+    "section": 13,
+    "heading": 10
+  },
+  "labelAlwaysFor": {
+    "chapter": true,
+    "section": true
+  },
+  "labelCharsFor": {
+    "chapter": 30,
+    "section": 24,
+    "heading": 12,
+    "block": 12
+  },
+  "labelWidthFor": {
+    "chapter": 520,
+    "section": 380,
+    "heading": 190,
+    "block": 170
+  },
+  "labelForTypes": {
+    "chapter": true,
+    "section": true,
+    "heading": true,
+    "block": false
+  },
+  "sizeKey": "size",
+  "colorKey": "color",
+  "captionKey": "caption",
+  "captionFolder": "45 - Captions",
+  "captionChapterTemplate": "40 - Templates/T Caption Chapter.md",
+  "captionSectionTemplate": "40 - Templates/T Caption Section.md",
+  "captionHeadingTemplate": "40 - Templates/T Caption Heading.md",
+  "captionBlockTemplate": "40 - Templates/T Caption Block.md",
+  "keywordLinks": true,
+  "keywordFolder": "35 - Abstracts",
+  "curvature": 0.24,
+  "chapterColors": true,
+  "chapterPalette": [
+    "#f2b33d",
+    "#4a9eda",
+    "#59c98a",
+    "#c07ad8",
+    "#ff7a6b",
+    "#5fd3c4",
+    "#f58fc2",
+    "#b9cf5e",
+    "#9a8cff",
+    "#f2c14e"
+  ],
+  "autoRefresh": true,
+  "maxNodes": 4000,
+  "exportFolder": "90 - Exports",
+  "colors": {
+    "chapter": "#f2b33d",
+    "section": "#4a9eda",
+    "heading": "#59c98a",
+    "block": "#c07ad8"
+  },
+  "layout": {
+    "mode": "neato",
+    "linkDistance": 88,
+    "repel": 2700,
+    "gravity": 0.014,
+    "friction": 0.82,
+    "collide": true,
+    "radius": 1300,
+    "iterations": 700,
+    "anchorStrength": 0.34,
+    "packLabels": true,
+    "fdpIters": 260,
+    "frK": 1,
+    "frRepel": 1,
+    "frAttract": 1,
+    "frStruct": 1.9,
+    "frTemp": 0.55,
+    "neatoIters": 80,
+    "neatoScale": 2.2,
+    "neatoRepel": 1.6,
+    "twopiRoot": "",
+    "twopiRankSep": 1,
+    "clusterPull": 0.035,
+    "postLabels": true,
+    "postCircles": true,
+    "dispCap": 0.5,
+    "packPasses": 70,
+    "clusterPad": 10,
+    "clusterGap": 0.07,
+    "clusterFill": 0.94,
+    "radialStrength": 0.05,
+    "clusterBands": {
+      "chapter": [
+        0.2,
+        0.3
+      ],
+      "section": [
+        0.38,
+        0.6
+      ],
+      "heading": [
+        0.8,
+        1
+      ],
+      "block": [
+        1.06,
+        1.26
+      ]
+    },
+    "autoTune": true,
+    "polish": 26,
+    "polishPasses": 0,
+    "polishGrow": 6,
+    "spreadMax": 12
+  },
+  "filters": {
+    "types": {
+      "chapter": true,
+      "section": true,
+      "heading": true,
+      "block": true
+    },
+    "minDegree": 0,
+    "chapter": "",
+    "hidePlaceholders": false
+  },
+  "weightKey": "weight"
+}

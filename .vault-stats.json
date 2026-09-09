@@ -1,0 +1,92 @@
+{
+  "chapters": 9,
+  "sections": 36,
+  "headings": 216,
+  "blocks": 756,
+  "nodes": 1017,
+  "key_blocks": [
+    "Ch01-S01-H01-B01 - Proposition 1.1.1a",
+    "Ch01-S01-H03-B01 - Estimate 1.1.3a",
+    "Ch01-S01-H06-B01 - Identity 1.1.6a",
+    "Ch02-S01-H01-B01 - Proposition 2.1.1a",
+    "Ch02-S01-H03-B01 - Estimate 2.1.3a",
+    "Ch02-S01-H06-B01 - Identity 2.1.6a",
+    "Ch03-S01-H01-B01 - Proposition 3.1.1a",
+    "Ch03-S01-H03-B01 - Estimate 3.1.3a",
+    "Ch03-S01-H06-B01 - Identity 3.1.6a",
+    "Ch04-S01-H01-B01 - Proposition 4.1.1a",
+    "Ch04-S01-H03-B01 - Estimate 4.1.3a",
+    "Ch04-S01-H06-B01 - Identity 4.1.6a",
+    "Ch05-S01-H01-B01 - Proposition 5.1.1a",
+    "Ch05-S01-H03-B01 - Estimate 5.1.3a",
+    "Ch05-S01-H06-B01 - Identity 5.1.6a",
+    "Ch06-S01-H01-B01 - Proposition 6.1.1a",
+    "Ch06-S01-H03-B01 - Estimate 6.1.3a",
+    "Ch06-S01-H06-B01 - Identity 6.1.6a",
+    "Ch07-S01-H01-B01 - Proposition 7.1.1a",
+    "Ch07-S01-H03-B01 - Estimate 7.1.3a",
+    "Ch07-S01-H06-B01 - Identity 7.1.6a",
+    "Ch08-S01-H01-B01 - Proposition 8.1.1a",
+    "Ch08-S01-H03-B01 - Estimate 8.1.3a",
+    "Ch08-S01-H06-B01 - Identity 8.1.6a",
+    "Ch09-S01-H01-B01 - Proposition 9.1.1a",
+    "Ch09-S01-H03-B01 - Estimate 9.1.3a",
+    "Ch09-S01-H06-B01 - Identity 9.1.6a"
+  ],
+  "landmarks": [
+    "Ch01-S01-H01-B01",
+    "Ch04-S01-H01-B01",
+    "Ch06-S04-H06-B03",
+    "Ch09-S04-H06-B03"
+  ],
+  "edges": 7703,
+  "maxDegree": 81,
+  "unresolved": 0,
+  "orphans": 0,
+  "components": 1,
+  "degreeByType": {
+    "chapter": {
+      "min": 13,
+      "max": 48,
+      "uniq": 5
+    },
+    "section": {
+      "min": 21,
+      "max": 70,
+      "uniq": 19
+    },
+    "heading": {
+      "min": 9,
+      "max": 81,
+      "uniq": 46
+    },
+    "block": {
+      "min": 2,
+      "max": 69,
+      "uniq": 11
+    }
+  },
+  "radiusByType": {
+    "chapter": {
+      "min": 16.500064929492154,
+      "max": 29.064434728191557
+    },
+    "section": {
+      "min": 19.16123831292159,
+      "max": 32.53763243500394
+    },
+    "heading": {
+      "min": 13.383581162588365,
+      "max": 34
+    },
+    "block": {
+      "min": 6,
+      "max": 32.397239471811424
+    }
+  },
+  "indexLinks": 1017,
+  "keywordEdges": 1642,
+  "keywordNodes": 186,
+  "maxKeywordWeight": 29,
+  "keywordBlocksShare": 25
+}

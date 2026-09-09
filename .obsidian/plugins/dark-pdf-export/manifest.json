@@ -1,0 +1,10 @@
+{
+	"id": "dark-pdf-export",
+	"name": "Dark PDF Export",
+	"version": "1.1.0",
+	"minAppVersion": "1.12.0",
+	"description": "Export notes as clean dark-mode PDFs using the native PDF exporter.",
+	"author": "ZazenCodes",
+	"authorUrl": "https://github.com/zazencodes",
+	"isDesktopOnly": true
+}

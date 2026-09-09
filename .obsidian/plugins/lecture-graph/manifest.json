@@ -1,0 +1,10 @@
+{
+  "id": "lecture-graph",
+  "name": "Lecture Graph",
+  "version": "1.6.0",
+  "minAppVersion": "1.5.0",
+  "description": "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph.",
+  "author": "Arena agent",
+  "authorUrl": "",
+  "isDesktopOnly": false
+}

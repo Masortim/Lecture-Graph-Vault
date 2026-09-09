@@ -1,0 +1,133 @@
+/* Lecture Graph plugin styles */
+.lg-root { display: flex; flex-direction: column; height: 100%; overflow: hidden; }
+.lg-bar { display: flex; flex-wrap: wrap; gap: 10px 14px; padding: 6px 10px; border-bottom: 1px solid var(--background-modifier-border); background: var(--background-secondary); }
+.lg-bar-group { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.lg-bar-title { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: .06em; opacity: .6; margin-right: 2px; }
+.lg-btn { font-size: var(--font-ui-small); padding: 2px 8px; border-radius: 6px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); cursor: pointer; }
+.lg-btn:hover { background: var(--background-modifier-hover); }
+/* «+ Создать по шаблону» в пузырьке сообщения — единственный акцент в рамке */
+.lg-btn--cta { margin-top: 4px; border-color: var(--interactive-accent); color: var(--text-on-accent); background: var(--interactive-accent); font-weight: 600; }
+.lg-btn--cta:hover { background: var(--interactive-accent-hover); color: var(--text-on-accent); }
+.lg-chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-ui-small); padding: 1px 8px 1px 4px; border-radius: 999px; border: 1px solid var(--background-modifier-border); cursor: pointer; }
+.lg-chip[data-type="chapter"] { border-color: #f2b33d; }
+.lg-chip[data-type="section"] { border-color: #4a9eda; }
+.lg-chip[data-type="heading"] { border-color: #59c98a; }
+.lg-chip[data-type="block"] { border-color: #c07ad8; }
+.lg-search { min-width: 150px; font-size: var(--font-ui-small); }
+.lg-num { width: 56px; font-size: var(--font-ui-small); }
+.lg-select { font-size: var(--font-ui-small); max-width: 220px; }
+.lg-fs { font-size: var(--font-ui-smaller); opacity: .8; min-width: 46px; text-align: center; }
+.lg-stage { position: relative; flex: 1 1 auto; min-height: 0; }
+/* Сообщение у вершины: «пузырёк» рядом с ней. Он не перекрывает ни круг, ни подпись:
+   координаты считает view.placeBubble(). Постоянной строки состояния нет — временные
+   сообщения уходят тостом сверху и сами исчезают. */
+.lg-bubble {
+  position: absolute; left: 0; top: 0; z-index: 5;
+  width: min(300px, calc(100% - 24px)); max-height: 46%; overflow: auto;
+  padding: 8px 10px 7px; border: 1px solid var(--background-modifier-border); border-radius: 12px;
+  background: var(--background-secondary); box-shadow: 0 8px 22px rgba(0, 0, 0, .3);
+  font-size: var(--font-ui-small); line-height: 1.4;
+  opacity: 0; transform: scale(.97); pointer-events: none;
+  transition: opacity .12s ease, transform .12s ease;
+}
+.lg-bubble--open { opacity: 1; transform: none; pointer-events: auto; }
+.lg-bubble__x {
+  position: absolute; right: 4px; top: 3px; padding: 2px 6px; border: 0; border-radius: 5px;
+  background: transparent; color: var(--text-muted); cursor: pointer; font-size: 13px; line-height: 1;
+}
+.lg-bubble__x:hover { background: var(--background-modifier-hover); color: var(--text-normal); }
+.lg-bubble__head { display: flex; align-items: baseline; gap: 6px; flex-wrap: wrap; margin: 0 18px 5px 0; }
+.lg-bubble__type { cursor: default; }
+.lg-bubble__name { font-weight: 600; }
+.lg-bubble__zh { color: #7fb2ff; font-size: var(--font-ui-smaller); font-family: system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+.lg-bubble__text > :first-child { margin-top: 0; }
+.lg-bubble__p { margin: 0 0 6px; }
+/* ключевые фразы (этап 2): список из свойств блока, вес по корпусу и «доминирующая» глава */
+.lg-bubble__kw {
+  display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px;
+  margin: 0 0 6px; padding: 3px 7px; border-radius: 7px;
+  background: rgba(127, 178, 255, 0.09);
+  font-size: var(--font-ui-smaller); color: var(--text-muted);
+}
+.lg-bubble__kw-label { opacity: 0.85; }
+.lg-bubble__kw-list { font-family: var(--font-monospace); color: var(--text-normal); }
+.lg-bubble__kw-weight { margin-left: auto; padding-left: 8px; white-space: nowrap; }
+.lg-bubble__empty, .lg-bubble__load { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.lg-bubble__foot {
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  margin-top: 6px; padding-top: 5px; border-top: 1px dashed var(--background-modifier-border);
+}
+.lg-bubble__act { border: 0; background: transparent; color: var(--text-accent); cursor: pointer; font-size: var(--font-ui-smaller); padding: 0; }
+.lg-bubble__src { font-family: var(--font-monospace); font-size: var(--font-ui-smaller); opacity: .55; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-toast {
+  position: absolute; left: 50%; top: 8px; transform: translateX(-50%) translateY(-6px); z-index: 6;
+  max-width: min(680px, calc(100% - 24px)); padding: 5px 12px; border-radius: 999px;
+  border: 1px solid var(--background-modifier-border); background: var(--background-secondary);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .26); font-size: var(--font-ui-smaller);
+  opacity: 0; pointer-events: none; transition: opacity .14s ease, transform .14s ease;
+}
+.lg-toast--open { opacity: 1; transform: translateX(-50%) translateY(0); }
+/* легенда цветов: по умолчанию цвета у глав (их наследуют секции/заголовки/блоки),
+   клик по чипу оставляет на экране только эту главу */
+.lg-legend {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 4px 10px;
+  border-top: 1px solid var(--background-modifier-border); background: var(--background-secondary);
+}
+.lg-legend__title { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: .06em; opacity: .6; }
+.lg-legend__row { display: flex; gap: 5px; flex-wrap: wrap; }
+/* сноска «почему цвет не главы блока» */
+.lg-legend__note { margin-top: 5px; font-size: var(--font-ui-smaller); color: var(--text-muted); opacity: .8; }
+.lg-legend__chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 280px; padding: 1px 8px;
+  border: 1px solid var(--background-modifier-border); border-radius: 999px; background: transparent;
+  color: var(--text-normal); font-size: var(--font-ui-smaller); cursor: pointer;
+}
+.lg-legend__chip:hover { background: var(--background-modifier-hover); }
+.lg-legend__dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.lg-legend__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lg-legend__n { opacity: .55; font-variant-numeric: tabular-nums; }
+.lg-dot { flex: 0 0 auto; width: 7px; height: 7px; border-radius: 50%; background: var(--text-muted); }
+.lg-dot--struct, .lg-dot--structure { background: var(--text-faint); }
+.lg-dot--embed { background: #f2b33d; }
+/* интерфейс графа в PDF/печать не попадает */
+@media print { .lg-bubble, .lg-toast, .lg-legend { display: none !important; } }
+body.is-mobile .lg-bubble { left: 8px !important; right: 8px; top: auto !important; bottom: 8px; width: auto; max-height: 40%; }
+svg.lg-svg { width: 100%; height: 100%; display: block; background: var(--background-primary); touch-action: none; cursor: default; }
+/* «во весь экран»: перекрываем всё окно Obsidian, Esc возвращает. В этом режиме в окне
+   не должно быть ничего, кроме графа — панель управления и легенда прячутся. */
+.lg-root--full { position: fixed; inset: 0; z-index: 900; background: var(--background-primary); }
+.lg-root--full .lg-bar, .lg-root--full .lg-legend { display: none; }
+.lg-root--full svg.lg-svg { cursor: crosshair; }
+body.lg-immersive .workspace-ribbon, body.lg-immersive .status-bar,
+body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-container { display: none !important; }
+.lg-edges { fill: none; pointer-events: none; }
+.lg-edges--ref { stroke: var(--text-muted); stroke-opacity: .35; stroke-width: .7; }
+.lg-edges--struct { stroke: var(--text-faint); stroke-opacity: .5; stroke-width: .6; stroke-dasharray: 3 4; }
+/* рёбра выбранной вершины: клик по главе/секции обязан явно показать её связи */
+.lg-edges--sel { stroke: var(--text-normal); stroke-opacity: .9; stroke-width: 1.5; stroke-dasharray: none; }
+.lg-node { cursor: grab; }
+.lg-node circle { stroke: var(--background-primary); stroke-width: 1; }
+.lg-node:hover circle { stroke: var(--text-normal); stroke-width: 1.6; }
+.lg-node--selected circle { stroke: var(--text-normal); stroke-width: 2.4; filter: drop-shadow(0 0 6px var(--text-normal)); }
+.lg-node--neigh circle { stroke: var(--text-normal); stroke-width: 1.4; stroke-opacity: .8; }
+.lg-node--dim { opacity: .12; }
+.lg-node--captioned circle { stroke: var(--text-accent); stroke-width: 2.2; }
+.lg-label { font-size: 10px; font-weight: 500; paint-order: stroke; stroke: var(--background-primary); stroke-width: 3px; pointer-events: none; }
+.lg-label-en { fill: var(--text-normal); font-weight: 600; }
+.lg-label-zh { fill: #7fb2ff; }
+.lg-node--block .lg-label-en { font-weight: 400; }
+.lg-line--en { font-weight: 600; }
+.lg-line--zh { color: #7fb2ff; }
+.lg-k { opacity: .7; }
+.lg-v { text-align: right; font-variant-numeric: tabular-nums; }
+.lg-muted { opacity: .6; }
+.lg-modal h2 { margin-top: 0; }
+.lg-modal-path { font-family: var(--font-monospace); font-size: var(--font-ui-smaller); opacity: .65; margin-bottom: 10px; word-break: break-all; }
+.lg-modal-preview { border-left: 3px solid var(--interactive-accent); padding: 6px 10px; margin-bottom: 12px; background: var(--background-secondary); border-radius: 0 6px 6px 0; }
+.lg-field { margin-bottom: 10px; }
+.lg-field label { display: block; font-size: var(--font-ui-smaller); opacity: .75; margin-bottom: 3px; }
+.lg-field input { width: 100%; }
+.lg-field-row { display: flex; gap: 6px; }
+.lg-modal-hint { font-size: var(--font-ui-smaller); opacity: .7; margin: 8px 0 14px; }
+.lg-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.theme-light .lg-label-zh, .theme-light .lg-modal .lg-line--zh { fill: #2f6fd0; color: #2f6fd0; }

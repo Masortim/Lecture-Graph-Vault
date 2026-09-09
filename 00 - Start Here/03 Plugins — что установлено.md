@@ -1,0 +1,53 @@
+---
+tags: [dashboard]
+---
+# Плагины хранилища
+
+Все пять лежат прямо в `.obsidian/plugins/` — догружать из каталога не нужно, нужно только
+разрешить сторонние плагины при первом открытии хранилища.
+
+| плагин | id | версия | зачем здесь |
+|---|---|---|---|
+| Templater | `templater-obsidian` | 2.25.0 | шаблоны глав/секций/заголовков/блоков в `40 - Templates`, автопереименование файла |
+| Dataview | `dataview` | 0.5.68 | доски [[Graph Board]] и [[Label Board]]: подсчёт `length(file.inlinks)`, поиск незаполненных полей |
+| Excalidraw | `obsidian-excalidraw-plugin` | 2.27.3 | ручные схемы/аннотации поверх графа, папка `60 - Drawings` |
+| Dark PDF Export | `dark-pdf-export` | 1.1.0 | тёмный CSS при штатном `Export to PDF`: задаёт поля, `break-after: avoid` для заголовков, вдов/сирот у абзацев |
+| Lecture Graph | `lecture-graph` | 1.6.0 | сам граф: движки раскладки (`fdp` / `neato` / `twopi` / «кластеры по главам»), двухстрочные подписи без наложений, размер по ссылкам, фильтры, пузырёк сообщения у вершины, легенда цветов глав, экспорт SVG/CSV/JSON, оглавление курса (команда палитры или правый клик в «Проводнике») |
+
+Требование по версии Obsidian: **desktop ≥ 1.13** (у Templater `minAppVersion: 1.13.0`,
+у Dark PDF Export — 1.12.0). Мобильная версия не подойдёт: Dark PDF Export помечен как `isDesktopOnly`.
+
+## Настройки, которые уже проставлены
+
+- `40 - Templates` указан как папка шаблонов Templater (`templates_folder`).
+- Excalidraw: папка `60 - Drawings`.
+- Dark PDF Export: `{ "enabled": true, "pageMargin": "14mm 16mm" }` — формат поля принимает CSS-подобную строку
+  (`mm|cm|in|pt|pc|px|em|rem`, до четырёх значений). Тумблер `Enable dark PDF styling` — в настройках плагина.
+- Lecture Graph: папки обхода, ключи `name`/`name_zh`, радиусы 6–34, `autoRefresh` — в его `data.json`;
+  путь генерируемого оглавления — `Course Index.md` в корне хранилища (`Файл иерархического оглавления`).
+
+## Обновить плагины
+
+Замените `main.js`, `manifest.json`, `styles.css` в соответствующей папке файлами
+со страницы релиза и перезагрузите Obsidian (`Ctrl+P → Reload app without saving`):
+
+- Templater — https://github.com/SilentVoid13/Templater/releases
+- Dataview — https://github.com/blacksmithgu/obsidian-dataview/releases
+- Excalidraw — https://github.com/zsviczian/obsidian-excalidraw-plugin/releases
+- Dark PDF Export — https://github.com/zazencodes/obsidian-dark-pdf-export/releases
+
+Либо удаляйте папку и ставьте из каталога Community plugins (имена совпадают с колонкой `id`).
+
+## Свой плагин Lecture Graph
+
+Исходники сборки — вне хранилища (`dev/src/graph-core.js`, `dev/src/ui.js`, `dev/build.js`);
+в `main.js` ядро уже инлайнится, поэтому Node/esbuild для работы не нужны.
+Плагином правится только frontmatter `name`, `name_zh` и `refs`; содержимое заметок он не переписывает.
+
+## PDF-экспорт в практических шагах
+
+1. Откройте нужную заметку (например секцию) в режиме Preview.
+2. `Ctrl+P → Export to PDF`. Dark PDF Export подмешивает тёмный стиль в печатный документ
+   (заголовки не отрываются от текста, поля 14×16 mm).
+3. Если нужен граф в PDF: сначала `Lecture Graph: Export current graph as SVG`,
+   затем вставьте SVG в заметку как вложение и экспортируйте её.

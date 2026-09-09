@@ -1,0 +1,52 @@
+/* @settings
+
+name: Dark PDF Export
+id: dark-pdf-export
+settings:
+  -
+    id: dark-pdf-background
+    title: Page background
+    type: variable-color
+    format: hex
+    default: '#0b0b0b'
+  -
+    id: dark-pdf-surface
+    title: Surface background (code blocks, callouts)
+    type: variable-color
+    format: hex
+    default: '#161616'
+  -
+    id: dark-pdf-border
+    title: Border color
+    type: variable-color
+    format: hex
+    default: '#363636'
+  -
+    id: dark-pdf-text
+    title: Body text
+    type: variable-color
+    format: hex
+    default: '#c8c8c8'
+  -
+    id: dark-pdf-heading
+    title: Headings
+    type: variable-color
+    format: hex
+    default: '#eeeeee'
+  -
+    id: dark-pdf-muted
+    title: Muted text
+    type: variable-color
+    format: hex
+    default: '#999999'
+  -
+    id: dark-pdf-accent
+    title: Links and accents
+    type: variable-color
+    format: hex
+    default: '#b18cfe'
+
+*/
+.dark-pdf-export-invalid-margin {
+	border-color: var(--text-error) !important;
+}

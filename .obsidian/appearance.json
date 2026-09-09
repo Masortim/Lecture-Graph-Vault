@@ -1,0 +1,12 @@
+{
+  "theme": "obsidian",
+  "cssTheme": "",
+  "enabledCssSnippets": [
+    "lecture-nodes"
+  ],
+  "accentColor": "#4a9eda",
+  "baseFontSize": 16,
+  "interfaceFontFamily": "",
+  "textFontFamily": "Segoe UI, Noto Sans, PingFang SC",
+  "monospaceFontFamily": "JetBrains Mono, Consolas"
+}

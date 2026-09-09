@@ -1,0 +1,78 @@
+/* lecture-nodes: оформление заметок-узлов графа лекций и оглавления курса.
+   Никаких правок рендера формул — только отступы, фон карточек, цвет свойств и «гиды» списков. */
+.lg-node .inline-title { letter-spacing: -0.01em; }
+
+.lg-node--chapter { --lg-accent: #f2b33d; }
+.lg-node--section { --lg-accent: #4a9eda; }
+.lg-node--heading { --lg-accent: #59c98a; }
+.lg-node--block   { --lg-accent: #c07ad8; }
+
+/* тонкая полоса слева по типу узла */
+.markdown-source-view.mod-cm6.lg-node .cm-contentContainer,
+.markdown-preview-view.lg-node .markdown-preview-sizer {
+  border-left: 3px solid var(--lg-accent, transparent);
+  padding-left: 10px;
+}
+
+/* свойство name / name_zh читаем сверху заметки */
+.lg-node .metadata-container { background: var(--background-secondary); border-radius: 8px; padding: 6px 10px; }
+.lg-node .metadata-property-key[data-property-key="name"] .metadata-property-key-input,
+.lg-node .metadata-property-key[data-property-key="name_zh"] .metadata-property-key-input { font-weight: 600; }
+.lg-node .metadata-property-key[data-property-key="name_zh"] { color: #7fb2ff; }
+
+/* ссылки на блоки внутри текстов секций: чуть крупнее и с подчёркиванием */
+.markdown-rendered a[data-href*=" - "], .cm-hmd-internal-link { text-decoration: none; border-bottom: 1px dotted currentColor; }
+
+/* формулы не должны обрезаться в узких колонках */
+.markdown-rendered .math.math-block .MathJaxed-element { overflow-x: auto; max-width: 100%; }
+
+/* ── Course Index: иерархическое оглавление (cssclasses: lg-index) ─────────────── */
+.lg-index .inline-title { letter-spacing: -0.02em; }
+.lg-index h2 { margin-top: 2em; padding-top: .45em; border-top: 1px solid var(--background-modifier-border); }
+.lg-index h2::before { content: "§ "; color: var(--text-faint); }
+.lg-index h3 { margin-top: 1.35em; font-size: 1.03em; }
+.lg-index h3::before { content: "▸ "; color: var(--text-faint); }
+/* ── Course Index: цветные вертикальные полоски слева по уровням ─────────────────────
+   Каждый уровень дерева — сворачиваемый callout своего цвета; палитра та же, что у
+   вершин графа («Цвета по типам» в настройках) и что у чипов типов в панели плагина. */
+.lg-index .callout[data-callout="chapter"] { --lg-bar: 242, 179, 61; }
+.lg-index .callout[data-callout="section"] { --lg-bar: 74, 158, 218; }
+.lg-index .callout[data-callout="heading"] { --lg-bar: 89, 201, 138; }
+.lg-index .callout[data-callout="block"] { --lg-bar: 192, 122, 216; }
+.lg-index .callout:is([data-callout="chapter"], [data-callout="section"], [data-callout="heading"], [data-callout="block"]) {
+  border: 0; border-left: 4px solid rgb(var(--lg-bar)); border-radius: 0 7px 7px 0;
+  background: rgba(var(--lg-bar), .06); box-shadow: none;
+  margin-block: .3em; margin-inline-start: .5em; padding: .28em .7em;
+}
+.lg-index .callout:is([data-callout="chapter"], [data-callout="section"], [data-callout="heading"], [data-callout="block"]) > .callout-title { gap: .45em; font-weight: 600; font-size: .97em; }
+.lg-index .callout:is([data-callout="chapter"], [data-callout="section"], [data-callout="heading"], [data-callout="block"]) .callout-content { margin: .1em 0 .2em; }
+/* цитаты-обёртки не должны добавлять свои серые полосы: полоска одна, и она цветная */
+.lg-index blockquote { border-left: 0; padding-left: 0; background: none; }
+/* второй «гид» внутри группы блоков не нужен — за уровень отвечает цветная полоска */
+.lg-index .callout[data-callout="block"] ul { border-left: 0; padding-inline-start: .9em; }
+
+/* списки без маркеров, с вертикальными «гид»ами: иерархия читается как в проводнике */
+.lg-index ul { list-style: none; padding-inline-start: 1.05em; margin-block: .15em .5em;
+  border-left: 1px solid var(--background-modifier-border); }
+.lg-index ul ul { border-left-style: dotted; }
+.lg-index li { margin: .1em 0; line-height: 1.42; }
+.lg-index li > p { margin: 0; }
+.lg-index ul ul li { font-size: .95em; color: var(--text-muted); }
+.lg-index ul ul li a { color: var(--text-normal); }
+/* значки `⇠ N`, `∑`, `◌` — аккуратными чипами */
+.lg-index :is(li, h2 + p, h3 + p, .callout-title) code { background: var(--background-secondary);
+  border: 1px solid var(--background-modifier-border); border-radius: 999px;
+  padding: 0 .45em; font-size: .8em; color: var(--text-muted); font-variant-numeric: tabular-nums; }
+.lg-index table { font-variant-numeric: tabular-nums; font-size: .95em; }
+.lg-index table th, .lg-index table td { padding: 3px 8px; }
+.lg-index h2 + p, .lg-index h3 + p { color: var(--text-muted); margin-block: .2em .4em; }
+@media print {
+  /* цвет полосок — часть смысла оглавления, в PDF он обязан сохраниться */
+  .lg-index .callout:is([data-callout="chapter"], [data-callout="section"], [data-callout="heading"], [data-callout="block"]) {
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+    background: none; margin-inline-start: 0;
+  }
+  .lg-index ul { border-left: none; }
+  .lg-index h2 { break-after: avoid; }
+  .lg-index h3 { break-after: avoid; }
+}

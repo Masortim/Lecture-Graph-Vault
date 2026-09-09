@@ -1,0 +1,177 @@
+{
+  "showTags": false,
+  "showAttachments": false,
+  "hideUnresolved": true,
+  "showOrphans": false,
+  "collapse-color-groups": false,
+  "colorGroups": [
+    {
+      "template": {
+        "query": "path:\"Ch01\"",
+        "color": {
+          "a": 1,
+          "rgb": 15905597
+        }
+      },
+      "display": {
+        "color": "#f2b33d"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch02\"",
+        "color": {
+          "a": 1,
+          "rgb": 4890330
+        }
+      },
+      "display": {
+        "color": "#4a9eda"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch03\"",
+        "color": {
+          "a": 1,
+          "rgb": 5884298
+        }
+      },
+      "display": {
+        "color": "#59c98a"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch04\"",
+        "color": {
+          "a": 1,
+          "rgb": 12614360
+        }
+      },
+      "display": {
+        "color": "#c07ad8"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch05\"",
+        "color": {
+          "a": 1,
+          "rgb": 16743019
+        }
+      },
+      "display": {
+        "color": "#ff7a6b"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch06\"",
+        "color": {
+          "a": 1,
+          "rgb": 6280132
+        }
+      },
+      "display": {
+        "color": "#5fd3c4"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch07\"",
+        "color": {
+          "a": 1,
+          "rgb": 16093122
+        }
+      },
+      "display": {
+        "color": "#f58fc2"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch08\"",
+        "color": {
+          "a": 1,
+          "rgb": 12177246
+        }
+      },
+      "display": {
+        "color": "#b9cf5e"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"Ch09\"",
+        "color": {
+          "a": 1,
+          "rgb": 10128639
+        }
+      },
+      "display": {
+        "color": "#9a8cff"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"10 - Chapters\"",
+        "color": {
+          "a": 1,
+          "rgb": 15905597
+        }
+      },
+      "display": {
+        "color": "#f2b33d"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"20 - Sections\"",
+        "color": {
+          "a": 1,
+          "rgb": 4890330
+        }
+      },
+      "display": {
+        "color": "#4a9eda"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"25 - Headings\"",
+        "color": {
+          "a": 1,
+          "rgb": 5884298
+        }
+      },
+      "display": {
+        "color": "#59c98a"
+      }
+    },
+    {
+      "template": {
+        "query": "path:\"30 - Blocks\"",
+        "color": {
+          "a": 1,
+          "rgb": 12614360
+        }
+      },
+      "display": {
+        "color": "#c07ad8"
+      }
+    }
+  ],
+  "collapse-display": false,
+  "showArrow": true,
+  "textFadeMultiplier": 0,
+  "nodeSizeMultiplier": 1.25,
+  "lineSizeMultiplier": 1,
+  "collapse-forces": false,
+  "centerStrength": 0.4,
+  "repelStrength": 12,
+  "linkStrength": 1,
+  "linkDistance": 220,
+  "scale": 0.55,
+  "search": "-tag:#template -tag:#index -path:\"40 - Templates\" -path:\"45 - Captions\" -path:\"50 - Dashboard\" -path:\"00 - Start Here\" -path:\"35 - Abstracts\" -path:\"90 - Exports\" -path:\"60 - Drawings\""
+}

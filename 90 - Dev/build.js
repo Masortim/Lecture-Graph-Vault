@@ -1,0 +1,48 @@
+/* Собирает .obsidian/plugins/lecture-graph/{main.js,manifest.json,styles.css} */
+const fs = require("fs");
+const path = require("path");
+const { execFileSync } = require("child_process");
+
+const SRC = __dirname;
+const OUT = path.resolve(__dirname, "..", "Lecture-Graph-Vault", ".obsidian", "plugins", "lecture-graph");
+
+const core = fs.readFileSync(path.join(SRC, "src", "graph-core.js"), "utf8");
+const ui = fs.readFileSync(path.join(SRC, "src", "ui.js"), "utf8");
+
+if (!ui.includes('require("graph-core")')) throw new Error("ui.js: не найден require(\"graph-core\")");
+const uiPatched = ui.replace('const core = require("graph-core");', "const core = __LG_CORE__;");
+
+const banner = `/* lecture-graph v${"1.0.0"} — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */\n`;
+const bundle =
+  banner +
+  `var __LG_CORE__ = (function () {\n  var module = { exports: {} };\n  var exports = module.exports;\n` +
+  core +
+  `\n  return module.exports;\n})();\n` +
+  uiPatched +
+  `\nmodule.exports = LectureGraphPlugin;\nmodule.exports.default = LectureGraphPlugin;\n`;
+
+fs.mkdirSync(OUT, { recursive: true });
+const mainPath = path.join(OUT, "main.js");
+// если сборка байт-в-байт та же — не пишем: иначе mtime main.js обгоняет превью, и
+// dev/finalize.py правдоподобно ругается «превью устарели» там, где не менялось ничего
+if (!fs.existsSync(mainPath) || fs.readFileSync(mainPath, "utf8") !== bundle) {
+  fs.writeFileSync(mainPath, bundle);
+}
+execFileSync(process.execPath, ["--check", mainPath]);
+
+const manifest = {
+  id: "lecture-graph",
+  name: "Lecture Graph",
+  version: "1.6.0",
+  minAppVersion: "1.5.0",
+  description: "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph.",
+  author: "Arena agent",
+  authorUrl: "",
+  isDesktopOnly: false,
+};
+fs.writeFileSync(path.join(OUT, "manifest.json"), JSON.stringify(manifest, null, 2) + "\n");
+if (fs.existsSync(path.join(SRC, "src", "styles.css"))) {
+  fs.copyFileSync(path.join(SRC, "src", "styles.css"), path.join(OUT, "styles.css"));
+}
+const bytes = fs.statSync(mainPath).size;
+console.log("built " + path.relative(path.resolve(SRC, ".."), mainPath) + "  " + (bytes / 1024).toFixed(1) + " KiB, syntax OK");
