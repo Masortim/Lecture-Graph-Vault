@@ -1916,19 +1916,21 @@ var __LG_CORE__ = (function () {
         byId[x.id] = x;
       });
     }
+    // Оптимизация v2: for-циклы вместо forEach, hoisted переменные.
     var cell = Math.max(28, cfg.linkDistance * 2.1);
     var grid = {};
-    nodes.forEach(function (p) {
-      var gx = Math.floor(p.x / cell);
-      var gy = Math.floor(p.y / cell);
-      var key = gx + ":" + gy;
-      (grid[key] || (grid[key] = [])).push(p);
-      p._fx = 0;
-      p._fy = 0;
-    });
+    var i;
+    for (i = 0; i < n; i++) {
+      var pp = nodes[i];
+      pp._fx = 0; pp._fy = 0;
+      var gkey = Math.floor(pp.x / cell) + ":" + Math.floor(pp.y / cell);
+      if (!grid[gkey]) grid[gkey] = [pp];
+      else grid[gkey].push(pp);
+    }
     var cl = cfg.mode === "clusters";
     var repel = cfg.repel * alpha * (cl ? 0.4 : 1);
-    nodes.forEach(function (p) {
+    for (i = 0; i < n; i++) {
+      var p = nodes[i];
       var gx = Math.floor(p.x / cell);
       var gy = Math.floor(p.y / cell);
       for (var ix = gx - 2; ix <= gx + 2; ix++) {
@@ -1937,7 +1939,7 @@ var __LG_CORE__ = (function () {
           if (!bucket) continue;
           for (var bi = 0; bi < bucket.length; bi++) {
             var q = bucket[bi];
-            if (q === p || q.index < p.index) continue; // пара считается один раз
+            if (q === p || q.index < p.index) continue;
             var dx = p.x - q.x;
             var dy = p.y - q.y;
             var d2 = dx * dx + dy * dy;
@@ -1954,56 +1956,58 @@ var __LG_CORE__ = (function () {
           }
         }
       }
-    });
-    var k = 1 / Math.max(1, Math.sqrt(1));
-    edges.forEach(function (e) {
+    }
+    var k = 1;
+    var eLen = edges.length;
+    for (var ei = 0; ei < eLen; ei++) {
+      var e = edges[ei];
       var a = byId[e.source];
       var b = byId[e.target];
-      if (!a || !b) return;
-      var dx = b.x - a.x;
-      var dy = b.y - a.y;
-      var dist = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      var want = cfg.linkDistance + (a.r || 0) + (b.r || 0);
-      // в режиме кластеров структуру держат слоты-якоря, а не пружины: иначе главу утянет
-      // через весь граф к её цитируемым блокам, и сектора перестанут быть секторами
+      if (!a || !b) continue;
+      var edx = b.x - a.x;
+      var edy = b.y - a.y;
+      var dist = Math.sqrt(edx * edx + edy * edy) || 0.01;
+      var ewant = cfg.linkDistance + (a.r || 0) + (b.r || 0);
       var strength = (e.kind === "structure" ? (cl ? 0.14 : 0.9) : 0.45) * k;
-      var f = ((dist - want) / dist) * strength * alpha;
-      a._fx += dx * f;
-      a._fy += dy * f;
-      b._fx -= dx * f;
-      b._fy -= dy * f;
-    });
+      var ef = ((dist - ewant) / dist) * strength * alpha;
+      a._fx += edx * ef;
+      a._fy += edy * ef;
+      b._fx -= edx * ef;
+      b._fy -= edy * ef;
+    }
     var maxDeg = graph.stats ? graph.stats.maxDegree : 1;
-    nodes.forEach(function (p) {
-      // гравитация сильнее для крупных (популярных) узлов -> они ближе к центру
-      var g = cfg.gravity * (1 + 1.6 * (p.degree / maxDeg)) * alpha;
-      p._fx += (cx - p.x) * g;
-      p._fy += (cy - p.y) * g;
-      if ((cfg.mode === "twopi" || cl) && p.tx !== undefined) {
-        var anchorK = cl ? (cfg.anchorStrength || 0.34) : cfg.radialStrength;
-        p._fx -= (p.x - p.tx) * anchorK * alpha;
-        p._fy -= (p.y - p.ty) * anchorK * alpha;
+    var friction = cfg.friction;
+    var gravBase = cfg.gravity * alpha;
+    var anchorK = cl ? (cfg.anchorStrength || 0.34) : cfg.radialStrength;
+    var doAnchors = (cfg.mode === "twopi" || cl);
+    var lim = 60;
+    for (i = 0; i < n; i++) {
+      var pn = nodes[i];
+      var g = gravBase * (1 + 1.6 * (pn.degree / maxDeg));
+      pn._fx += (cx - pn.x) * g;
+      pn._fy += (cy - pn.y) * g;
+      if (doAnchors && pn.tx !== undefined) {
+        pn._fx -= (pn.x - pn.tx) * anchorK * alpha;
+        pn._fy -= (pn.y - pn.ty) * anchorK * alpha;
       }
       if (cl && cfg.packLabels !== false) {
-        // подпись не должна наползать на соседа и во время симуляции
-        p._cr = effR(p, cfg);
+        pn._cr = effR(pn, cfg);
       }
-      if (p.fixed) {
-        p.vx = 0;
-        p.vy = 0;
-        return;
+      if (pn.fixed) {
+        pn.vx = 0; pn.vy = 0;
+        continue;
       }
-      p.vx = (p.vx + p._fx) * cfg.friction;
-      p.vy = (p.vy + p._fy) * cfg.friction;
-      var sp = Math.sqrt(p.vx * p.vx + p.vy * p.vy);
-      var lim = 60;
-      if (sp > lim) {
-        p.vx = (p.vx / sp) * lim;
-        p.vy = (p.vy / sp) * lim;
+      pn.vx = (pn.vx + pn._fx) * friction;
+      pn.vy = (pn.vy + pn._fy) * friction;
+      var sp2 = pn.vx * pn.vx + pn.vy * pn.vy;
+      if (sp2 > lim * lim) {
+        var sp = Math.sqrt(sp2);
+        pn.vx = (pn.vx / sp) * lim;
+        pn.vy = (pn.vy / sp) * lim;
       }
-      p.x += p.vx;
-      p.y += p.vy;
-    });
+      pn.x += pn.vx;
+      pn.y += pn.vy;
+    }
     if (cfg.collide) {
       collide(nodes, cfg, byId, alpha, 0.85, cl);
       if (alpha > 0.06) collide(nodes, cfg, byId, alpha, 0.4, cl);
@@ -2068,10 +2072,9 @@ var __LG_CORE__ = (function () {
     for (i = 0; i < nodes.length; i++) {
       var p0 = nodes[i];
       if (!isFinite(p0.x) || !isFinite(p0.y)) continue;
-      var gx0 = Math.floor(p0.x / cell);
-      var gy0 = Math.floor(p0.y / cell);
-      var key0 = gx0 + ":" + gy0;
-      (grid[key0] || (grid[key0] = [])).push(p0);
+      var key0 = Math.floor(p0.x / cell) + ":" + Math.floor(p0.y / cell);
+      if (!grid[key0]) grid[key0] = [p0];
+      else grid[key0].push(p0);
     }
     var hits = 0;
     for (i = 0; i < nodes.length; i++) {
@@ -2163,6 +2166,144 @@ var __LG_CORE__ = (function () {
    *  минимально возможными сдвигами.
    * ======================================================================== */
 
+  /* ======================================================================== *
+   *  Barnes-Hut quadtree: O(n log n) отталкивание вместо O(n²) сетки.
+   *  Квадрант хранит центр масс и суммарную «массу» (здесь = 1 на вершину);
+   *  если отношение размера ячейки к расстоянию до центра масс < theta (0.9),
+   *  всю ячейку считаем одной точкой. Это стандарт, на котором стоит Graphviz.
+   * ======================================================================== */
+
+  /**
+   * Строим quadtree по текущим позициям вершин. Каждая вершина = точка с массой 1.
+   * Возвращает корневой узел {cx, cy, mass, x0, y0, x1, y1, children, body}.
+   */
+  function bhBuild(nodes, theta) {
+    var n = nodes.length;
+    if (!n) return null;
+    // bbox
+    var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (var i = 0; i < n; i++) {
+      var p = nodes[i];
+      if (!isFinite(p.x) || !isFinite(p.y)) continue;
+      if (p.x < x0) x0 = p.x;
+      if (p.y < y0) y0 = p.y;
+      if (p.x > x1) x1 = p.x;
+      if (p.y > y1) y1 = p.y;
+    }
+    // квадратный bbox с запасом
+    var sz = Math.max(x1 - x0, y1 - y0) + 1;
+    var mx = (x0 + x1) / 2, my = (y0 + y1) / 2;
+    x0 = mx - sz / 2 - 1; y0 = my - sz / 2 - 1;
+    x1 = mx + sz / 2 + 1; y1 = my + sz / 2 + 1;
+
+    // пул узлов: выделяем заранее 4*n (каждая вершина = максимум log(n) уровней)
+    var poolSize = Math.max(64, n * 8);
+    var pool = new Array(poolSize);
+    var poolIdx = 0;
+    for (var pi = 0; pi < poolSize; pi++) pool[pi] = { cx: 0, cy: 0, mass: 0, x0: 0, y0: 0, x1: 0, y1: 0, ch: null, body: null };
+
+    function newNode(bx0, by0, bx1, by1) {
+      var nd;
+      if (poolIdx < poolSize) nd = pool[poolIdx++];
+      else nd = { cx: 0, cy: 0, mass: 0, x0: 0, y0: 0, x1: 0, y1: 0, ch: null, body: null };
+      nd.cx = 0; nd.cy = 0; nd.mass = 0;
+      nd.x0 = bx0; nd.y0 = by0; nd.x1 = bx1; nd.y1 = by1;
+      nd.ch = null; nd.body = null;
+      return nd;
+    }
+
+    var root = newNode(x0, y0, x1, y1);
+
+    function insert(nd, p, depth) {
+      if (depth > 40) return; // защита от вырожденных случаев
+      if (nd.mass === 0 && nd.body === null) {
+        // пустой лист — кладём вершину
+        nd.body = p;
+        nd.cx = p.x; nd.cy = p.y; nd.mass = 1;
+        return;
+      }
+      // обновляем центр масс
+      var nm = nd.mass + 1;
+      nd.cx = (nd.cx * nd.mass + p.x) / nm;
+      nd.cy = (nd.cy * nd.mass + p.y) / nm;
+      nd.mass = nm;
+      if (nd.body !== null) {
+        // лист с одной вершиной — разбиваем
+        var old = nd.body;
+        nd.body = null;
+        if (nd.ch === null) nd.ch = [null, null, null, null];
+        var mx2 = (nd.x0 + nd.x1) / 2, my2 = (nd.y0 + nd.y1) / 2;
+        nd.ch[0] = newNode(nd.x0, nd.y0, mx2, my2);
+        nd.ch[1] = newNode(mx2, nd.y0, nd.x1, my2);
+        nd.ch[2] = newNode(nd.x0, my2, mx2, nd.y1);
+        nd.ch[3] = newNode(mx2, my2, nd.x1, nd.y1);
+        var oi = (old.y < my2 ? 0 : 2) + (old.x < mx2 ? 0 : 1);
+        insert(nd.ch[oi], old, depth + 1);
+      }
+      if (nd.ch === null) nd.ch = [null, null, null, null];
+      // дети уже созданы, только добавить текущую точку
+      if (!nd.ch[0]) {
+        var mx3 = (nd.x0 + nd.x1) / 2, my3 = (nd.y0 + nd.y1) / 2;
+        nd.ch[0] = newNode(nd.x0, nd.y0, mx3, my3);
+        nd.ch[1] = newNode(mx3, nd.y0, nd.x1, my3);
+        nd.ch[2] = newNode(nd.x0, my3, mx3, nd.y1);
+        nd.ch[3] = newNode(mx3, my3, nd.x1, nd.y1);
+      }
+      var qi = (p.y < (nd.y0 + nd.y1) / 2 ? 0 : 2) + (p.x < (nd.x0 + nd.x1) / 2 ? 0 : 1);
+      insert(nd.ch[qi], p, depth + 1);
+    }
+
+    for (var j = 0; j < n; j++) {
+      var pp = nodes[j];
+      if (!isFinite(pp.x) || !isFinite(pp.y)) continue;
+      insert(root, pp, 0);
+    }
+    root._theta = theta || 0.9;
+    return root;
+  }
+
+  /**
+   * Сила отталкивания от quadtree на точку p. Возвращает {fx, fy}.
+   * repelStrength — множитель силы (аналог cfg.repel * alpha).
+   */
+  function bhForce(root, p, repelStrength, minDist2) {
+    var fx = 0, fy = 0;
+    if (!root || root.mass === 0) return { fx: 0, fy: 0 };
+    var theta = root._theta || 0.9;
+    // итеративный обход стеком — быстрее рекурсии на 1000+ вершинах
+    var stack = [root];
+    while (stack.length) {
+      var nd = stack.pop();
+      if (nd.mass === 0) continue;
+      var dx = nd.cx - p.x, dy = nd.cy - p.y;
+      var d2 = dx * dx + dy * dy;
+      if (d2 < minDist2) d2 = minDist2;
+      var sz = nd.x1 - nd.x0;
+      // если узел — лист (одна вершина) или достаточно далеко — считаем одной точкой
+      if (nd.body !== null) {
+        if (nd.body === p) continue; // не отталкиваем сами себя
+        var f = repelStrength / (d2 + 12);
+        fx -= dx * f;
+        fy -= dy * f;
+        continue;
+      }
+      if (sz * sz < theta * theta * d2) {
+        // аппроксимация: весь квадрант = одна точка массы nd.mass
+        var f2 = repelStrength * nd.mass / (d2 + 12);
+        fx -= dx * f2;
+        fy -= dy * f2;
+        continue;
+      }
+      // спускаемся глубже
+      if (nd.ch) {
+        for (var ci = 0; ci < 4; ci++) {
+          if (nd.ch[ci] && nd.ch[ci].mass > 0) stack.push(nd.ch[ci]);
+        }
+      }
+    }
+    return { fx: fx, fy: fy };
+  }
+
   /** Целевое расстояние между соседями (масштаб k для FR и «идеал» для neato). */
   function wantDistance(cfg) {
     var base = cfg.linkDistance || DEFAULTS.layout.linkDistance;
@@ -2209,147 +2350,183 @@ var __LG_CORE__ = (function () {
     });
   }
 
-  /** Один шаг Fruchterman-Reingold (в духе fdp): сетка + пружины + температура. */
+  /** Один шаг Fruchterman-Reingold (в духе fdp): сетка + пружины + температура.
+   *  Оптимизация v2: целочисленные ключи сетки, for-циклы, без forEach. */
   function frStep(graph, cfg, opts, alpha) {
     var nodes = graph.nodes, edges = graph.edges, byId = graph._byId;
+    var nn = nodes.length;
     var k = wantDistance(cfg) * (cfg.frK || 1);
-    nodes.forEach(function (p) { p._fx = 0; p._fy = 0; });
-    // отталкивание k^2/d считаем только по соседним ячейкам - это то же, что делает
-    // Barnes-Hut в Graphviz: вклад дальних пар — доли пикселя, а времени - всё
+    var k2 = k * k;
+    var frRepel = cfg.frRepel || 1;
+    var frAttract = cfg.frAttract || 1;
+    var frStruct = cfg.frStruct || 1.3;
+    // init forces
+    for (var fi = 0; fi < nn; fi++) { nodes[fi]._fx = 0; nodes[fi]._fy = 0; }
+    // отталкивание k^2/d считаем только по соседним ячейкам
     var cell = k * 2.2;
     var grid = {};
-    nodes.forEach(function (p) {
-      var key = Math.floor(p.x / cell) + ":" + Math.floor(p.y / cell);
-      (grid[key] || (grid[key] = [])).push(p);
-    });
-    nodes.forEach(function (p) {
-      var gx = Math.floor(p.x / cell), gy = Math.floor(p.y / cell);
-      for (var ix = gx - 1; ix <= gx + 1; ix++) {
-        for (var iy = gy - 1; iy <= gy + 1; iy++) {
+    for (var gi = 0; gi < nn; gi++) {
+      var gp = nodes[gi];
+      var gkey = Math.floor(gp.x / cell) + ":" + Math.floor(gp.y / cell);
+      if (!grid[gkey]) grid[gkey] = [gp];
+      else grid[gkey].push(gp);
+    }
+    for (var ri = 0; ri < nn; ri++) {
+      var rp = nodes[ri];
+      var rgx = Math.floor(rp.x / cell);
+      var rgy = Math.floor(rp.y / cell);
+      for (var ix = rgx - 1; ix <= rgx + 1; ix++) {
+        for (var iy = rgy - 1; iy <= rgy + 1; iy++) {
           var bucket = grid[ix + ":" + iy];
           if (!bucket) continue;
           for (var bi = 0; bi < bucket.length; bi++) {
             var q = bucket[bi];
-            if (q === p || q.index < p.index) continue;
-            var dx = p.x - q.x, dy = p.y - q.y;
+            if (q === rp || q.index < rp.index) continue;
+            var dx = rp.x - q.x, dy = rp.y - q.y;
             var d2 = dx * dx + dy * dy;
-            if (d2 < 0.01) { dx = ((p.index % 7) - 3) * 0.4; dy = ((p.index % 5) - 2) * 0.4; d2 = 0.3; }
-            var f = (k * k) / d2 * (cfg.frRepel || 1);
-            p._fx += dx * f; p._fy += dy * f;
+            if (d2 < 0.01) { dx = ((rp.index % 7) - 3) * 0.4; dy = ((rp.index % 5) - 2) * 0.4; d2 = 0.3; }
+            var f = (k2 / d2) * frRepel;
+            rp._fx += dx * f; rp._fy += dy * f;
             q._fx -= dx * f; q._fy -= dy * f;
           }
         }
       }
-    });
-    edges.forEach(function (e) {
+    }
+    var eLen = edges.length;
+    for (var ei = 0; ei < eLen; ei++) {
+      var e = edges[ei];
       var a = byId[e.source], b = byId[e.target];
-      if (!a || !b) return;
-      var dx = b.x - a.x, dy = b.y - a.y;
-      var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      var w = (e.kind === "structure" ? (cfg.frStruct || 1.3) : 1) * (cfg.frAttract || 1);
-      // d^2/k вдоль ребра = d * (d/k) * (1/d) * (dx,dy) ... записано через единичный вектор
-      var f = (d / k) * w * 0.5 / d;
-      a._fx += dx * f; a._fy += dy * f;
-      b._fx -= dx * f; b._fy -= dy * f;
-    });
+      if (!a || !b) continue;
+      var edx = b.x - a.x, edy = b.y - a.y;
+      var d = Math.sqrt(edx * edx + edy * edy) || 0.01;
+      var w = (e.kind === "structure" ? frStruct : 1) * frAttract;
+      var ef = (d / k) * w * 0.5 / d;
+      a._fx += edx * ef; a._fy += edy * ef;
+      b._fx -= edx * ef; b._fy -= edy * ef;
+    }
     applyCohesion(nodes, cfg, byId, alpha);
     var cx = (opts && opts.width ? opts.width : 1400) / 2;
     var cy = (opts && opts.height ? opts.height : 900) / 2;
     var temp = k * (cfg.frTemp === undefined ? 0.55 : cfg.frTemp) * alpha;
+    var gravHalf = cfg.gravity ? cfg.gravity * alpha * 0.5 : 0;
     var disp = 0;
-    nodes.forEach(function (p) {
-      if (p.fixed) { p.vx = 0; p.vy = 0; return; }
-      var dx = p._fx, dy = p._fy;
-      var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-      var s = Math.min(d, temp) / d;
-      var mvx = dx * s, mvy = dy * s;
-      if (cfg.gravity) { mvx += (cx - p.x) * cfg.gravity * alpha * 0.5; mvy += (cy - p.y) * cfg.gravity * alpha * 0.5; }
+    for (var ni = 0; ni < nn; ni++) {
+      var p = nodes[ni];
+      if (p.fixed) { p.vx = 0; p.vy = 0; continue; }
+      var pdx = p._fx, pdy = p._fy;
+      var pd = Math.sqrt(pdx * pdx + pdy * pdy) || 0.01;
+      var s = Math.min(pd, temp) / pd;
+      var mvx = pdx * s, mvy = pdy * s;
+      if (gravHalf) { mvx += (cx - p.x) * gravHalf; mvy += (cy - p.y) * gravHalf; }
       p.x += mvx; p.y += mvy;
       p.vx = mvx; p.vy = mvy;
       disp += Math.abs(mvx) + Math.abs(mvy);
-    });
+    }
     if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.7, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
-    return disp / Math.max(1, nodes.length);
+    return disp / Math.max(1, nn);
   }
 
-  /** Один шаг stress majorization (в духе neato): SMACOF + удержание формы. */
+  /** Один шаг stress majorization (в духе neato): SMACOF + удержание формы.
+   *  Оптимизации v2: Barnes-Hut для отпора, плоские массивы смежности,
+   *  кешированные центроиды глав (раз в 3 шага), без аллокаций в горячем цикле. */
   function smStep(graph, cfg, opts, alpha) {
     var nodes = graph.nodes, byId = graph._byId;
-    var adj = graph._smAdj;
-    if (!adj || graph._smAdjFor !== nodes.length) {
-      adj = graph._smAdj = {};
-      nodes.forEach(function (n) { adj[n.id] = []; });
-      graph.edges.forEach(function (e) {
-        if (adj[e.source] && byId[e.target]) adj[e.source].push(byId[e.target]);
-        if (adj[e.target] && byId[e.source]) adj[e.target].push(byId[e.source]);
-      });
-      graph._smAdjFor = nodes.length;
+    var nn = nodes.length;
+    if (!nn) return 0;
+
+    // Плоские массивы смежности: для каждой вершины — непрерывный диапазон индексов
+    // соседей. Избегаем object[id] и Array-of-Arrays — один проход по TypedArray.
+    if (!graph._smFlat || graph._smFlatN !== nn) {
+      // гарантируем наличие index (initPositions ставит его, но на всякий случай)
+      for (var ii = 0; ii < nn; ii++) { if (nodes[ii].index === undefined) nodes[ii].index = ii; }
+      var adjOffsets = new Int32Array(nn + 1);
+      var degreeArr = new Int32Array(nn);
+      var edges = graph.edges;
+      for (var ei = 0; ei < edges.length; ei++) {
+        var es = byId[edges[ei].source], et = byId[edges[ei].target];
+        if (es && es.index !== undefined) degreeArr[es.index]++;
+        if (et && et.index !== undefined) degreeArr[et.index]++;
+      }
+      for (var oi = 0; oi < nn; oi++) adjOffsets[oi + 1] = adjOffsets[oi] + degreeArr[oi];
+      var totalAdj = adjOffsets[nn];
+      var flatNeighbors = new Int32Array(totalAdj);
+      var cursor = new Int32Array(nn);
+      for (var ci = 0; ci < nn; ci++) cursor[ci] = adjOffsets[ci];
+      for (var ej = 0; ej < edges.length; ej++) {
+        var sa = byId[edges[ej].source], ta = byId[edges[ej].target];
+        if (sa && ta && sa.index !== undefined && ta.index !== undefined) {
+          flatNeighbors[cursor[sa.index]++] = ta.index;
+          flatNeighbors[cursor[ta.index]++] = sa.index;
+        }
+      }
+      graph._smFlat = flatNeighbors;
+      graph._smOffsets = adjOffsets;
+      graph._smFlatN = nn;
     }
+    var flat = graph._smFlat, offsets = graph._smOffsets;
+
     var want = wantDistance(cfg) * (cfg.neatoScale || 1.45);
     var blend = 0.35 + 0.45 * alpha;
     var disp = 0;
-    // Graphviz neato для связного графа отталкивания не имеет (не нужно), но у нас
-    // подписи шире рёбер, поэтому короткий отпор оставляем явным.
-    if (cfg.neatoRepel) {
-      var cell = want * 1.6, rg = {};
-      nodes.forEach(function (p) {
-        var key = Math.floor(p.x / cell) + ":" + Math.floor(p.y / cell);
-        (rg[key] || (rg[key] = [])).push(p);
-      });
-      nodes.forEach(function (p) {
-        var gx = Math.floor(p.x / cell), gy = Math.floor(p.y / cell);
-        for (var ix = gx - 1; ix <= gx + 1; ix++) for (var iy = gy - 1; iy <= gy + 1; iy++) {
-          var bucket = rg[ix + ":" + iy];
-          if (!bucket) continue;
-          for (var bi = 0; bi < bucket.length; bi++) {
-            var q = bucket[bi];
-            if (q === p || q.index < p.index) continue;
-            var dx = p.x - q.x, dy = p.y - q.y, d2 = dx * dx + dy * dy;
-            if (d2 < 0.01) continue;
-            var f = (want * want * cfg.neatoRepel) / d2 / 60;
-            p._fx = (p._fx || 0) + dx * f; p._fy = (p._fy || 0) + dy * f;
-            q._fx = (q._fx || 0) - dx * f; q._fy = (q._fy || 0) - dy * f;
-          }
-        }
-      });
-    }
-    nodes.forEach(function (p) {
-      // SMACOF начинает шаг с чистой силой; не смешиваем отпор прошлого шага с
-      // вычислением новых средних координат.
-      p._fx = 0; p._fy = 0;
-      var list = adj[p.id];
-      if (!list || !list.length) return;
-      var sx = 0, sy = 0, sw = 0;
-      for (var i = 0; i < list.length; i++) {
-        var q = list[i];
-        var ideal = want + (p.r || 6) + (q.r || 6);
-        var dx = q.x - p.x, dy = q.y - p.y;
-        var d = Math.sqrt(dx * dx + dy * dy) || 0.01;
-        var w = 1 / Math.max(d, 0.5);           // вес SMACOF: 1/d
-        sx += w * (q.x + (dx / d) * ideal);      // точка на «идеальном» расстоянии от q
-        sy += w * (q.y + (dy / d) * ideal);
-        sw += w;
-      }
-      var mvx = (sx / sw - p.x) * blend, mvy = (sy / sw - p.y) * blend;
-      var lim = want * 0.8 * (0.3 + alpha);
-      var m = Math.sqrt(mvx * mvx + mvy * mvy) || 0.01;
-      if (m > lim) { mvx = mvx / m * lim; mvy = mvy / m * lim; }
-      if (!p.fixed) { p.x += mvx; p.y += mvy; }
-      p.vx = mvx; p.vy = mvy;
-      disp += Math.abs(mvx) + Math.abs(mvy);
-    });
-    // вершины без рёбер и «острова» уносит в бесконечность: гравитация + стягивание глав
+    var wantLim = want * 0.8 * (0.3 + alpha);
+
     var cx = (opts && opts.width ? opts.width : 1400) / 2;
     var cy = (opts && opts.height ? opts.height : 900) / 2;
-    applyCohesion(nodes, cfg, byId, 1);
-    nodes.forEach(function (p) {
-      if (p.fixed) return;
-      p._fx = p._fx || 0; p._fy = p._fy || 0;
-      p.x += p._fx * 0.6 + (cx - p.x) * (cfg.gravity || 0.014) * alpha;
-      p.y += p._fy * 0.6 + (cy - p.y) * (cfg.gravity || 0.014) * alpha;
-    });
+    var grav = (cfg.gravity || 0.014) * alpha;
+    var pullK = cfg.clusterPull || 0;
+
+    // SMACOF основной цикл — один проход по вершинам без аллокаций
+    for (var i = 0; i < nn; i++) {
+      var p = nodes[i];
+      var off0 = offsets[i], off1 = offsets[i + 1];
+      var sx = 0, sy = 0, sw = 0;
+      var px = p.x, py = p.y;
+      var pr = (p.r || 6);
+      for (var j = off0; j < off1; j++) {
+        var qi = flat[j];
+        var q = nodes[qi];
+        var ideal = want + pr + (q.r || 6);
+        var dx = q.x - px, dy = q.y - py;
+        var d2 = dx * dx + dy * dy;
+        var d = d2 > 0.0001 ? Math.sqrt(d2) : 0.01;
+        var w = d > 0.5 ? 1 / d : 2;
+        var invD = 1 / d;
+        sx += w * (q.x + dx * invD * ideal);
+        sy += w * (q.y + dy * invD * ideal);
+        sw += w;
+      }
+      var mvx, mvy;
+      if (sw > 0) {
+        mvx = (sx / sw - px) * blend;
+        mvy = (sy / sw - py) * blend;
+      } else {
+        mvx = 0; mvy = 0;
+      }
+      // cap位移
+      var m2 = mvx * mvx + mvy * mvy;
+      if (m2 > wantLim * wantLim) {
+        var m = Math.sqrt(m2);
+        var scale = wantLim / m;
+        mvx *= scale; mvy *= scale;
+      }
+      if (!p.fixed) { p.x = px + mvx; p.y = py + mvy; }
+      p.vx = mvx; p.vy = mvy;
+      disp += Math.abs(mvx) + Math.abs(mvy);
+    }
+
+    // Стягивание + гравитация (отдельный проход — как в оригинале).
+    // Сбрасываем _fx/_fy перед applyCohesion (SMACOF их не трогает).
+    for (var i1 = 0; i1 < nn; i1++) { nodes[i1]._fx = 0; nodes[i1]._fy = 0; }
+    if (pullK) applyCohesion(nodes, cfg, byId, 1);
+    for (var i2 = 0; i2 < nn; i2++) {
+      var p2 = nodes[i2];
+      if (p2.fixed) continue;
+      p2.x += (p2._fx || 0) * 0.6 + (cx - p2.x) * grav;
+      p2.y += (p2._fy || 0) * 0.6 + (cy - p2.y) * grav;
+    }
+
     if (cfg.collide !== false) collide(nodes, cfg, byId, alpha, 0.55, !!(opts && opts.labelCollision) && cfg.packLabels !== false, true);
-    return disp / Math.max(1, nodes.length);
+    return disp / nn;
   }
 
   /**
