@@ -176,3 +176,26 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-delete__noask { margin-bottom: 6px; }
 .lg-delete .mod-warning { border-color: var(--background-modifier-error, #e5534b); }
 .theme-light .lg-label-zh, .theme-light .lg-modal .lg-line--zh { fill: #2f6fd0; color: #2f6fd0; }
+
+/* --- MergeDuplicatesModal: предпросмотр групп дубликатов --- */
+.lg-merge__toolbar { font-size: var(--font-ui-small); margin-bottom: 10px; }
+.lg-merge__toolbar a { text-decoration: none; }
+.lg-merge__list { display: flex; flex-direction: column; gap: 12px; max-height: 56vh; overflow-y: auto; margin-bottom: 12px; padding-right: 4px; }
+.lg-merge__group { border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 10px 12px; background: var(--background-secondary); }
+.lg-merge__group--off { opacity: .45; }
+.lg-merge__head { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; }
+.lg-merge__head input[type="checkbox"] { width: 16px; height: 16px; flex: none; }
+.lg-merge__title { font-weight: 600; font-size: var(--font-ui-small); flex: 1; }
+.lg-merge__badge { font-size: var(--font-ui-smaller); padding: 1px 8px; border-radius: 10px; background: var(--background-modifier-border); }
+.lg-merge__badge--high { background: rgba(89, 201, 138, .25); color: var(--text-success, #59c98a); }
+.lg-merge__badge--medium { background: rgba(242, 179, 61, .25); color: var(--text-warning, #f2b33d); }
+.lg-merge__badge--low { background: rgba(229, 83, 75, .18); color: var(--text-error, #e5534b); }
+.lg-merge__reasons { font-size: var(--font-ui-smaller); opacity: .85; margin-bottom: 6px; }
+.lg-merge__keeper { font-size: var(--font-ui-small); margin-bottom: 6px; }
+.lg-merge__keeper select { max-width: 100%; }
+.lg-merge__nodes { margin: 0 0 6px 18px; padding: 0; font-size: var(--font-ui-smaller); }
+.lg-merge__nodes li { margin-bottom: 4px; }
+.lg-merge__nodes .lg-modal-path { margin-bottom: 2px; }
+.lg-merge__plan { font-size: var(--font-ui-smaller); opacity: .85; }
+.lg-merge__warn { font-size: var(--font-ui-smaller); color: var(--text-warning, #f2b33d); margin-top: 4px; }
+.lg-merge__empty { font-size: var(--font-ui-small); margin: 12px 0; }

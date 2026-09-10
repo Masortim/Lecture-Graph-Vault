@@ -16,7 +16,7 @@ const uiPatched = ui.replace('const core = require("graph-core");', "const core 
 
 // Версия плагина — одно место на весь репозиторий: баннер сборки, manifest.json и
 // документация (write_docs.py читает её отсюда же).
-const VERSION = "1.9.0";
+const VERSION = "1.10.0";
 
 const banner = `/* lecture-graph v${VERSION} — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */\n`;
 const bundle =
@@ -41,7 +41,7 @@ const manifest = {
   name: "Lecture Graph",
   version: VERSION,
   minAppVersion: "1.5.0",
-  description: "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus. Manual edges: select the first node with a left click, then Ctrl+left-click the second — the link arc is drawn automatically. Nodes are deleted from the graph too: select a vertex and press Delete (or use the toolbar button / context menu) — incoming links are stripped from other notes, children are re-parented, the note goes to the Obsidian trash, and Undo last vertex deletion restores everything byte-for-byte.",
+  description: "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus. Manual edges: select the first node with a left click, then Ctrl+left-click the second — the link arc is drawn automatically. Nodes are deleted from the graph too: select a vertex and press Delete (or use the toolbar button / context menu) — incoming links are stripped from other notes, children are re-parented, the note goes to the Obsidian trash, and Undo last vertex deletion restores everything byte-for-byte. Duplicate vertices are merged intelligently (fuzzy titles, translations, content, keywords and shared links; the same topic in different chapters or under different numbers is never auto-merged) — per-vertex or all at once from the empty-canvas menu, with a preview window and undo.",
   author: "Arena agent",
   authorUrl: "",
   isDesktopOnly: false,

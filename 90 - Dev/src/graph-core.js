@@ -3672,8 +3672,15 @@
   function mergeBodyCore(node) {
     var name = normPhrase((node && (node.name || node.stem)) || "");
     var zh = normPhrase((node && node.nameZh) || "");
-    var body = splitKeywordRegion((node && node.body) || "").outside.replace(/\r\n/g, "\n");
-    body = removeHeadingSection(body, RELATED_HEADING);
+    var rawBody = String((node && node.body) || "").replace(/\r\n/g, "\n");
+    var cut = splitKeywordRegion(rawBody);
+    // Related вырезаем только из части ДО региона фраз: «хвост» после региона
+    // (якорь/абзац, дописанные в конец файла) — обычное содержимое, а не Related
+    var beforePart = cut.at >= 0 ? rawBody.slice(0, cut.at) : rawBody;
+    var afterPart = cut.at >= 0 ? rawBody.slice(cut.end >= 0 ? cut.end : rawBody.length) : "";
+    var cleanedBefore = removeHeadingSection(beforePart, RELATED_HEADING).replace(/\s+$/g, "");
+    var cleanedAfter = afterPart.replace(/^\s+|\s+$/g, "");
+    var body = [cleanedBefore, cleanedAfter].filter(function (x) { return x !== ""; }).join("\n\n");
     var lines = body.split("\n");
     while (lines.length && !lines[0].trim()) lines.shift();
     if (lines.length && /^#\s+/.test(lines[0])) {
@@ -3691,7 +3698,157 @@
       lines.shift();
       while (lines.length && !lines[0].trim()) lines.shift();
     }
+    // шаблонный абзац новых узлов («Узел создан из окна графа…») — не содержимое:
+    // иначе все свежие MN-вершины «похожи» друг на друга по тексту-заглушке
+    lines = lines.filter(function (l) { return l.indexOf("Узел создан из окна графа") < 0; });
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
     return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  /* --- интеллектуальный поиск дубликатов: нормалки, нечёткое сравнение, множества --- */
+
+  function dupNormTitle(s) {
+    var t = String(s == null ? "" : s).toLowerCase();
+    if (t.normalize) {
+      try { t = t.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (e) { /* noop */ }
+    }
+    return t.replace(/[^a-z0-9\u4e00-\u9fff]+/g, " ").replace(/\s+/g, " ").trim();
+  }
+
+  function dupTitleTokens(norm) {
+    var parts = String(norm || "").match(/[a-z0-9]+|[\u4e00-\u9fff]/g) || [];
+    var seen = {}, out = [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      // одиночные латинские буквы — шум («a», «of» без «o»/«f» по отдельности не бывает),
+      // а одиночные цифры значимы: «1.1.1a» и «6.1.1a» — разные позиции курса
+      if (p.length <= 1 && !/[\u4e00-\u9fff0-9]/.test(p)) continue;
+      if (seen[p]) continue;
+      seen[p] = true;
+      out.push(p);
+    }
+    return out;
+  }
+
+  function levDist(a, b, limit) {
+    a = String(a || ""); b = String(b || "");
+    if (a === b) return 0;
+    var la = a.length, lb = b.length;
+    if (!la) return lb;
+    if (!lb) return la;
+    if (limit !== undefined && Math.abs(la - lb) > limit) return limit + 1;
+    var prev = new Array(lb + 1), cur = new Array(lb + 1), j, i;
+    for (j = 0; j <= lb; j++) prev[j] = j;
+    for (i = 1; i <= la; i++) {
+      cur[0] = i;
+      var rowMin = i;
+      var ca = a.charCodeAt(i - 1);
+      for (j = 1; j <= lb; j++) {
+        var cost = ca === b.charCodeAt(j - 1) ? 0 : 1;
+        var v = prev[j] + 1;
+        var ins = cur[j - 1] + 1;
+        if (ins < v) v = ins;
+        var sub = prev[j - 1] + cost;
+        if (sub < v) v = sub;
+        cur[j] = v;
+        if (v < rowMin) rowMin = v;
+      }
+      if (limit !== undefined && rowMin > limit) return limit + 1;
+      var tmp = prev; prev = cur; cur = tmp;
+    }
+    return prev[lb];
+  }
+
+  function dupTitleSim(normA, normB, tokA, tokB) {
+    if (!normA || !normB) return 0;
+    if (normA === normB) return 1;
+    var j = 0;
+    if (tokA && tokB && tokA.length && tokB.length) {
+      var map = {}, hit = 0, union = tokA.length, i;
+      for (i = 0; i < tokA.length; i++) map[tokA[i]] = 1;
+      for (i = 0; i < tokB.length; i++) {
+        if (map[tokB[i]] === 1) hit++;
+        else union++;
+        map[tokB[i]] = 2;
+      }
+      j = union ? hit / union : 0;
+      if (j >= 1) return 1;
+      // общих токенов почти нет — названия заведомо разные, Левенштейн не нужен
+      if (j < 0.15) return j;
+    }
+    var maxLen = Math.max(normA.length, normB.length);
+    if (!maxLen || maxLen > 140) return j;
+    var limit = Math.floor(maxLen * 0.4) + 1;
+    var d = levDist(normA, normB, limit);
+    var c = d <= limit ? 1 - d / maxLen : 0;
+    return Math.max(j, c);
+  }
+
+  function dupSetStats(setA, setB) {
+    var empty = { hit: 0, jaccard: 0, containment: 0 };
+    if (!setA || !setB || !setA.length || !setB.length) return empty;
+    var map = {}, i, hit = 0;
+    for (i = 0; i < setA.length; i++) map[setA[i]] = 1;
+    for (i = 0; i < setB.length; i++) {
+      if (map[setB[i]] === 1) { hit++; map[setB[i]] = 2; }
+      else if (!map[setB[i]]) map[setB[i]] = 2;
+    }
+    var union = setA.length + setB.length - hit;
+    return {
+      hit: hit,
+      jaccard: union ? hit / union : 0,
+      containment: hit / Math.min(setA.length, setB.length),
+    };
+  }
+
+  function dupKeywordSet(node) {
+    var out = [], seen = {};
+    var list = parseKeywords(
+      node && node.data ? node.data.keywords_en : (node && node.keywords) || [],
+      node && node.data ? node.data.keywords : null
+    );
+    // keywords уже лежат в node.keywords у построенного графа — добираем и оттуда
+    if (node && node.keywords && node.keywords.length) {
+      for (var k = 0; k < node.keywords.length; k++) list.push(node.keywords[k]);
+    }
+    for (var i = 0; i < list.length; i++) {
+      var nk = dupNormTitle(list[i]);
+      if (!nk || seen[nk]) continue;
+      seen[nk] = true;
+      out.push(nk);
+    }
+    return out;
+  }
+
+  function dupLinkSet(node) {
+    var out = [], seen = {};
+    var links = (node && node.links) || [];
+    for (var i = 0; i < links.length; i++) {
+      var p = String(links[i] && links[i].path || "").trim();
+      if (!p) continue;
+      var k = stemOf(p).toLowerCase();
+      if (!k || seen[k]) continue;
+      seen[k] = true;
+      out.push(k);
+    }
+    return out;
+  }
+
+  function dupAliasSet(node) {
+    var out = [], seen = {};
+    var raw = [];
+    var av = node && node.data ? node.data.aliases : null;
+    if (Object.prototype.toString.call(av) === "[object Array]") raw = raw.concat(av);
+    else if (av !== undefined && av !== null && av !== "") raw.push(av);
+    raw.push(node && node.id, node && node.stem);
+    for (var i = 0; i < raw.length; i++) {
+      var k = String(raw[i] == null ? "" : raw[i]).trim().toLowerCase();
+      if (!k || seen[k]) continue;
+      seen[k] = true;
+      out.push(k);
+    }
+    return out;
   }
 
   function duplicateTokens(text) {
@@ -3734,53 +3891,160 @@
 
   function duplicateProfile(node) {
     var body = dupNormText(mergeBodyCore(node));
+    var titleRaw = (node && node.name) || (node && node.stem) || "";
+    var zhRaw = (node && node.nameZh) || "";
+    var titleNorm = dupNormTitle(titleRaw);
+    var zhNorm = dupNormTitle(zhRaw);
     return {
-      title: normPhrase((node && node.name) || (node && node.stem) || ""),
-      titleZh: normPhrase((node && node.nameZh) || ""),
+      title: normPhrase(titleRaw),
+      titleZh: normPhrase(zhRaw),
+      titleNorm: titleNorm,
+      zhNorm: zhNorm,
+      titleTokens: dupTitleTokens(titleNorm),
+      zhTokens: dupTitleTokens(zhNorm),
       body: body,
       bodyLen: body.length,
+      bodyTokens: duplicateTokens(body),
       keywords: duplicateKeywordsKey(node),
+      kwSet: dupKeywordSet(node),
+      linkSet: dupLinkSet(node),
+      aliasSet: dupAliasSet(node),
       manual: /^MN-\d+$/.test(String((node && node.id) || "")),
     };
   }
 
+  function dupTitleNumbers(norm) {
+    return (String(norm || "").match(/[0-9]+[a-z]?/g) || []).join(" ");
+  }
+
   function duplicateScore(a, b, opts) {
     var cfg = merge(DEFAULTS, opts || {});
-    if (!a || !b || a === b || a.inline || b.inline) return { match: false, score: 0, contentScore: 0, reasons: [] };
-    if (a.type !== b.type) return { match: false, score: 0, contentScore: 0, reasons: ["different-type"] };
+    var empty = { match: false, score: 0, contentScore: 0, titleSim: 0, zhSim: 0, containment: 0, kwOverlap: 0, linkOverlap: 0, reasons: [] };
+    if (!a || !b || a === b || a.inline || b.inline) return empty;
+    if (a.type !== b.type) return { match: false, score: 0, contentScore: 0, titleSim: 0, zhSim: 0, containment: 0, kwOverlap: 0, linkOverlap: 0, reasons: ["different-type"] };
     var pa = a._dupProfile || (a._dupProfile = duplicateProfile(a));
     var pb = b._dupProfile || (b._dupProfile = duplicateProfile(b));
     var sameTitle = !!pa.title && pa.title === pb.title;
     var sameZh = !!pa.titleZh && pa.titleZh === pb.titleZh;
-    var sameBody = pa.bodyLen >= 80 && pa.body === pb.body && !!pa.body;
-    var bodySim = sameBody ? 1 : duplicateJaccard(pa.body, pb.body);
+    var homeA0 = a.chapter || (a.type === "chapter" ? a.id : null);
+    var homeB0 = b.chapter || (b.type === "chapter" ? b.id : null);
+    var manual0 = /^MN-\d+$/.test(String(a.id || "")) || /^MN-\d+$/.test(String(b.id || ""));
+    // Одна и та же тема в разных главах — штатная структура курса, а не дубликат.
+    // Проверяем ДО дорогих Левенштейна/Жаккара: таких пар тысячи, и все мимо.
+    if (homeA0 && homeB0 && homeA0 !== homeB0 && !manual0 && a.type !== "chapter") {
+      var es = 0.18, er = [];
+      if (sameTitle) { es += 0.44; er.push("same-title"); }
+      if (sameZh) { es += 0.12; er.push("same-title-zh"); }
+      er.push("different-chapter");
+      return {
+        match: false, score: Math.round(es * 1000) / 1000, contentScore: 0,
+        titleSim: sameTitle ? 1 : 0, zhSim: sameZh ? 1 : 0, containment: 0,
+        kwOverlap: 0, linkOverlap: 0, reasons: er,
+      };
+    }
+    // Номера в названии («Proposition 1.1.1a» vs «Proposition 6.1.1a») — это позиция
+    // в курсе, а не опечатка: одинаковая тема под разными номерами — разные вершины.
+    // Исключение — побайтово одинаковое содержимое (тогда смотрим остальные сигналы).
+    var numA = dupTitleNumbers(pa.titleNorm);
+    var numB = dupTitleNumbers(pb.titleNorm);
+    var sameBodyEarly = pa.bodyLen >= 80 && !!pa.body && pa.body === pb.body;
+    if (numA && numB && numA !== numB && !sameBodyEarly) {
+      var ns = 0.18, nr = [];
+      if (sameTitle) { ns += 0.44; nr.push("same-title"); }
+      if (sameZh) { ns += 0.12; nr.push("same-title-zh"); }
+      nr.push("different-numbers");
+      return {
+        match: false, score: Math.round(ns * 1000) / 1000, contentScore: 0,
+        titleSim: sameTitle ? 1 : 0, zhSim: sameZh ? 1 : 0, containment: 0,
+        kwOverlap: 0, linkOverlap: 0, reasons: nr,
+      };
+    }
+    var titleSim = sameTitle ? 1 : dupTitleSim(pa.titleNorm, pb.titleNorm, pa.titleTokens, pb.titleTokens);
+    if (!sameTitle && pa.titleNorm && pa.titleNorm === pb.titleNorm) { sameTitle = true; titleSim = 1; }
+    var zhSim = sameZh ? 1 : dupTitleSim(pa.zhNorm, pb.zhNorm, pa.zhTokens, pb.zhTokens);
+    if (!sameZh && pa.zhNorm && pa.zhNorm === pb.zhNorm) { sameZh = true; zhSim = 1; }
+    var sameBody = pa.bodyLen >= 80 && !!pa.body && pa.body === pb.body;
+    var bodyStats = dupSetStats(pa.bodyTokens, pb.bodyTokens);
+    var bodySim = sameBody ? 1 : bodyStats.jaccard;
+    var containment = sameBody ? 1 : bodyStats.containment;
     var sameKeywords = !!pa.keywords && pa.keywords === pb.keywords;
+    var kwStats = dupSetStats(pa.kwSet, pb.kwSet);
+    var kwOverlap = sameKeywords ? 1 : kwStats.jaccard;
+    var linkStats = dupSetStats(pa.linkSet, pb.linkSet);
+    var linkOverlap = linkStats.jaccard;
+    var aliasOverlap = dupSetStats(pa.aliasSet, pb.aliasSet).hit > 0;
     var sameParent = !!a.parent && a.parent === b.parent;
     var homeA = a.chapter || (a.type === "chapter" ? a.id : null);
     var homeB = b.chapter || (b.type === "chapter" ? b.id : null);
     var sameChapter = !!homeA && homeA === homeB;
+    var differentChapter = !!homeA && !!homeB && homeA !== homeB;
     var manual = pa.manual || pb.manual;
-    var score = 0;
+    var score = 0.18;
     var reasons = [];
-    score += 0.18;
     if (sameTitle) { score += 0.44; reasons.push("same-title"); }
+    else if (titleSim >= 0.92) { score += 0.38; reasons.push("similar-title:" + Math.round(titleSim * 100) + "%"); }
+    else if (titleSim >= 0.8) { score += 0.28; reasons.push("similar-title:" + Math.round(titleSim * 100) + "%"); }
+    else if (titleSim >= 0.68) { score += 0.15; reasons.push("similar-title:" + Math.round(titleSim * 100) + "%"); }
     if (sameZh) { score += 0.12; reasons.push("same-title-zh"); }
+    else if (zhSim >= 0.92) { score += 0.1; reasons.push("similar-title-zh:" + Math.round(zhSim * 100) + "%"); }
+    else if (zhSim >= 0.8) { score += 0.07; reasons.push("similar-title-zh:" + Math.round(zhSim * 100) + "%"); }
+    var bodyBase = Math.min(pa.bodyLen || 0, pb.bodyLen || 0);
     if (sameBody) { score += 0.62; reasons.push("same-content"); }
+    else if (containment >= 0.92 && bodyBase >= 100) { score += 0.5; reasons.push("content-contains:" + Math.round(containment * 100) + "%"); }
     else if (bodySim >= 0.34) { score += Math.min(0.34, bodySim * 0.34); reasons.push("content-similarity:" + Math.round(bodySim * 100) + "%"); }
+    else if (containment >= 0.6 && bodyBase >= 120) { score += 0.18; reasons.push("content-overlap:" + Math.round(containment * 100) + "%"); }
     if (sameKeywords) { score += 0.08; reasons.push("same-keywords"); }
+    else if (pa.kwSet.length && pb.kwSet.length) {
+      if (kwOverlap >= 0.6) { score += 0.07; reasons.push("shared-keywords:" + Math.round(kwOverlap * 100) + "%"); }
+      else if (kwOverlap >= 0.4) { score += 0.05; reasons.push("shared-keywords:" + Math.round(kwOverlap * 100) + "%"); }
+      else if (kwOverlap >= 0.25) { score += 0.03; reasons.push("shared-keywords:" + Math.round(kwOverlap * 100) + "%"); }
+    }
+    if (pa.linkSet.length && pb.linkSet.length) {
+      if (linkOverlap >= 0.6) { score += 0.1; reasons.push("shared-links:" + Math.round(linkOverlap * 100) + "%"); }
+      else if (linkOverlap >= 0.4) { score += 0.06; reasons.push("shared-links:" + Math.round(linkOverlap * 100) + "%"); }
+      else if (linkOverlap >= 0.25) { score += 0.03; reasons.push("shared-links:" + Math.round(linkOverlap * 100) + "%"); }
+    }
+    if (aliasOverlap) { score += 0.1; reasons.push("shared-alias"); }
     if (sameParent) { score += 0.08; reasons.push("same-parent"); }
     if (sameChapter) { score += 0.05; reasons.push("same-chapter"); }
     if (manual) { score += 0.12; reasons.push("manual-node"); }
-    var bodyBase = Math.min(pa.bodyLen || 0, pb.bodyLen || 0);
+    var titleHit = sameTitle || titleSim >= 0.85;
+    var zhHit = sameZh || zhSim >= 0.85;
     var strongContent =
-      (sameBody && (sameTitle || sameZh || sameKeywords)) ||
-      (bodyBase >= 160 && bodySim >= 0.9 && (sameKeywords || sameTitle || sameZh));
-    var match =
-      (sameTitle && (sameZh || bodySim >= 0.34 || manual || sameKeywords || sameParent)) ||
-      strongContent ||
-      (score >= 0.9 && (sameTitle || sameZh || strongContent));
-    if (!sameTitle && !sameZh && !strongContent) match = false;
-    return { match: !!match, score: Math.round(score * 1000) / 1000, contentScore: Math.round(bodySim * 1000) / 1000, reasons: reasons };
+      (sameBody && (sameTitle || sameZh || sameKeywords || titleHit || zhHit || titleSim >= 0.68 || zhSim >= 0.68)) ||
+      (bodyBase >= 160 && bodySim >= 0.9 && (sameKeywords || sameTitle || sameZh || titleHit || zhHit || kwOverlap >= 0.4)) ||
+      (bodyBase >= 120 && containment >= 0.88 && (sameKeywords || kwOverlap >= 0.4 || titleHit || zhHit)) ||
+      (bodyBase >= 100 && bodySim >= 0.8 && (titleHit || zhHit)) ||
+      (bodyBase >= 200 && bodySim >= 0.9 && kwOverlap >= 0.5);
+    // Точное совпадение названия под одним родителем — дубликат; для НЕЧЁТКОГО
+    // совпадения («Estimate»/«Example») одного родителя мало — нужны перевод,
+    // содержимое, фразы или связи, иначе схлопнутся соседние блоки курса.
+    var fuzzyTitle = !sameTitle && titleHit;
+    var matchTitle =
+      (sameTitle && (zhHit || bodySim >= 0.34 || containment >= 0.6 || manual || sameKeywords || kwOverlap >= 0.3 || sameParent || linkOverlap >= 0.4 || aliasOverlap)) ||
+      (fuzzyTitle && (zhHit || bodySim >= 0.34 || containment >= 0.6 || manual || sameKeywords || kwOverlap >= 0.3 || linkOverlap >= 0.4 || aliasOverlap));
+    var match = matchTitle || strongContent || (score >= 0.95 && (titleHit || zhHit || strongContent));
+    if (!titleHit && !zhHit && !strongContent) match = false;
+    return {
+      match: !!match, score: Math.round(score * 1000) / 1000,
+      contentScore: Math.round(bodySim * 1000) / 1000,
+      titleSim: Math.round(titleSim * 1000) / 1000, zhSim: Math.round(zhSim * 1000) / 1000,
+      containment: Math.round(containment * 1000) / 1000,
+      kwOverlap: Math.round(kwOverlap * 1000) / 1000, linkOverlap: Math.round(linkOverlap * 1000) / 1000,
+      reasons: reasons,
+    };
+  }
+
+  function duplicateRichness(node) {
+    var body = String((node && node.body) || "");
+    var score = 0;
+    var math = body.match(/\$\$/g) || [];
+    if (math.length >= 2) score += 3;
+    var heads = body.match(/^#{1,6}\s+\S/mg) || [];
+    score += Math.min(2, heads.length);
+    var items = body.match(/^\s*(?:[-*+]|\d+\.)\s+\S/mg) || [];
+    score += Math.min(2, Math.round(items.length / 2));
+    return score;
   }
 
   function duplicateKeeperScore(node) {
@@ -3788,14 +4052,19 @@
     var p = node._dupProfile || (node._dupProfile = duplicateProfile(node));
     var score = 0;
     if (!node.isPlaceholder) score += 8;
+    if (String(node.status || "") === "draft") score += 2;
     if (node.caption) score += 4;
     if (node.nameZh) score += 2;
+    if ((node.kwWeight || 0) > 0) score += 2;
+    var aliasCount = node.data && Object.prototype.toString.call(node.data.aliases) === "[object Array]" ? node.data.aliases.length : 0;
+    if (aliasCount > 1) score += 1;
     if (p.manual) score -= 6;
     else score += 8;
     score += Math.min(8, Math.round((node.degree || 0) / 3));
     score += Math.min(8, Math.round(p.bodyLen / 80));
     score += Math.min(4, (node.keywords || []).length);
     if (node.outCount) score += Math.min(3, Math.round(node.outCount / 4));
+    score += duplicateRichness(node);
     return score;
   }
 
@@ -3816,19 +4085,74 @@
     return arr[0] || null;
   }
 
+  var DUP_STOP = { and: 1, the: 1, of: 1, for: 1, with: 1, from: 1, into: 1, that: 1, this: 1, are: 1, was: 1, were: 1, has: 1, have: 1, had: 1, but: 1, not: 1, per: 1, via: 1 };
+
+  function dupConfidenceOf(score, sameTitle, sameBody) {
+    if (sameTitle && sameBody) return "high";
+    if (score >= 1) return "high";
+    if (score >= 0.7) return "medium";
+    return "low";
+  }
+
   function findDuplicateGroups(graph, opts) {
     var cfg = merge(DEFAULTS, opts || {});
     var nodes = ((graph && graph.nodes) || []).filter(function (n) { return n && !n.inline; });
     nodes.forEach(function (n) { n._dupProfile = duplicateProfile(n); n.duplicateOf = null; n.duplicateGroup = null; n.duplicateReasons = []; });
-    var titleBuckets = {}, zhBuckets = {}, bodyBuckets = {};
-    function push(map, key, node) {
+    var MAX_BUCKET = 80;
+    var buckets = {};
+    function push(key, node) {
       if (!key) return;
-      (map[key] || (map[key] = [])).push(node);
+      var arr = buckets[key] || (buckets[key] = []);
+      // слишком частые ключи («definition», «proposition») — не блокировка, а шум
+      if (arr.length >= MAX_BUCKET) { arr.overflow = true; return; }
+      arr.push(node);
     }
+    // частоты токенов содержимого: блокируемся по самым редким — так находятся пары
+    // с разным названием, но одинаковым текстом
+    var bodyFreq = {};
     nodes.forEach(function (n) {
-      push(titleBuckets, n.type + "\u0000" + n._dupProfile.title, n);
-      push(zhBuckets, n.type + "\u0000" + n._dupProfile.titleZh, n);
-      if (n._dupProfile.bodyLen >= 80) push(bodyBuckets, n.type + "\u0000" + n._dupProfile.body, n);
+      var toks = n._dupProfile.bodyTokens || [];
+      for (var i = 0; i < toks.length; i++) bodyFreq[toks[i]] = (bodyFreq[toks[i]] || 0) + 1;
+    });
+    nodes.forEach(function (n) {
+      var p = n._dupProfile;
+      var pre = n.type + "\u0000";
+      push(pre + "t\u0000" + p.titleNorm, n);
+      push(pre + "z\u0000" + p.zhNorm, n);
+      if (p.bodyLen >= 80) push(pre + "b\u0000" + p.body, n);
+      var seenTok = {};
+      (p.titleTokens || []).forEach(function (t) {
+        if (seenTok[t]) return;
+        seenTok[t] = true;
+        if (t.length < 2) return;
+        if (DUP_STOP[t]) return;
+        push(pre + "tok\u0000" + t, n);
+      });
+      // китайские названия блокируем по биграммам: одиночный иероглиф («空», «间»)
+      // встречается в половине заголовков и даёт тысячи пар, а биграмма точна
+      var zhWords = String(p.zhNorm || "").split(" ");
+      for (var zw = 0; zw < zhWords.length; zw++) {
+        var w = zhWords[zw];
+        if (!w) continue;
+        if (/^[a-z0-9]+$/.test(w)) {
+          if (w.length >= 2 && !DUP_STOP[w] && !seenTok[w]) { seenTok[w] = true; push(pre + "tok\u0000" + w, n); }
+          continue;
+        }
+        for (var zc = 0; zc + 1 < w.length; zc++) {
+          var bg = w.charAt(zc) + w.charAt(zc + 1);
+          if (!/[\u4e00-\u9fff]/.test(bg)) continue;
+          var k = "zbg\u0000" + bg;
+          if (seenTok[k]) continue;
+          seenTok[k] = true;
+          push(pre + k, n);
+        }
+      }
+      (p.kwSet || []).forEach(function (k) { push(pre + "kw\u0000" + k, n); });
+      if (n.parent) push(pre + "par\u0000" + n.parent, n);
+      var rare = (p.bodyTokens || []).slice().sort(function (x, y) {
+        return (bodyFreq[x] || 0) - (bodyFreq[y] || 0);
+      }).slice(0, 2);
+      rare.forEach(function (t) { push(pre + "rare\u0000" + t, n); });
     });
     var pairKeys = {};
     var pairs = [];
@@ -3839,13 +4163,11 @@
       pairKeys[ka] = true;
       pairs.push([a, b]);
     }
-    [titleBuckets, zhBuckets, bodyBuckets].forEach(function (map) {
-      Object.keys(map).forEach(function (k) {
-        var arr = map[k];
-        if (!arr || arr.length < 2) return;
-        for (var i = 0; i < arr.length; i++)
-          for (var j = i + 1; j < arr.length; j++) addPair(arr[i], arr[j]);
-      });
+    Object.keys(buckets).forEach(function (k) {
+      var arr = buckets[k];
+      if (!arr || arr.length < 2 || arr.overflow) return;
+      for (var i = 0; i < arr.length; i++)
+        for (var j = i + 1; j < arr.length; j++) addPair(arr[i], arr[j]);
     });
     var parent = {}, rank = {}, matchInfo = {};
     nodes.forEach(function (n) { parent[n.id] = n.id; rank[n.id] = 0; });
@@ -3880,7 +4202,8 @@
       var keep = pickDuplicateKeeper(arr);
       var drop = arr.filter(function (n) { return n.id !== keep.id; }).sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; });
       var reasons = {};
-      var maxScore = 0, maxContent = 0;
+      var maxScore = 0, maxContent = 0, maxTitle = 0, maxContain = 0;
+      var hasSameTitle = false, hasSameBody = false;
       drop.forEach(function (n) {
         var key = keep.id < n.id ? keep.id + "\u0000" + n.id : n.id + "\u0000" + keep.id;
         var info = matchInfo[key] || duplicateScore(keep, n, cfg);
@@ -3890,6 +4213,10 @@
         info.reasons.forEach(function (x) { reasons[x] = true; });
         if (info.score > maxScore) maxScore = info.score;
         if (info.contentScore > maxContent) maxContent = info.contentScore;
+        if ((info.titleSim || 0) > maxTitle) maxTitle = info.titleSim;
+        if ((info.containment || 0) > maxContain) maxContain = info.containment;
+        if (info.reasons.indexOf("same-title") >= 0) hasSameTitle = true;
+        if (info.reasons.indexOf("same-content") >= 0) hasSameBody = true;
       });
       keep.duplicateGroup = keep.id;
       keep.duplicateOf = null;
@@ -3902,6 +4229,9 @@
         reasons: Object.keys(reasons).sort(),
         score: Math.round(maxScore * 1000) / 1000,
         contentScore: Math.round(maxContent * 1000) / 1000,
+        titleSim: Math.round(maxTitle * 1000) / 1000,
+        containment: Math.round(maxContain * 1000) / 1000,
+        confidence: dupConfidenceOf(maxScore, hasSameTitle, hasSameBody),
       });
     });
     groups.sort(function (a, b) {
@@ -3925,11 +4255,27 @@
     return [String(v).trim()].filter(Boolean);
   }
 
+  function mergeTagList(into, v) {
+    var seen = into._seen || (into._seen = {});
+    var add = function (x) {
+      var t = String(x == null ? "" : x).trim().replace(/^#+/, "").trim();
+      if (!t || seen[t.toLowerCase()]) return;
+      seen[t.toLowerCase()] = true;
+      into.push(t);
+    };
+    if (Object.prototype.toString.call(v) === "[object Array]") v.forEach(add);
+    else if (v !== undefined && v !== null && v !== "") String(v).split(/[,;\s]+/).forEach(add);
+    return into;
+  }
+
   function mergedNodePatch(keep, dropNodes, opts) {
     var cfg = merge(DEFAULTS, opts || {});
     var arr = (dropNodes || []).filter(Boolean);
     var aliases = {};
+    var altNames = [];
     listAliases(keep && keep.data ? keep.data.aliases : []).concat([keep && keep.id, keep && keep.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+    var tags = [];
+    if (keep && keep.data) mergeTagList(tags, keep.data.tags);
     var keywords = {};
     var patch = {};
     var order = [];
@@ -3952,6 +4298,10 @@
     var caption = keep && keep.caption ? keep.caption : null;
     arr.forEach(function (n) {
       listAliases(n && n.data ? n.data.aliases : []).concat([n.id, n.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+      // альтернативные названия дублей — в aliases, чтобы заметка находилась по любому из них
+      if (n.name && n.name !== (keep && keep.name) && !aliases[n.name]) { aliases[n.name] = true; altNames.push(n.name); }
+      if (n.nameZh && n.nameZh !== (keep && keep.nameZh) && !aliases[n.nameZh]) { aliases[n.nameZh] = true; altNames.push(n.nameZh); }
+      if (n.data) mergeTagList(tags, n.data.tags);
       takeKeyword(n);
       if ((!name || /^untitled$/i.test(name)) && n.name) name = n.name;
       if (!zh && n.nameZh) zh = n.nameZh;
@@ -3963,6 +4313,7 @@
       if (!caption && n.caption) caption = n.caption;
     });
     patch.aliases = Object.keys(aliases).sort();
+    if (tags.length) patch.tags = tags.slice().sort(function (a, b) { return a.toLowerCase() < b.toLowerCase() ? -1 : 1; });
     patch[cfg.keywordsKey || "keywords_en"] = order.length ? order.join("; ") : "";
     patch[cfg.weightKey || "weight"] = "";
     if (name) patch[cfg.nameKey || "name"] = name;
@@ -4009,18 +4360,87 @@
     return { text: out, anchorMap: map };
   }
 
+  function splitMergeParagraphs(text) {
+    var chunks = String(text == null ? "" : text).replace(/\r\n/g, "\n").split(/\n\s*\n/);
+    var out = [];
+    chunks.forEach(function (c) {
+      var t = String(c || "").replace(/^\s+|\s+$/g, "");
+      if (!t) return;
+      var lines = t.split("\n");
+      var isList = lines.length > 1 && lines.every(function (l) { return /^\s*(?:[-*+]|\d+\.)\s+\S/.test(l) || !l.trim(); });
+      if (isList) {
+        lines.forEach(function (l) {
+          var s = l.replace(/^\s+|\s+$/g, "");
+          if (s) out.push(s);
+        });
+        return;
+      }
+      out.push(t);
+    });
+    return out;
+  }
+
+  function paraTokensLower(norm) {
+    var parts = String(norm || "").toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]/g) || [];
+    var seen = {}, out = [];
+    for (var i = 0; i < parts.length; i++) {
+      if (seen[parts[i]]) continue;
+      seen[parts[i]] = true;
+      out.push(parts[i]);
+    }
+    return out;
+  }
+
+  function paraSimilarity(aNorm, bNorm) {
+    if (!aNorm || !bNorm) return 0;
+    if (aNorm === bNorm) return 1;
+    var st = dupSetStats(paraTokensLower(aNorm), paraTokensLower(bNorm));
+    if (st.jaccard >= 0.92) return st.jaccard;
+    var maxLen = Math.max(aNorm.length, bNorm.length);
+    if (maxLen > 400) return st.jaccard;
+    var limit = Math.floor(maxLen * 0.2) + 1;
+    var d = levDist(aNorm.toLowerCase(), bNorm.toLowerCase(), limit);
+    var c = d <= limit ? 1 - d / maxLen : 0;
+    return Math.max(st.jaccard, c);
+  }
+
   function mergeNodeBodies(keep, drop, opts) {
     var base = splitKeywordRegion((keep && keep.body) || "").outside.replace(/\s+$/g, "");
     var add = mergeBodyCore(drop);
-    if (!add) return { body: base ? base + "\n" : "", anchorMap: {}, appended: false };
+    var emptyBase = base ? base + "\n" : "";
+    if (!add) return { body: emptyBase, anchorMap: {}, appended: false, kept: 0, skipped: 0 };
     var ren = renameAnchorsForMerge(base, add, drop && drop.id);
     add = ren.text.replace(/\s+$/g, "");
-    var same = dupNormText(mergeBodyCore(keep)) && dupNormText(mergeBodyCore(keep)) === dupNormText(mergeBodyCore(drop));
-    if (same || (add && dupNormText(base).indexOf(dupNormText(add)) >= 0)) return { body: (base ? base + "\n" : ""), anchorMap: ren.anchorMap, appended: false };
+    var baseNorm = dupNormText(base);
+    var addNorm = dupNormText(add);
+    if (!addNorm) return { body: emptyBase, anchorMap: ren.anchorMap, appended: false, kept: 0, skipped: 0 };
+    if (baseNorm === addNorm || (addNorm && baseNorm.indexOf(addNorm) >= 0)) {
+      return { body: emptyBase, anchorMap: ren.anchorMap, appended: false, kept: 0, skipped: 1 };
+    }
+    // поабзацно: переносим только то, чего ещё нет в keeper (списки — по пунктам)
+    var baseParas = splitMergeParagraphs(base).map(function (p) { return { text: p, norm: dupNormText(p) }; });
+    var baseExact = {};
+    baseParas.forEach(function (p) { if (p.norm) baseExact[p.norm] = true; });
+    var incoming = splitMergeParagraphs(add);
+    var fresh = [];
+    var skipped = 0;
+    incoming.forEach(function (p) {
+      var norm = dupNormText(p);
+      if (!norm) return;
+      if (baseExact[norm]) { skipped++; return; }
+      for (var i = 0; i < baseParas.length; i++) {
+        if (!baseParas[i].norm) continue;
+        if (paraSimilarity(baseParas[i].norm, norm) >= 0.92) { skipped++; return; }
+      }
+      baseExact[norm] = true;
+      baseParas.push({ text: p, norm: norm });
+      fresh.push(p);
+    });
+    if (!fresh.length) return { body: emptyBase, anchorMap: ren.anchorMap, appended: false, kept: 0, skipped: skipped };
     var block = "## Duplicate material merged from " + ((drop && drop.id) || "duplicate") +
       "\n\n> merged automatically from duplicate note \"" + sanitizeLabel((drop && (drop.name || drop.stem)) || "duplicate") +
-      "\" (`" + String((drop && drop.path) || "") + "`).\n\n" + add;
-    return { body: (base ? base + "\n\n" : "") + block.replace(/\s+$/g, "") + "\n", anchorMap: ren.anchorMap, appended: true };
+      "\" (`" + String((drop && drop.path) || "") + "`).\n\n" + fresh.join("\n\n");
+    return { body: (base ? base + "\n\n" : "") + block.replace(/\s+$/g, "") + "\n", anchorMap: ren.anchorMap, appended: true, kept: fresh.length, skipped: skipped };
   }
 
   function retargetLinks(text, replacements, opts) {
@@ -4109,6 +4529,22 @@
     }).map(function (n) {
       return { id: n.id, path: n.path, type: n.type, name: n.name, parent: n.parent, chapter: n.chapter };
     });
+    var warnings = [];
+    if (children.length) warnings.push("Детей будет перевешено на keeper: " + children.length);
+    var refLinks = refs.reduce(function (s, r) { return s + (r.links || 0); }, 0);
+    if (refs.length > 10 || refLinks > 25) warnings.push("Много входящих ссылок будет переписано: " + refLinks + " в " + refs.length + " заметках");
+    var diffParent = drop.some(function (n) { return (n.parent || "") !== (keep.parent || ""); });
+    if (diffParent) warnings.push("Родители различаются — уцелеет parent keeper «" + (keep.parent || "—") + "»");
+    var keepHome = keep.chapter || (keep.type === "chapter" ? keep.id : "");
+    var diffChapter = drop.some(function (n) {
+      var h = n.chapter || (n.type === "chapter" ? n.id : "");
+      return h !== keepHome;
+    });
+    if (diffChapter) warnings.push("Главы различаются — уцелеет глава keeper «" + (keepHome || "—") + "»");
+    var capKeep = keep.caption || "";
+    if (capKeep && drop.some(function (n) { return n.caption && n.caption !== capKeep; })) {
+      warnings.push("Caption есть у нескольких вершин — тексты сообщений будут объединены");
+    }
     return {
       keep: keep,
       drop: drop,
@@ -4116,6 +4552,7 @@
       children: children,
       targets: targets,
       files: 1 + refs.length + children.length + drop.length,
+      warnings: warnings,
       patch: mergedNodePatch(keep, drop, cfg),
     };
   }
@@ -4643,6 +5080,9 @@
     dropEmptySection: dropEmptySection,
     planNodeDelete: planNodeDelete,
     planNodeMerge: planNodeMerge,
+    dupNormTitle: dupNormTitle,
+    dupTitleSim: dupTitleSim,
+    splitMergeParagraphs: splitMergeParagraphs,
     mergeBodyCore: mergeBodyCore,
     duplicateProfile: duplicateProfile,
     esc: esc,

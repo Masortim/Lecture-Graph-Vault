@@ -1991,6 +1991,126 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(plugin.lastMerge, null, "lastMerge не очищен после undo");
   });
 
+  console.log("\n== раунд 23: глобальное слияние дубликатов (пустой холст, предпросмотр) ==");
+
+  await ok("команды палитры слияния: merge / preview / undo зарегистрированы", async () => {
+    ["merge-duplicates", "merge-current-note-duplicates", "preview-duplicates", "preview-current-note-duplicates", "undo-merge-duplicates"].forEach((id) => {
+      assert.ok(plugin.commands.some((c) => c.id === id), "нет команды палитры " + id);
+    });
+  });
+
+  await ok("пустой холст: меню с глобальным слиянием и предпросмотром", async () => {
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.svg.dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 })
+      );
+      assert.ok(captured, "меню не создано");
+      const titles = captured.items.filter((i) => !i.sep).map((i) => i._t);
+      assert.ok(titles.some((t) => t && t.indexOf("Preview duplicate groups") === 0), "нет предпросмотра: " + titles.join(" | "));
+      assert.ok(titles.some((t) => t && t.indexOf("Merge all duplicate vertices") === 0), "нет глобального слияния: " + titles.join(" | "));
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+  });
+
+  await ok("вершина: меню с предпросмотром дубликатов", async () => {
+    const g = await plugin.getGraph(false);
+    const target = g._byId["Ch01"] || g.nodes[0];
+    assert.ok(target && view.nodeEls[target.id], "нет вершины для меню");
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.nodeEls[target.id].dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })
+      );
+      const titles = captured.items.filter((i) => !i.sep).map((i) => i._t);
+      assert.ok(titles.indexOf("Merge duplicates of this vertex") >= 0, "нет прямого слияния: " + titles.join(" | "));
+      assert.ok(titles.indexOf("Preview duplicates of this vertex…") >= 0, "нет предпросмотра: " + titles.join(" | "));
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+  });
+
+  await ok("предпросмотр: окно со списком групп, выбором keeper и слиянием выбранного", async () => {
+    const g0 = await plugin.getGraph(false);
+    const keeper = g0._byId["Ch02-S01-H01-B01"];
+    assert.ok(keeper, "нет базовой вершины для preview-теста");
+    const keeperRaw = fs.readFileSync(path.join(TMP, keeper.path), "utf8");
+    const d1 = "MN-81", d2 = "MN-82";
+    const p1 = "30 - Blocks/Ch02/MN-81 - Preview Dup One.md";
+    const p2 = "30 - Blocks/Ch02/MN-82 - Preview Dup Two.md";
+    const mk = (id, extra) => {
+      let raw = core.setFrontmatterValues(keeperRaw, { id: id, status: "draft", parent: keeper.parent, chapter: keeper.chapter });
+      return raw.replace(/\s*$/, "") + "\n\n" + extra + "\n";
+    };
+    await plugin.writeFile(p1, mk(d1, "First preview duplicate brings Galois theory remark about field extensions."));
+    await plugin.writeFile(p2, mk(d2, "Second preview duplicate brings spectral gap remark about expander graphs."));
+    plugin.markGraphDirty();
+    const groups = await plugin.previewDuplicateNodes({ ids: [d1, d2], silent: true });
+    assert.ok(groups && groups.length >= 1, "предпросмотр не нашёл группу");
+    const modalEl = document.querySelector(".modal .lg-merge");
+    assert.ok(modalEl, "окно предпросмотра не открылось");
+    assert.ok(modalEl.querySelector(".lg-merge__group"), "в окне нет групп");
+    const box = modalEl.querySelector('input[data-lg-group]');
+    assert.ok(box && box.checked, "нет включённого чекбокса группы");
+    const sel = modalEl.querySelector(".lg-merge__keeper select");
+    assert.ok(sel && sel.options.length >= 2, "нет выбора keeper");
+    // выбираем keeper вручную (второй дубль) и сливаем через окно
+    sel.value = d2;
+    sel.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    const btn = Array.from(modalEl.querySelectorAll(".lg-modal-btns button")).find((b) => /Merge selected/.test(b.textContent));
+    assert.ok(btn && !btn.disabled, "нет активной кнопки слияния");
+    btn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline && fs.existsSync(path.join(TMP, p1))) await new Promise((r) => setTimeout(r, 200));
+    assert.ok(!fs.existsSync(path.join(TMP, p1)), "первый дубль не удалён после слияния из окна");
+    const g2 = await plugin.getGraph(false);
+    assert.ok(g2._byId[d2], "выбранный keeper не уцелел: " + d2);
+    assert.ok(!g2._byId[d1], "первый дубль остался в графе");
+    const keptRaw = fs.readFileSync(path.join(TMP, g2._byId[d2].path), "utf8");
+    assert.ok(keptRaw.indexOf("First preview duplicate brings Galois theory remark about field extensions.") >= 0, "тело первого дубля не перенесено в keeper");
+    assert.ok(keptRaw.indexOf("Second preview duplicate brings spectral gap remark about expander graphs.") >= 0, "свое предложение keeper потеряно");
+    // Undo после слияния из окна возвращает оба файла
+    await plugin.undoDuplicateMerge();
+    assert.ok(fs.existsSync(path.join(TMP, p1)) && fs.existsSync(path.join(TMP, p2)), "undo не вернул файлы дублей");
+  });
+
+  await ok("пустой холст: после слияния в меню появляется отмена", async () => {
+    const g0 = await plugin.getGraph(false);
+    const keeper = g0._byId["Ch03-S01-H01-B01"];
+    const d = "MN-83";
+    const p = "30 - Blocks/Ch03/MN-83 - Undo Menu Dup.md";
+    const raw = core.setFrontmatterValues(fs.readFileSync(path.join(TMP, keeper.path), "utf8"),
+      { id: d, status: "draft", parent: keeper.parent, chapter: keeper.chapter }).replace(/\s*$/, "") + "\n\nUndo menu extra.\n";
+    await plugin.writeFile(p, raw);
+    plugin.markGraphDirty();
+    const res = await plugin.mergeDuplicateNodes({ ids: [d], silent: true });
+    assert.ok(res && res.merged >= 1, "слияние не сработало");
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.svg.dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 })
+      );
+      const titles = captured.items.filter((i) => !i.sep).map((i) => i._t);
+      assert.ok(titles.indexOf("Undo last duplicate merge") >= 0, "нет отмены в меню: " + titles.join(" | "));
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+    await plugin.undoDuplicateMerge();
+  });
+
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));
   console.log("временное хранилище: " + TMP);
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
