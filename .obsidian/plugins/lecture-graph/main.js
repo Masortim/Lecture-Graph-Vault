@@ -1,4 +1,4 @@
-/* lecture-graph v1.10.0 — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */
+/* lecture-graph v1.10.1 — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */
 var __LG_CORE__ = (function () {
   var module = { exports: {} };
   var exports = module.exports;
@@ -5135,6 +5135,9 @@ const ZOOM_MIN = 0.02;
 const ZOOM_MAX = 24;
 const ZOOM_STEP = 1.3; // шаг кнопок «+» и «−»
 const FONT_STEP = 1.15; // шаг кнопок A−/A+ (множитель кегля)
+// сколько ждём «устоявшегося» размера сцены при входе/выходе из полноэкранного режима:
+// переход Chromium и перекладка Obsidian длятся сотни миллисекунд
+const FULLSCREEN_SETTLE_MS = 450;
 
 const DEFAULT_SETTINGS = {
   folders: "",
@@ -5409,7 +5412,12 @@ class LectureGraphView extends obsidian.ItemView {
     this.addAction("maximize", "Fit graph to view", () => this.fit());
     this.addAction("expand", "Full screen (Esc — выйти)", () => this.toggleFullscreen());
     this.registerDomEvent(this.svg, "pointerout", (ev) => this.onHover(null));
-    this.registerDomEvent(window, "resize", () => this.fit());
+    // размер окна/листа сменился — камера обязана следовать за сценой, иначе граф
+    // останется центрированным по прежнему прямоугольнику (один fit на кадр максимум)
+    this.registerDomEvent(window, "resize", () => this.scheduleRefit());
+    // то же самое, но на уровне самой сцены: ловит и вход в полноэкранный режим
+    // (прячутся панель и легенда), и раздвижку панелей Obsidian без изменения окна
+    this.observeStage();
     // пользователь мог выйти из полноэкранного режима клавишей браузера — синхронизируемся
     this.registerDomEvent(document, "fullscreenchange", () => {
       var on = !!document.fullscreenElement;
@@ -5449,6 +5457,15 @@ class LectureGraphView extends obsidian.ItemView {
 
   onClose() {
     this.stopLoop();
+    this.stopRefit();
+    if (this._stageRO) {
+      try {
+        this._stageRO.disconnect();
+      } catch (e) {
+        /* наблюдатель уже не нужен */
+      }
+      this._stageRO = null;
+    }
     clearTimeout(this.cardTimer);
     clearTimeout(this.dragEdgesTimer);
     this.dragEdgesTimer = null;
@@ -5606,6 +5623,7 @@ class LectureGraphView extends obsidian.ItemView {
     });
 
     var stage = root.createDiv({ cls: "lg-stage" });
+    this.stageEl = stage;
     this.svg = svgEl("svg", { class: "lg-svg" });
     this.layer = svgEl("g", { class: "lg-layer" });
     this.edgesStruct = svgEl("path", { class: "lg-edges lg-edges--struct" });
@@ -5790,12 +5808,135 @@ class LectureGraphView extends obsidian.ItemView {
     }
   }
 
+  /* -------------------------------------------------- сцена и камера */
+
+  /**
+   * Реальный размер сцены — того прямоугольника, по которому центрируется граф.
+   *
+   * ВАЖНО: `clientWidth` у svg равен 0 ровно в те моменты, когда Obsidian ещё не
+   * переложил холст: вход/выход из полноэкранного режима, переключение вкладки,
+   * первый кадр после onOpen. Прежний `clientWidth || 1000` возвращал в этот
+   * момент ФАНТОМНЫЕ 1000×700, fit() центрировал граф в несуществующем окне — и на
+   * экране граф уезжал влево от центра на (W − 1000)/2: на окне 1920 px это 460 px.
+   * Поэтому размер спрашиваем у всей цепочки контейнеров (svg → сцена → корень →
+   * contentEl), а фантом остаётся последним средством — для jsdom и предпросмотра,
+   * где layout нет вовсе.
+   */
+  stageBox() {
+    var els = [this.svg, this.stageEl, this.rootEl, this.contentEl];
+    for (var i = 0; i < els.length; i++) {
+      var el = els[i];
+      if (!el) continue;
+      var w = el.clientWidth || 0;
+      var h = el.clientHeight || 0;
+      if (w > 0 && h > 0) return { w: w, h: h };
+    }
+    return { w: 1000, h: 700 };
+  }
+
   width() {
-    return (this.svg && this.svg.clientWidth) || 1000;
+    return this.stageBox().w;
   }
 
   height() {
-    return (this.svg && this.svg.clientHeight) || 700;
+    return this.stageBox().h;
+  }
+
+  /** Камера посчитана под другой размер сцены? (то, из-за чего граф «уезжает» от центра) */
+  boxChanged() {
+    var f = this._fitBox;
+    return !f || Math.abs(this.width() - f.w) > 0.5 || Math.abs(this.height() - f.h) > 0.5;
+  }
+
+  /*
+   * Пересчёт камеры ПОСЛЕ того, как сцена действительно сменила размер.
+   *
+   * Полноэкранный режим меняет и положение холста (position: fixed на всё окно),
+   * и состав chrome: панель управления и легенда прячутся, сцена становится шире и
+   * выше. Ни CSS-переход Chromium, ни перекладка Obsidian не заканчиваются в тот же
+   * кадр, что и смена класса, поэтому единственный fit() «через 30 мс» считал камеру
+   * по старому размеру: центр графа оставался центром ПРЕЖНЕЙ сцены, а на экране это
+   * выглядело ровно как жалоба — граф смещён влево от центра (на (W_new − W_old)/2).
+   *
+   * Отсюда правило: пересчитываем, пока размер не устоится три кадра подряд и не
+   * раньше заказанного срока (и не дольше ~3 с), а не по одному таймеру. Один fit на
+   * кадр максимум — на 1000+ вершинах пересборка подписей дорогая, «шторм» из fit()
+   * во время drag-resize не нужен.
+   */
+  scheduleRefit(minMs) {
+    // Срок ждущей цепочки — общий и ПРОДЛЕВАЕМЫЙ: запрос, пришедший, пока цепочка
+    // ещё жива, обязан увеличить её запас, а не потеряться. Иначе ровно этот случай
+    // и ломает центрирование: вход в полный экран случился через мгновение после
+    // другого пересчёта, цепочка со старым коротким сроком тут же вышла, и камеру
+    // больше никто не досчитал.
+    var until = Date.now() + (minMs || 0);
+    if (until > (this._refitUntil || 0)) this._refitUntil = until;
+    if (this._refitRaf != null) return this._refitRaf;
+    var self = this;
+    var stable = 0;
+    var frames = 0;
+    var step = function () {
+      self._refitRaf = null;
+      if (!self.graph || self.svg == null) {
+        self._refitUntil = 0;
+        return;
+      }
+      frames++;
+      if (self.boxChanged()) {
+        stable = 0;
+        self.fit();
+      } else {
+        stable++;
+      }
+      // раньше срока не уходим: переход полноэкранного режима может закончиться
+      // позже, чем размер устоялся на три кадра
+      if ((stable >= 3 && Date.now() >= (self._refitUntil || 0)) || frames > 180) {
+        self._refitUntil = 0;
+        return;
+      }
+      self._refitRaf = window.requestAnimationFrame(step);
+    };
+    this._refitRaf = window.requestAnimationFrame(step);
+    return this._refitRaf;
+  }
+
+  stopRefit() {
+    this._refitUntil = 0;
+    if (this._refitRaf != null && this._refitRaf !== 0) {
+      try {
+        window.cancelAnimationFrame(this._refitRaf);
+      } catch (e) {
+        /* превью/jsdom: отменять нечем — флаг уже снят */
+      }
+    }
+    this._refitRaf = null;
+  }
+
+  /**
+   * Наблюдатель за размером сцены. Это основная страховка центрирования: какой бы
+   * путь ни сменил размер холста (полноэкранный режим, панели Obsidian, поворот
+   * экрана, шрифт), камера пересчитается по новому прямоугольнику.
+   */
+  observeStage() {
+    if (typeof ResizeObserver === "undefined" || !this.stageEl || this._stageRO) return;
+    var self = this;
+    try {
+      this._stageRO = new ResizeObserver(function () {
+        self.scheduleRefit();
+      });
+      this._stageRO.observe(this.stageEl);
+    } catch (e) {
+      this._stageRO = null; // наблюдателя нет — остаются onResize() и window.resize
+    }
+  }
+
+  /**
+   * Obsidian зовёт onResize(), когда меняется размер листа (раздвижка панелей,
+   * боковые панели, окно). Без него камера оставалась от прежнего размера и граф
+   * стоял не по центру. Это же — страховка на случай, когда ResizeObserver недоступен.
+   */
+  onResize() {
+    this.scheduleRefit();
   }
 
   /* -------------------------------------------------- data */
@@ -6283,8 +6424,7 @@ class LectureGraphView extends obsidian.ItemView {
     }
     var v = this.view;
     var sx = n.x * v.k + v.x, sy = n.y * v.k + v.y;
-    var rw = this.rootEl ? this.rootEl.clientWidth : this.width();
-    var rh = this.rootEl ? this.rootEl.clientHeight : this.height();
+    var rw = this.width(), rh = this.height();
     var bw = el.offsetWidth || 260, bh = el.offsetHeight || 90;
     var rad = this.radiusModel(n, v.k) * v.k;
     var left = sx + rad + 14;
@@ -6355,12 +6495,16 @@ class LectureGraphView extends obsidian.ItemView {
     var nodes = this.graph.nodes.filter((n) => this.visible[n.id] && isFinite(n.x));
     if (!nodes.length) return;
     var b = core.bounds(nodes);
+    // размер берём через width()/height(): в предпросмотре и тестах их переопределяют
+    // (jsdom не считает layout), а по умолчанию они читают реальный бокс сцены
     var w = this.width();
     var h = this.height();
     var gw = Math.max(1, b.maxX - b.minX);
     var gh = Math.max(1, b.maxY - b.minY);
     var k = clamp(Math.min((w - 40) / gw, (h - 40) / gh), ZOOM_MIN, ZOOM_MAX);
+    // центр ограничивающего прямоугольника графа — ровно в центр сцены и по X, и по Y
     this.view = { k: k, x: (w - (b.minX + b.maxX) * k) / 2, y: (h - (b.minY + b.maxY) * k) / 2 };
+    this._fitBox = { w: w, h: h }; // под какой размер посчитана камера: boxChanged() сверяется с ним
     // после смены камеры круги и подписи пересобираются: их размер на экране от k зависит
     this.updateNodeSizes();
     this.updateLabels();
@@ -6600,17 +6744,13 @@ class LectureGraphView extends obsidian.ItemView {
       /* Fullscreen API недоступен (превью, мобильный режим) — остаётся CSS-вариант */
     }
     if (this.fullBtn) this.fullBtn.setText(this.fullscreen ? "✕ Выйти из полноэкранного (Esc)" : "⛶ Просмотреть граф на полном экране");
-    var self = this;
-    if (this.fullscreen) {
-      // даём кадру перерисоваться, т.к. меняются размеры сцены
-      setTimeout(function () {
-        self.fit();
-      }, 30);
-    } else {
-      setTimeout(function () {
-        self.fit();
-      }, 30);
-    }
+    /* Сцена меняет размер ДВАЖДЫ: сразу (класс) и когда закончится переход
+       полноэкранного режима Chromium и перекладка Obsidian. Считаем камеру сразу —
+       чтобы не показывать кадр со старой, — и досчитываем, пока размер не устоится.
+       Прежний одинокий fit() «через 30 мс» центрировал граф по ПРЕЖНЕЙ сцене, и на
+       широком экране он вставал левее центра на (W_new − W_old)/2. */
+    this.fit();
+    this.scheduleRefit(FULLSCREEN_SETTLE_MS);
     return this.fullscreen;
   }
 
