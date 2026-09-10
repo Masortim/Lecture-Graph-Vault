@@ -1665,7 +1665,24 @@ class LectureGraphView extends obsidian.ItemView {
 
   onContextMenu(ev) {
     var n = this.nodeFromEvent(ev);
-    if (!n) return;
+    if (!n) {
+      // правый клик по пустому месту холста: новая вершина создаётся прямо из графа —
+      // с английским и китайским названиями и списком ключевых фраз, по которым сразу
+      // пойдёт поиск связанных тем (корпус аннотаций + совпадения названий)
+      ev.preventDefault();
+      var menu = new obsidian.Menu(this.app);
+      menu.addItem((it) =>
+        it
+          .setTitle("Create node (EN / 中文 / keywords)")
+          .setIcon("plus-circle")
+          .onClick(() => new CreateNodeModal(this.app, this.plugin, {}).open())
+      );
+      menu.addSeparator();
+      menu.addItem((it) => it.setTitle("Fit graph to view").setIcon("maximize").onClick(() => this.fit()));
+      menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
+      menu.showAtPosition({ x: ev.pageX, y: ev.pageY });
+      return;
+    }
     ev.preventDefault();
     var menu = new obsidian.Menu(this.app);
     menu.addItem((it) => it.setTitle("Open note").setIcon("file-text").onClick(() => this.app.workspace.getLeaf(false).openFile(this.app.vault.getAbstractFileByPath(n.path))));
@@ -1799,6 +1816,157 @@ class EditLabelModal extends obsidian.Modal {
       new obsidian.Notice("Подпись обновлена: " + nameEn + (nameZh ? " / " + nameZh : ""));
       this.close();
     }
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+  }
+}
+
+/* ------------------------------------------------------------------ modal: новый узел */
+
+/** Родитель какого типа уместен для вершины этого уровня (конвенция курса). */
+var PARENT_TYPE_OF = { chapter: null, section: "chapter", heading: "section", block: "heading" };
+
+class CreateNodeModal extends obsidian.Modal {
+  constructor(app, plugin, opts) {
+    super(app);
+    this.plugin = plugin;
+    this.opts = opts || {};
+    this.busy = false;
+  }
+
+  onOpen() {
+    var content = this.contentEl;
+    content.addClass("lg-modal");
+    content.addClass("lg-create");
+    content.createEl("h2", { text: "Новый узел графа" });
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Заметка создаётся в папке своего уровня (глава/секция/заголовок/блок) рядом с соседями. После создания плагин сам ищет связанные темы: по ключевым фразам — в корпусе аннотаций, по названиям — среди вершин графа, и сразу строит связи.",
+    });
+
+    var fType = content.createDiv({ cls: "lg-field" });
+    fType.createEl("label", { text: "Тип вершины", attr: { for: "lg-new-type" } });
+    var typeSel = fType.createEl("select", { attr: { id: "lg-new-type" } });
+    [
+      ["block", "block — фрагмент текста (формулы, утверждения)"],
+      ["heading", "heading — заголовок внутри секции"],
+      ["section", "section — секция главы"],
+      ["chapter", "chapter — глава курса"],
+    ].forEach(function (o) {
+      typeSel.createEl("option", { text: o[1], attr: { value: o[0] } });
+    });
+    typeSel.value = "block";
+
+    var f1 = content.createDiv({ cls: "lg-field" });
+    f1.createEl("label", { text: "Название (EN)", attr: { for: "lg-new-name" } });
+    var en = f1.createEl("input", { type: "text", attr: { id: "lg-new-name", placeholder: "Spectral Radius Estimate" } });
+    var f2 = content.createDiv({ cls: "lg-field" });
+    f2.createEl("label", { text: "Название (中文)", attr: { for: "lg-new-name-zh" } });
+    var zh = f2.createEl("input", { type: "text", attr: { id: "lg-new-name-zh", placeholder: "谱半径估计" } });
+    var f3 = content.createDiv({ cls: "lg-field" });
+    f3.createEl("label", { text: "Ключевые слова / теги", attr: { for: "lg-new-keywords" } });
+    var kw = f3.createEl("textarea", {
+      attr: { id: "lg-new-keywords", rows: "3", placeholder: "spectral radius; banach space; 弱收敛" },
+    });
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Фразы через «;», запятую или с новой строки. По ним плагин ищет вхождения в аннотациях «" +
+        (this.plugin.settings.keywordFolder || "35 - Abstracts") + "» и превращает найденное в связи с секциями и заголовками; число вхождений становится весом (размером) вершины.",
+    });
+
+    var fParent = content.createDiv({ cls: "lg-field" });
+    fParent.createEl("label", { text: "Родитель (необязательно)", attr: { for: "lg-new-parent" } });
+    var parentSel = fParent.createEl("select", { attr: { id: "lg-new-parent" } });
+
+    var preview = content.createDiv({ cls: "lg-modal-preview" });
+    var pEn = preview.createDiv({ cls: "lg-line lg-line--en", text: "(название)" });
+    var pZh = preview.createDiv({ cls: "lg-line lg-line--zh", text: "—" });
+
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    var save = btns.createEl("button", { text: "Создать", cls: "mod-cta", attr: { type: "button" } });
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+
+    var self = this;
+    var upd = function () {
+      pEn.setText(en.value.trim() || "(название)");
+      pZh.setText(zh.value.trim() || "—");
+      save.disabled = !en.value.trim() || self.busy;
+    };
+    en.addEventListener("input", upd);
+    zh.addEventListener("input", upd);
+
+    // список родителей зависит от типа: у блока — заголовки, у заголовка — секции и т.д.
+    var fillParents = function (type) {
+      parentSel.textContent = "";
+      var want = PARENT_TYPE_OF[type];
+      if (!want) {
+        parentSel.createEl("option", { text: "— у главы родителя нет —", attr: { value: "" } });
+        parentSel.disabled = true;
+        return;
+      }
+      parentSel.disabled = false;
+      parentSel.createEl("option", { text: "— без родителя (свяжется по ключевым фразам) —", attr: { value: "" } });
+      var nodes = (self.plugin.cache && self.plugin.cache.nodes) || [];
+      nodes
+        .filter(function (n) {
+          return n.type === want && !n.inline;
+        })
+        .sort(function (a, b) {
+          return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+        })
+        .forEach(function (n) {
+          parentSel.createEl("option", { text: n.id + " — " + n.name, attr: { value: n.id } });
+        });
+    };
+    fillParents(typeSel.value);
+    typeSel.addEventListener("change", function () {
+      fillParents(typeSel.value);
+    });
+
+    save.addEventListener("click", () => this.submit());
+    this.en = en;
+    this.zh = zh;
+    this.kw = kw;
+    this.typeSel = typeSel;
+    this.parentSel = parentSel;
+    upd();
+    setTimeout(() => en.focus(), 30);
+    this.registerDomEvent(document, "keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) this.submit();
+    });
+  }
+
+  async submit() {
+    if (this.busy) return;
+    if (!this.en.value.trim()) {
+      new obsidian.Notice("Название (EN) обязательно: это первая строка подписи вершины");
+      return;
+    }
+    this.busy = true;
+    var save = Array.from(this.contentEl.querySelectorAll("button")).find((b) => b.textContent === "Создать");
+    if (save) {
+      save.disabled = true;
+      save.setText("Создаём…");
+    }
+    var res;
+    try {
+      res = await this.plugin.createNewNode({
+        type: this.typeSel.value,
+        nameEn: this.en.value,
+        nameZh: this.zh.value,
+        keywords: this.kw.value,
+        parent: this.parentSel && !this.parentSel.disabled ? this.parentSel.value : "",
+      });
+    } finally {
+      this.busy = false;
+      if (save) {
+        save.disabled = false;
+        save.setText("Создать");
+      }
+    }
+    if (res) this.close();
   }
 
   onClose() {
@@ -2169,6 +2337,11 @@ class LectureGraphPlugin extends obsidian.Plugin {
       id: "recompute-keywords",
       name: "Recompute keyword links (search keywords_en in abstracts)",
       callback: () => this.recomputeKeywords(),
+    });
+    this.addCommand({
+      id: "create-node",
+      name: "Create new node (EN / 中文 / keywords) with auto-search of related topics",
+      callback: () => new CreateNodeModal(this.app, this, {}).open(),
     });
 
     this.registerView(VIEW_TYPE, (leaf) => {
@@ -2611,9 +2784,11 @@ class LectureGraphPlugin extends obsidian.Plugin {
   }
 
   /**
-   * Этап 2: превращает `keywords_en:` блоков в настоящие wiki-ссылки (между маркерами
-   * keywords:begin/end) и в свойство weight:. Свойства и тело вне региона не трогаются,
-   * второй прогон байт-в-байт идемпотентен; блоки без списка фраз остаются как есть.
+   * Этап 2: превращает `keywords_en:` в настоящие wiki-ссылки (между маркерами
+   * keywords:begin/end) и в свойство weight:. Работает для вершины любого уровня —
+   * регион ключевых фраз читается графом у всех заметок, не только у блоков.
+   * Свойства и тело вне региона не трогаются, второй прогон байт-в-байт
+   * идемпотентен; заметки без списка фраз остаются как есть.
    */
   async recomputeKeywords() {
     var opts = buildOptions(this.settings);
@@ -2631,12 +2806,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
     var marks = core.keywordMarkers();
     for (var i = 0; i < g.nodes.length; i++) {
       var n = g.nodes[i];
-      if (n.type !== "block" || n.inline || !n.path) continue;
+      if (n.inline || !n.path) continue;
       var file = this.app.vault.getAbstractFileByPath(n.path);
       if (!(file instanceof obsidian.TFile)) continue;
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
       if (!(n.keywords && n.keywords.length)) {
-        if (!hasRegion) continue; // блок живёт только на ручных ссылках — не трогаем
+        if (!hasRegion) continue; // заметка живёт только на ручных ссылках — не трогаем
         await this.processInternal(file, (data) => {
           var off = {};
           off[weightKey] = "";
@@ -2665,7 +2840,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     var fresh = await this.getGraph(true);
     var kw = fresh.edges.filter(function (e) { return e.kind === "keyword"; }).length;
     var msg =
-      "Ключевые фразы: блоков с весом " + fresh.stats.keywordNodes + " · ссылок " + kw +
+      "Ключевые фразы: вершин с весом " + fresh.stats.keywordNodes + " · ссылок " + kw +
       " · записей обновлено " + touched + (cleaned ? " · снято " + cleaned : "") +
       (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
@@ -2673,6 +2848,189 @@ class LectureGraphPlugin extends obsidian.Plugin {
     // getGraph(true) выше уже обновил cache и все View; повторный changed() только
     // запустил бы ещё одну полную пересборку через debounce.
     return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
+  }
+
+  /* -------------------------------------------------- создание узла из графа */
+
+  /** Имя файла из названия: без символов, запрещённых в путях. */
+  safeNoteName(s) {
+    return (
+      String(s || "")
+        .replace(/[\\/:*?"<>|#^[\]]/g, " ")
+        .replace(/\s+/g, " ")
+        .trim()
+        .slice(0, 80) || "Untitled"
+    );
+  }
+
+  /**
+   * Папка для новой вершины: там же, где живут её соседи по уровню. Сначала ищем
+   * самую популярную папку среди вершин того же типа, затем — самую популярную
+   * подпапку среди вершин той же главы (30 - Blocks/Ch05 и т.п.). Пусто — папка
+   * родителя, затем первая папка обхода, и только потом корень хранилища.
+   */
+  folderForNewNode(g, type, chapter, parentNode) {
+    var folders = this.graphFolderList("folders");
+    var votes = {};
+    var chapterVotes = {};
+    (g.nodes || []).forEach(function (n) {
+      if (!n || n.type !== type || !n.path) return;
+      var top = null;
+      for (var i = 0; i < folders.length; i++) {
+        if (n.path === folders[i] || n.path.indexOf(folders[i] + "/") === 0) {
+          top = folders[i];
+          break;
+        }
+      }
+      if (top === null) top = n.path.indexOf("/") >= 0 ? n.path.slice(0, n.path.indexOf("/")) : "";
+      votes[top] = (votes[top] || 0) + 1;
+      if (chapter && n.chapter === chapter) {
+        var d = n.path.slice(0, n.path.lastIndexOf("/"));
+        if (d) chapterVotes[d] = (chapterVotes[d] || 0) + 1;
+      }
+    });
+    var best = null;
+    var bestN = 0;
+    Object.keys(votes)
+      .sort()
+      .forEach(function (k) {
+        if (votes[k] > bestN) {
+          bestN = votes[k];
+          best = k;
+        }
+      });
+    var sub = null;
+    var subN = 0;
+    Object.keys(chapterVotes)
+      .sort()
+      .forEach(function (k) {
+        if (chapterVotes[k] > subN) {
+          subN = chapterVotes[k];
+          sub = k;
+        }
+      });
+    if (sub) return sub;
+    if (best) return best;
+    if (parentNode && parentNode.path) return parentNode.path.slice(0, parentNode.path.lastIndexOf("/")) || "";
+    return folders.length ? folders[0] : "";
+  }
+
+  /**
+   * Создание вершины из окна графа: заметка с двустрочной подписью (EN + 中文),
+   * списком ключевых фраз и — сразу после записи — автоматическим поиском связанных
+   * тем. Поиск двухъярусный:
+   *   1) ключевые фразы ищутся в корпусе аннотаций (buildKeywordCorpus): найденные
+   *      секции/заголовки материализуются wiki-ссылками между keywords:begin/end
+   *      (рёбра «keyword»), число вхождений пишется в weight: и задаёт размер вершины;
+   *   2) название и фразы, ТОЧНО совпадающие с именем другой вершины, дают раздел
+   *      «Related topics» в теле заметки (обычные рёбра «reference») — так находятся
+   *      и главы, и блоки, которых в текстах аннотаций нет.
+   * Глава без родителя берётся у главы-лидера по вхождениям (plan.dominant), поэтому
+   * заметка ложится в папку той главы, о которой больше всего говорит её содержимое.
+   */
+  async createNewNode(input) {
+    input = input || {};
+    var opts = buildOptions(this.settings);
+    var type = TYPES.indexOf(input.type) >= 0 ? input.type : "block";
+    var nameEn = core.sanitizeLabel(String(input.nameEn || "").trim());
+    var nameZh = core.sanitizeLabel(String(input.nameZh || "").trim());
+    if (!nameEn) {
+      new obsidian.Notice("Название (EN) обязательно: это первая строка подписи вершины");
+      return null;
+    }
+    var keywords = core.parseKeywords(input.keywords);
+    // 1. Свежая модель без раскладки: для id, родителей, голосования папок и поиска.
+    var g = await this.buildGraphModel(opts);
+    var parentNode = null;
+    if (input.parent) {
+      parentNode = (g._byId && g._byId[input.parent]) || null;
+      if (!parentNode) {
+        new obsidian.Notice("Родитель не найден в графе: " + input.parent);
+        return null;
+      }
+    }
+    // 2. Id по конвенции курса (родитель + суффикс уровня) или из серии MN-… .
+    var id = core.nextNodeId(g, type, parentNode ? parentNode.id : null);
+    // 3. Своя глава: у родителя она известна, без родителя решит поиск по корпусу.
+    var chapter = parentNode
+      ? parentNode.chapter || (parentNode.type === "chapter" ? parentNode.id : null)
+      : null;
+    var plan = null;
+    if (keywords.length) {
+      var abs = await this.keywordCorpusNotes();
+      if (!abs.length) {
+        new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — связи по ключевым фразам не построены");
+      } else {
+        var corpus = core.buildKeywordCorpus(abs, g, opts);
+        var kwData = {};
+        kwData[opts.keywordsKey || "keywords_en"] = keywords;
+        plan = core.planBlockKeywords(kwData, corpus, chapter, opts);
+      }
+    }
+    if (!chapter && plan && plan.dominant) chapter = plan.dominant;
+    // 4. Второй ярус: темы, чьё название совпало с названием/фразой новой вершины.
+    var exclude = parentNode ? [parentNode.id] : [];
+    if (plan) {
+      plan.targets.forEach(function (t) {
+        exclude.push(t.id);
+      });
+    }
+    var related = core
+      .relatedByName(g, [nameEn].concat(keywords), { exclude: exclude })
+      .map(function (r) {
+        return { stem: r.node.stem, name: r.node.name, phrase: r.phrase, type: r.node.type, id: r.node.id };
+      });
+    // 5. Папка и путь без коллизий: перезаписывать чужую заметку нельзя.
+    var dir = this.folderForNewNode(g, type, chapter, parentNode);
+    var base = id + " - " + this.safeNoteName(nameEn);
+    var rel = (dir ? dir + "/" : "") + base + ".md";
+    var bump = 2;
+    while (this.app.vault.getAbstractFileByPath(obsidian.normalizePath(rel))) {
+      rel = (dir ? dir + "/" : "") + base + " " + bump + ".md";
+      bump++;
+    }
+    // 6. Текст заметки: frontmatter по конвенциям + регион ключевых фраз + Related topics.
+    var text = core.composeNote(
+      {
+        type: type,
+        id: id,
+        name: nameEn,
+        nameZh: nameZh,
+        status: "draft",
+        parent: parentNode ? parentNode.id : null,
+        chapter: chapter,
+        keywords: keywords,
+        weight: plan ? plan.weight : null,
+        region: plan ? core.keywordRegionText(plan, opts) : "",
+        related: related,
+      },
+      opts
+    );
+    var file;
+    try {
+      file = await this.writeFile(rel, text);
+    } catch (e) {
+      new obsidian.Notice("Не удалось создать заметку: " + (e && e.message ? e.message : e));
+      return null;
+    }
+    // 7. Пересборка графа и выбор новой вершины: пользователь сразу видит её связи.
+    var fresh = await this.getGraph(true);
+    var node = (fresh._byId && fresh._byId[id]) || this.nodeByPath(file.path);
+    this.forEachView(function (v) {
+      if (!node) return;
+      if (!v.visible[node.id]) v.clearIsolation(); // фильтр главы прятал бы только что созданное
+      v.select(node.id);
+    });
+    var kwLinks = plan ? plan.targets.length : 0;
+    var msg =
+      "Узел создан: " + file.path +
+      (nameZh ? " · " + nameEn + " / " + nameZh : "") +
+      (chapter ? " · глава " + chapter : "") +
+      (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
+      (related.length ? " · по названиям: " + related.length : "") +
+      (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
+    new obsidian.Notice(msg);
+    return { file: file, path: file.path, node: node, id: id, plan: plan, related: related, chapter: chapter };
   }
 
   async copyLink(node) {
@@ -2871,6 +3229,7 @@ function stamp() {
 module.exports = LectureGraphPlugin;
 module.exports.LectureGraphView = LectureGraphView;
 module.exports.EditLabelModal = EditLabelModal;
+module.exports.CreateNodeModal = CreateNodeModal;
 module.exports.VIEW_TYPE = VIEW_TYPE;
 module.exports.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
 module.exports.buildOptions = buildOptions;

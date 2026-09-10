@@ -3563,6 +3563,143 @@
     });
   }
 
+  /* ------------------------------------------------- создание узлов из вида */
+
+  var RELATED_TYPE_LABEL = { chapter: "глава", section: "секция", heading: "заголовок", block: "блок" };
+
+  /**
+   * Второй ярус «семантического» поиска рядом с корпусом аннотаций: темы, чьё имя
+   * (или имя файла) ТОЧНО совпало с одной из фраз — регистр и пробелы не важны.
+   * Корпус ищет вхождения в текстах аннотаций и потому видит только секции и
+   * заголовки; здесь же находятся и главы, и блоки, чьи имена пользователь назвал
+   * тегом в явном виде. Возвращает [{node, phrase}] — сначала крупные уровни,
+   * внутри уровня — более связанные (больше входящих ссылок).
+   */
+  function relatedByName(graph, phrases, opts) {
+    var o = opts || {};
+    var limit = o.limit === undefined ? 12 : o.limit;
+    var exclude = {};
+    (o.exclude || []).forEach(function (id) {
+      if (id) exclude[id] = true;
+    });
+    var want = {};
+    (phrases || []).forEach(function (p) {
+      var k = normPhrase(p);
+      if (k && !want[k]) want[k] = String(p).trim();
+    });
+    if (!Object.keys(want).length || !graph) return [];
+    var rank = { chapter: 0, section: 1, heading: 2, block: 3 };
+    var out = [];
+    (graph.nodes || []).forEach(function (n) {
+      if (!n || n.inline || exclude[n.id]) return;
+      var keys = [normPhrase(n.name), normPhrase(n.stem)];
+      var phrase = null;
+      for (var k in want) {
+        if (keys.indexOf(k) >= 0) {
+          phrase = want[k];
+          break;
+        }
+      }
+      if (phrase === null) return;
+      out.push({ node: n, phrase: phrase });
+    });
+    out.sort(function (a, b) {
+      var ra = rank[a.node.type] === undefined ? 9 : rank[a.node.type];
+      var rb = rank[b.node.type] === undefined ? 9 : rank[b.node.type];
+      if (ra !== rb) return ra - rb;
+      var da = a.node.degree || 0;
+      var db = b.node.degree || 0;
+      if (da !== db) return db - da;
+      return a.node.id < b.node.id ? -1 : 1;
+    });
+    return out.slice(0, Math.max(0, limit));
+  }
+
+  /**
+   * Свободный id для новой вершины. С родителем — по конвенции курса: id родителя +
+   * суффикс уровня (S/H/B) с номером на единицу больше существующих. Без родителя —
+   * серия MN-01, MN-02, … («manual node»): такие коды не пересекаются с генерируемыми
+   * ChNN-… и сразу видно, что вершина добавлена руками.
+   */
+  function nextNodeId(graph, type, parent) {
+    var nodes = (graph && graph.nodes) || [];
+    var byId = (graph && graph._byId) || {};
+    var pad = function (n) {
+      return (n < 10 ? "0" : "") + n;
+    };
+    var maxMatch = function (re) {
+      var max = 0;
+      nodes.forEach(function (n) {
+        var m = re.exec(String((n && n.id) || ""));
+        if (m) max = Math.max(max, parseInt(m[1], 10));
+      });
+      return max;
+    };
+    if (type === "chapter") return "Ch" + pad(maxMatch(/^Ch(\d+)$/) + 1);
+    if (parent) {
+      var suffix = { section: "S", heading: "H", block: "B" }[type] || "N";
+      var base = String(parent).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      var num = maxMatch(new RegExp("^" + base + "-" + suffix + "(\\d+)$")) + 1;
+      return String(parent) + "-" + suffix + pad(num);
+    }
+    var i = 1;
+    while (byId["MN-" + pad(i)]) i++;
+    return "MN-" + pad(i);
+  }
+
+  /**
+   * Текст новой заметки-вершины целиком: frontmatter по конвенциям курса (простые
+   * значения — без кавычек, как в остальных заметках хранилища; строки с пробелами
+   * и пунктуацией — в кавычках, как их же читает parseScalar), тело с двумя строками
+   * подписи, материализованным регионом ключевых фраз и разделом «Related topics»
+   * для совпадений по названиям. Чистая функция — её и проверяют юнит-тесты.
+   */
+  function composeNote(spec, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var s = spec || {};
+    var type = TYPES.indexOf(s.type) >= 0 ? s.type : "block";
+    var name = String(s.name || "").trim() || "Untitled";
+    var bare = /^[-A-Za-z0-9_]+$/;
+    var scalar = function (v) {
+      if (typeof v === "number") return String(v);
+      if (Object.prototype.toString.call(v) === "[object Array]") return "[" + v.map(quoteYaml).join(", ") + "]";
+      var str = String(v == null ? "" : v);
+      return bare.test(str) ? str : quoteYaml(str);
+    };
+    var fm = [];
+    fm.push([cfg.typeKey, type]);
+    if (s.id) fm.push(["id", String(s.id)]);
+    fm.push([cfg.nameKey, name]);
+    if (s.nameZh) fm.push([cfg.nameZhKey, String(s.nameZh)]);
+    if (s.id) fm.push(["aliases", [String(s.id)]]);
+    fm.push(["status", s.status || "draft"]);
+    if (s.parent) fm.push(["parent", String(s.parent)]);
+    if (s.chapter) fm.push(["chapter", String(s.chapter)]);
+    if (s.keywords && s.keywords.length) fm.push([cfg.keywordsKey, s.keywords.join("; ")]);
+    if (s.weight !== null && s.weight !== undefined) fm.push([cfg.weightKey, s.weight]);
+    fm.push(["cssclasses", ["lg-node", "lg-node--" + type]]);
+    var out = "---\n" + fm.map(function (kv) { return kv[0] + ": " + scalar(kv[1]); }).join("\n") + "\n---\n";
+    var body = ["# " + name];
+    if (s.nameZh) body.push("", "**" + String(s.nameZh) + "**");
+    body.push(
+      "",
+      String(s.intro || "Узел создан из окна графа. Замените этот абзац содержимым: что это, на что опирается, где используется.")
+    );
+    var related = s.related || [];
+    if (related.length) {
+      body.push("", "## Related topics", "");
+      related.forEach(function (r) {
+        var label = RELATED_TYPE_LABEL[r.type] || "вершина";
+        body.push("- [[" + r.stem + "|" + r.phrase + "]] — " + label + (r.name && r.name !== r.phrase ? " «" + r.name + "»" : ""));
+      });
+    }
+    // регион ключевых фраз — всегда ПОСЛЕДНИМ блоком тела: материализатор
+    // (applyKeywordRegion) пишет его в конец, и повторный пересчёт не двигает его
+    var region = String(s.region || "").replace(/\s+$/g, "");
+    if (region) body.push("", region);
+    return out + "\n" + body.join("\n").replace(/\s+$/g, "") + "\n";
+  }
+
   return {
     TYPES: TYPES,
     DEFAULTS: DEFAULTS,
@@ -3628,6 +3765,9 @@
     neighborhood: neighborhood,
     components: components,
     filterNodes: filterNodes,
+    relatedByName: relatedByName,
+    nextNodeId: nextNodeId,
+    composeNote: composeNote,
     esc: esc,
   };
 });

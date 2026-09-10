@@ -156,6 +156,8 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-field { margin-bottom: 10px; }
 .lg-field label { display: block; font-size: var(--font-ui-smaller); opacity: .75; margin-bottom: 3px; }
 .lg-field input { width: 100%; }
+.lg-field select { width: 100%; max-width: 420px; }
+.lg-field textarea { width: 100%; min-height: 58px; resize: vertical; font-family: var(--font-monospace); }
 .lg-field-row { display: flex; gap: 6px; }
 .lg-modal-hint { font-size: var(--font-ui-smaller); opacity: .7; margin: 8px 0 14px; }
 .lg-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
