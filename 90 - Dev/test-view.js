@@ -960,11 +960,27 @@ const plugin = new PluginClass(app, manifest);
       assert.strictEqual(view.height(), 900, "height() не взял размер сцены: " + view.height());
       view.fit();
       await centeredAt(700, "при непереложенном svg (сцена 1400)");
+
+      // --- 5. холст измерен УЖЕ окна: в полном экране опора — окно -------------
+      // сценарий из .obsidian/workspace.json: лист 1584 px (лента + левая панель 300),
+      // окно 1920 px. По боксу листа центр графа лег бы в 792 — на 168 px левее
+      // центра экрана; с опорой на окно он обязан быть в 960
+      Object.defineProperty(dom.window, "innerWidth", { value: 1920, configurable: true });
+      Object.defineProperty(dom.window, "innerHeight", { value: 1080, configurable: true });
+      setSize(1584, 860);
+      view.toggleFullscreen(true);
+      assert.strictEqual(view.width(), 1920,
+        "в полном экране width() не взял окно: " + view.width() + " (бокс сцены " + view.stageBox().w + ")");
+      await centeredAt(960, "в полном экране при листе 1584 и окне 1920");
+      assert.ok(view.fitFrame().toScreen, "fitFrame() не признался, что опора — окно");
     } finally {
       // убираем за собой: дальше тесты живут с прежним (нулевым) размером сцены.
       // Осторожно и без собственных исключений: иначе ошибка finally перекроет
       // настоящую причину провала (так регрессия пряталась за TypeError)
       global.ResizeObserver = savedRO;
+      delete dom.window.innerWidth;
+      delete dom.window.innerHeight;
+      if (view.fullscreen) view.toggleFullscreen(false);
       if (view._stageRO && view._stageRO.disconnect) view._stageRO.disconnect();
       view._stageRO = null;
       if (typeof view.stopRefit === "function") view.stopRefit();

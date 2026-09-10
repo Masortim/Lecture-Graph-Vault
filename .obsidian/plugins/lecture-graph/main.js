@@ -5834,12 +5834,59 @@ class LectureGraphView extends obsidian.ItemView {
     return { w: 1000, h: 700 };
   }
 
+  /**
+   * Прямоугольник, по которому граф вписывается и центрируется.
+   *
+   * В полноэкранном режиме холст обязан занимать ВСЁ окно, поэтому опора здесь —
+   * окно, а не измеренный бокс сцены. Бокс может оказаться меньше окна по двум
+   * причинам: Obsidian ещё не переложил холст (кадр между сменой класса и layout)
+   * или полноэкранный слой лёг не на всё окно. В обоих случаях прежний расчёт по
+   * узкому прямоугольнику ставил центр графа в центр ЭТОГО прямоугольника, а на
+   * экране граф уезжал влево от центра — ровно на (W_экран − W_бокс)/2. При окне
+   * 1920 и листе 1584 (левая панель 300 + лента) это 168 px.
+   *
+   * `toScreen` — признак, что размер взят из окна: тогда центрировать надо по центру
+   * ЭКРАНА, приведённому к координатам холста (холст может начинаться не от левого
+   * края окна), а не по w/2.
+   */
+  fitFrame() {
+    var b = this.stageBox();
+    if (!this.fullscreen || typeof window === "undefined") return { w: b.w, h: b.h, toScreen: false };
+    var vw = window.innerWidth || 0;
+    var vh = window.innerHeight || 0;
+    if (vw > b.w || vh > b.h) return { w: Math.max(b.w, vw), h: Math.max(b.h, vh), toScreen: true };
+    return { w: b.w, h: b.h, toScreen: false };
+  }
+
   width() {
-    return this.stageBox().w;
+    return this.fitFrame().w;
   }
 
   height() {
-    return this.stageBox().h;
+    return this.fitFrame().h;
+  }
+
+  /**
+   * Куда ставить центр графа: в обычном режиме — центр холста, в полноэкранном с размером
+   * от окна — центр экрана в координатах холста. Если точка вышла за холст, остаётся
+   * центр холста: лучше ровно по холсту, чем наполовину за обрезом.
+   */
+  centerTarget(fr) {
+    var cx = fr.w / 2;
+    var cy = fr.h / 2;
+    if (!fr.toScreen || !this.svg || !this.svg.getBoundingClientRect) return { x: cx, y: cy };
+    var r = null;
+    try {
+      r = this.svg.getBoundingClientRect();
+    } catch (e) {
+      r = null;
+    }
+    if (!r || !isFinite(r.left) || !isFinite(r.top)) return { x: cx, y: cy };
+    var tx = (window.innerWidth || fr.w) / 2 - r.left;
+    var ty = (window.innerHeight || fr.h) / 2 - r.top;
+    if (tx > 0 && tx < fr.w) cx = tx;
+    if (ty > 0 && ty < fr.h) cy = ty;
+    return { x: cx, y: cy };
   }
 
   /** Камера посчитана под другой размер сцены? (то, из-за чего граф «уезжает» от центра) */
@@ -6495,15 +6542,18 @@ class LectureGraphView extends obsidian.ItemView {
     var nodes = this.graph.nodes.filter((n) => this.visible[n.id] && isFinite(n.x));
     if (!nodes.length) return;
     var b = core.bounds(nodes);
-    // размер берём через width()/height(): в предпросмотре и тестах их переопределяют
-    // (jsdom не считает layout), а по умолчанию они читают реальный бокс сцены
-    var w = this.width();
-    var h = this.height();
+    // опора центрирования: в обычном режиме — бокс сцены, в полноэкранном — окно
+    // (в предпросмотре и тестах width()/height() переопределяют: jsdom не считает layout)
+    var fr = this.fitFrame();
+    var w = fr.w;
+    var h = fr.h;
     var gw = Math.max(1, b.maxX - b.minX);
     var gh = Math.max(1, b.maxY - b.minY);
     var k = clamp(Math.min((w - 40) / gw, (h - 40) / gh), ZOOM_MIN, ZOOM_MAX);
-    // центр ограничивающего прямоугольника графа — ровно в центр сцены и по X, и по Y
-    this.view = { k: k, x: (w - (b.minX + b.maxX) * k) / 2, y: (h - (b.minY + b.maxY) * k) / 2 };
+    // центр ограничивающего прямоугольника графа — ровно в центр экрана (в полном
+    // экране) или сцены, и по X, и по Y
+    var c = this.centerTarget(fr);
+    this.view = { k: k, x: c.x - ((b.minX + b.maxX) * k) / 2, y: c.y - ((b.minY + b.maxY) * k) / 2 };
     this._fitBox = { w: w, h: h }; // под какой размер посчитана камера: boxChanged() сверяется с ним
     // после смены камеры круги и подписи пересобираются: их размер на экране от k зависит
     this.updateNodeSizes();
