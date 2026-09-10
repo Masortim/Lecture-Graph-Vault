@@ -1063,6 +1063,7 @@
     var graph = { nodes: nodes, edges: edges, stats: stats, config: cfg };
     graph._byId = byId;
     graph.chapterColors = resolveColors(graph, cfg); // цвет главы -> её секции/заголовки/блоки
+    findDuplicateGroups(graph, cfg);
     return graph;
   }
 
@@ -1847,6 +1848,8 @@
         maxWeight: graph.stats ? graph.stats.maxWeight || 0 : 0,
         keywordNodes: graph.stats ? graph.stats.keywordNodes || 0 : 0,
         unresolved: graph.stats ? graph.stats.unresolved : 0,
+        duplicateGroups: graph.stats ? graph.stats.duplicateGroups || 0 : 0,
+        duplicateNodes: graph.stats ? graph.stats.duplicateNodes || 0 : 0,
         byType: graph.stats ? graph.stats.byType : {},
       },
       settings: {
@@ -1891,6 +1894,8 @@
           label_font: Math.round((n.font || 0) * 100) / 100,
           color: n.color || null,
           caption: n.caption || null,
+          duplicate_of: n.duplicateOf || null,
+          duplicate_group: n.duplicateGroup || null,
           x: isFinite(n.x) ? Math.round(n.x * 10) / 10 : null,
           y: isFinite(n.y) ? Math.round(n.y * 10) / 10 : null,
         };
@@ -3633,6 +3638,488 @@
     });
   }
 
+  /* ------------------------------------------------- поиск и слияние дубликатов */
+
+  function dupNormText(text) {
+    return String(text == null ? "" : text)
+      .replace(/\r\n/g, "\n")
+      .replace(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g, function (_, path, alias) {
+        return sanitizeLabel(alias || stemOf(path));
+      })
+      .replace(/^>+\s*/gm, "")
+      .replace(/[*_`~]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function removeHeadingSection(text, heading) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var low = String(heading || "").trim().toLowerCase();
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() !== low) continue;
+      var end = lines.length;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (/^#{1,6}\s/.test(lines[j])) { end = j; break; }
+      }
+      lines.splice(i, end - i);
+      break;
+    }
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    return lines.join("\n");
+  }
+
+  function mergeBodyCore(node) {
+    var name = normPhrase((node && (node.name || node.stem)) || "");
+    var zh = normPhrase((node && node.nameZh) || "");
+    var body = splitKeywordRegion((node && node.body) || "").outside.replace(/\r\n/g, "\n");
+    body = removeHeadingSection(body, RELATED_HEADING);
+    var lines = body.split("\n");
+    while (lines.length && !lines[0].trim()) lines.shift();
+    if (lines.length && /^#\s+/.test(lines[0])) {
+      var top = normPhrase(lines[0].replace(/^#\s+/, ""));
+      var stem = normPhrase((node && node.stem) || "");
+      if (top && (top === name || top === stem)) lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    if (lines.length && zh && /^\*\*.*\*\*$/.test(lines[0].trim())) {
+      var bold = normPhrase(lines[0].replace(/^\*\*|\*\*$/g, ""));
+      if (bold === zh) lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    if (lines.length && /^⬆️\s+Part of\b/i.test(lines[0].trim())) {
+      lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function duplicateTokens(text) {
+    var seen = {};
+    var out = [];
+    var parts = String(text == null ? "" : text).toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]/g) || [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p.length <= 1 && !/[\u4e00-\u9fff]/.test(p)) continue;
+      if (seen[p]) continue;
+      seen[p] = true;
+      out.push(p);
+    }
+    return out;
+  }
+
+  function duplicateJaccard(a, b) {
+    var sa = duplicateTokens(a);
+    var sb = duplicateTokens(b);
+    if (!sa.length || !sb.length) return 0;
+    var map = {};
+    var i;
+    for (i = 0; i < sa.length; i++) map[sa[i]] = 1;
+    var hit = 0, union = sa.length;
+    for (i = 0; i < sb.length; i++) {
+      if (map[sb[i]] === 1) hit++;
+      else union++;
+      map[sb[i]] = 2;
+    }
+    return union ? hit / union : 0;
+  }
+
+  function duplicateKeywordsKey(node) {
+    return parseKeywords(node && node.keywords ? node.keywords : ((node && node.data && node.data.keywords_en) || ""))
+      .map(normPhrase)
+      .filter(Boolean)
+      .sort()
+      .join(";");
+  }
+
+  function duplicateProfile(node) {
+    var body = dupNormText(mergeBodyCore(node));
+    return {
+      title: normPhrase((node && node.name) || (node && node.stem) || ""),
+      titleZh: normPhrase((node && node.nameZh) || ""),
+      body: body,
+      bodyLen: body.length,
+      keywords: duplicateKeywordsKey(node),
+      manual: /^MN-\d+$/.test(String((node && node.id) || "")),
+    };
+  }
+
+  function duplicateScore(a, b, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    if (!a || !b || a === b || a.inline || b.inline) return { match: false, score: 0, contentScore: 0, reasons: [] };
+    if (a.type !== b.type) return { match: false, score: 0, contentScore: 0, reasons: ["different-type"] };
+    var pa = a._dupProfile || (a._dupProfile = duplicateProfile(a));
+    var pb = b._dupProfile || (b._dupProfile = duplicateProfile(b));
+    var sameTitle = !!pa.title && pa.title === pb.title;
+    var sameZh = !!pa.titleZh && pa.titleZh === pb.titleZh;
+    var sameBody = pa.bodyLen >= 80 && pa.body === pb.body && !!pa.body;
+    var bodySim = sameBody ? 1 : duplicateJaccard(pa.body, pb.body);
+    var sameKeywords = !!pa.keywords && pa.keywords === pb.keywords;
+    var sameParent = !!a.parent && a.parent === b.parent;
+    var homeA = a.chapter || (a.type === "chapter" ? a.id : null);
+    var homeB = b.chapter || (b.type === "chapter" ? b.id : null);
+    var sameChapter = !!homeA && homeA === homeB;
+    var manual = pa.manual || pb.manual;
+    var score = 0;
+    var reasons = [];
+    score += 0.18;
+    if (sameTitle) { score += 0.44; reasons.push("same-title"); }
+    if (sameZh) { score += 0.12; reasons.push("same-title-zh"); }
+    if (sameBody) { score += 0.62; reasons.push("same-content"); }
+    else if (bodySim >= 0.34) { score += Math.min(0.34, bodySim * 0.34); reasons.push("content-similarity:" + Math.round(bodySim * 100) + "%"); }
+    if (sameKeywords) { score += 0.08; reasons.push("same-keywords"); }
+    if (sameParent) { score += 0.08; reasons.push("same-parent"); }
+    if (sameChapter) { score += 0.05; reasons.push("same-chapter"); }
+    if (manual) { score += 0.12; reasons.push("manual-node"); }
+    var bodyBase = Math.min(pa.bodyLen || 0, pb.bodyLen || 0);
+    var strongContent =
+      (sameBody && (sameTitle || sameZh || sameKeywords)) ||
+      (bodyBase >= 160 && bodySim >= 0.9 && (sameKeywords || sameTitle || sameZh));
+    var match =
+      (sameTitle && (sameZh || bodySim >= 0.34 || manual || sameKeywords || sameParent)) ||
+      strongContent ||
+      (score >= 0.9 && (sameTitle || sameZh || strongContent));
+    if (!sameTitle && !sameZh && !strongContent) match = false;
+    return { match: !!match, score: Math.round(score * 1000) / 1000, contentScore: Math.round(bodySim * 1000) / 1000, reasons: reasons };
+  }
+
+  function duplicateKeeperScore(node) {
+    if (!node) return -Infinity;
+    var p = node._dupProfile || (node._dupProfile = duplicateProfile(node));
+    var score = 0;
+    if (!node.isPlaceholder) score += 8;
+    if (node.caption) score += 4;
+    if (node.nameZh) score += 2;
+    if (p.manual) score -= 6;
+    else score += 8;
+    score += Math.min(8, Math.round((node.degree || 0) / 3));
+    score += Math.min(8, Math.round(p.bodyLen / 80));
+    score += Math.min(4, (node.keywords || []).length);
+    if (node.outCount) score += Math.min(3, Math.round(node.outCount / 4));
+    return score;
+  }
+
+  function pickDuplicateKeeper(nodes) {
+    var arr = (nodes || []).slice().filter(Boolean);
+    arr.sort(function (a, b) {
+      var sa = duplicateKeeperScore(a);
+      var sb = duplicateKeeperScore(b);
+      if (sa !== sb) return sb - sa;
+      var da = a.degree || 0;
+      var db = b.degree || 0;
+      if (da !== db) return db - da;
+      var la = (a._dupProfile || (a._dupProfile = duplicateProfile(a))).bodyLen;
+      var lb = (b._dupProfile || (b._dupProfile = duplicateProfile(b))).bodyLen;
+      if (la !== lb) return lb - la;
+      return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+    });
+    return arr[0] || null;
+  }
+
+  function findDuplicateGroups(graph, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var nodes = ((graph && graph.nodes) || []).filter(function (n) { return n && !n.inline; });
+    nodes.forEach(function (n) { n._dupProfile = duplicateProfile(n); n.duplicateOf = null; n.duplicateGroup = null; n.duplicateReasons = []; });
+    var titleBuckets = {}, zhBuckets = {}, bodyBuckets = {};
+    function push(map, key, node) {
+      if (!key) return;
+      (map[key] || (map[key] = [])).push(node);
+    }
+    nodes.forEach(function (n) {
+      push(titleBuckets, n.type + "\u0000" + n._dupProfile.title, n);
+      push(zhBuckets, n.type + "\u0000" + n._dupProfile.titleZh, n);
+      if (n._dupProfile.bodyLen >= 80) push(bodyBuckets, n.type + "\u0000" + n._dupProfile.body, n);
+    });
+    var pairKeys = {};
+    var pairs = [];
+    function addPair(a, b) {
+      if (!a || !b || a.id === b.id) return;
+      var ka = a.id < b.id ? a.id + "\u0000" + b.id : b.id + "\u0000" + a.id;
+      if (pairKeys[ka]) return;
+      pairKeys[ka] = true;
+      pairs.push([a, b]);
+    }
+    [titleBuckets, zhBuckets, bodyBuckets].forEach(function (map) {
+      Object.keys(map).forEach(function (k) {
+        var arr = map[k];
+        if (!arr || arr.length < 2) return;
+        for (var i = 0; i < arr.length; i++)
+          for (var j = i + 1; j < arr.length; j++) addPair(arr[i], arr[j]);
+      });
+    });
+    var parent = {}, rank = {}, matchInfo = {};
+    nodes.forEach(function (n) { parent[n.id] = n.id; rank[n.id] = 0; });
+    function find(x) {
+      while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+      return x;
+    }
+    function union(a, b) {
+      var ra = find(a), rb = find(b);
+      if (ra === rb) return;
+      if (rank[ra] < rank[rb]) parent[ra] = rb;
+      else if (rank[rb] < rank[ra]) parent[rb] = ra;
+      else { parent[rb] = ra; rank[ra]++; }
+    }
+    pairs.forEach(function (pair) {
+      var a = pair[0], b = pair[1];
+      var sc = duplicateScore(a, b, cfg);
+      if (!sc.match) return;
+      var key = a.id < b.id ? a.id + "\u0000" + b.id : b.id + "\u0000" + a.id;
+      matchInfo[key] = sc;
+      union(a.id, b.id);
+    });
+    var groupsByRoot = {};
+    nodes.forEach(function (n) {
+      var r = find(n.id);
+      (groupsByRoot[r] || (groupsByRoot[r] = [])).push(n);
+    });
+    var groups = [];
+    Object.keys(groupsByRoot).forEach(function (r) {
+      var arr = groupsByRoot[r];
+      if (!arr || arr.length < 2) return;
+      var keep = pickDuplicateKeeper(arr);
+      var drop = arr.filter(function (n) { return n.id !== keep.id; }).sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; });
+      var reasons = {};
+      var maxScore = 0, maxContent = 0;
+      drop.forEach(function (n) {
+        var key = keep.id < n.id ? keep.id + "\u0000" + n.id : n.id + "\u0000" + keep.id;
+        var info = matchInfo[key] || duplicateScore(keep, n, cfg);
+        n.duplicateOf = keep.id;
+        n.duplicateReasons = info.reasons.slice();
+        keep.duplicateReasons = keep.duplicateReasons.concat(info.reasons);
+        info.reasons.forEach(function (x) { reasons[x] = true; });
+        if (info.score > maxScore) maxScore = info.score;
+        if (info.contentScore > maxContent) maxContent = info.contentScore;
+      });
+      keep.duplicateGroup = keep.id;
+      keep.duplicateOf = null;
+      arr.forEach(function (n) { n.duplicateGroup = keep.id; });
+      groups.push({
+        id: keep.id,
+        keep: keep,
+        drop: drop,
+        nodes: arr.slice().sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; }),
+        reasons: Object.keys(reasons).sort(),
+        score: Math.round(maxScore * 1000) / 1000,
+        contentScore: Math.round(maxContent * 1000) / 1000,
+      });
+    });
+    groups.sort(function (a, b) {
+      if (b.nodes.length !== a.nodes.length) return b.nodes.length - a.nodes.length;
+      if (b.score !== a.score) return b.score - a.score;
+      return a.keep.path < b.keep.path ? -1 : a.keep.path > b.keep.path ? 1 : 0;
+    });
+    if (graph) {
+      graph.duplicateGroups = groups;
+      if (graph.stats) {
+        graph.stats.duplicateGroups = groups.length;
+        graph.stats.duplicateNodes = groups.reduce(function (sum, g) { return sum + g.nodes.length; }, 0);
+      }
+    }
+    return groups;
+  }
+
+  function listAliases(v) {
+    if (v === undefined || v === null || v === "") return [];
+    if (Object.prototype.toString.call(v) === "[object Array]") return v.map(function (x) { return String(x).trim(); }).filter(Boolean);
+    return [String(v).trim()].filter(Boolean);
+  }
+
+  function mergedNodePatch(keep, dropNodes, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var arr = (dropNodes || []).filter(Boolean);
+    var aliases = {};
+    listAliases(keep && keep.data ? keep.data.aliases : []).concat([keep && keep.id, keep && keep.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+    var keywords = {};
+    var patch = {};
+    var order = [];
+    function takeKeyword(node) {
+      parseKeywords(node && node.data ? node.data[cfg.keywordsKey] : (node && node.keywords) || [], node && node.data ? node.data[cfg.keywordsAltKey] : null).forEach(function (k) {
+        var nk = normPhrase(k);
+        if (!nk || keywords[nk]) return;
+        keywords[nk] = k;
+        order.push(k);
+      });
+    }
+    takeKeyword(keep);
+    var status = (keep && keep.status) || (keep && keep.data && keep.data.status) || "";
+    var name = keep && keep.name ? keep.name : "";
+    var zh = keep && keep.nameZh ? keep.nameZh : "";
+    var chapter = keep && keep.chapter ? keep.chapter : null;
+    var parent = keep && keep.parent ? keep.parent : null;
+    var sizeRaw = keep && keep.sizeRaw ? keep.sizeRaw : null;
+    var colorProp = keep && keep.colorProp ? keep.colorProp : null;
+    var caption = keep && keep.caption ? keep.caption : null;
+    arr.forEach(function (n) {
+      listAliases(n && n.data ? n.data.aliases : []).concat([n.id, n.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+      takeKeyword(n);
+      if ((!name || /^untitled$/i.test(name)) && n.name) name = n.name;
+      if (!zh && n.nameZh) zh = n.nameZh;
+      if ((!status || status === cfg.placeholderValue) && n.status && n.status !== cfg.placeholderValue) status = n.status;
+      if (!chapter && n.chapter) chapter = n.chapter;
+      if (!parent && n.parent) parent = n.parent;
+      if (!sizeRaw && n.sizeRaw) sizeRaw = n.sizeRaw;
+      if (!colorProp && n.colorProp) colorProp = n.colorProp;
+      if (!caption && n.caption) caption = n.caption;
+    });
+    patch.aliases = Object.keys(aliases).sort();
+    patch[cfg.keywordsKey || "keywords_en"] = order.length ? order.join("; ") : "";
+    patch[cfg.weightKey || "weight"] = "";
+    if (name) patch[cfg.nameKey || "name"] = name;
+    if (zh) patch[cfg.nameZhKey || "name_zh"] = zh;
+    if (status) patch[cfg.statusKey || "status"] = status;
+    if (chapter) patch[cfg.chapterKey || "chapter"] = chapter;
+    if (parent) patch[cfg.parentKey || "parent"] = parent;
+    if (sizeRaw) patch[cfg.sizeKey || "size"] = sizeRaw;
+    if (colorProp) patch[cfg.colorKey || "color"] = colorProp;
+    if (caption) patch[cfg.captionKey || "caption"] = caption;
+    return patch;
+  }
+
+  function rewriteAnchorIds(text, anchorMap) {
+    var out = String(text == null ? "" : text);
+    Object.keys(anchorMap || {}).forEach(function (oldId) {
+      var newId = anchorMap[oldId];
+      if (!newId || newId === oldId) return;
+      var escId = oldId.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+      out = out.replace(new RegExp("(\\[\\[#\\^)" + escId + "(\\]\\])", "g"), "$1" + newId + "$2");
+      out = out.replace(new RegExp("(\\[\\[[^\\]#|]+#\\^)" + escId + "((?:\\|[^\\]]*)?\\]\\])", "g"), "$1" + newId + "$2");
+      out = out.replace(new RegExp("(^|[^A-Za-z0-9_\\-^])(\\^" + escId + "\\b)", "gm"), function (m, pre) {
+        return pre + "^" + newId;
+      });
+    });
+    return out;
+  }
+
+  function renameAnchorsForMerge(baseBody, incomingBody, nodeId) {
+    var used = {};
+    extractAnchors(baseBody).forEach(function (a) { used[a.id] = true; });
+    var out = String(incomingBody == null ? "" : incomingBody);
+    var map = {};
+    extractAnchors(out).forEach(function (a) {
+      if (!used[a.id]) { used[a.id] = true; return; }
+      var stem = String(nodeId || "dup").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "dup";
+      var next = a.id + "-" + stem;
+      var idx = 2;
+      while (used[next]) { next = a.id + "-" + stem + "-" + idx; idx++; }
+      used[next] = true;
+      map[a.id] = next;
+    });
+    if (Object.keys(map).length) out = rewriteAnchorIds(out, map);
+    return { text: out, anchorMap: map };
+  }
+
+  function mergeNodeBodies(keep, drop, opts) {
+    var base = splitKeywordRegion((keep && keep.body) || "").outside.replace(/\s+$/g, "");
+    var add = mergeBodyCore(drop);
+    if (!add) return { body: base ? base + "\n" : "", anchorMap: {}, appended: false };
+    var ren = renameAnchorsForMerge(base, add, drop && drop.id);
+    add = ren.text.replace(/\s+$/g, "");
+    var same = dupNormText(mergeBodyCore(keep)) && dupNormText(mergeBodyCore(keep)) === dupNormText(mergeBodyCore(drop));
+    if (same || (add && dupNormText(base).indexOf(dupNormText(add)) >= 0)) return { body: (base ? base + "\n" : ""), anchorMap: ren.anchorMap, appended: false };
+    var block = "## Duplicate material merged from " + ((drop && drop.id) || "duplicate") +
+      "\n\n> merged automatically from duplicate note \"" + sanitizeLabel((drop && (drop.name || drop.stem)) || "duplicate") +
+      "\" (`" + String((drop && drop.path) || "") + "`).\n\n" + add;
+    return { body: (base ? base + "\n\n" : "") + block.replace(/\s+$/g, "") + "\n", anchorMap: ren.anchorMap, appended: true };
+  }
+
+  function retargetLinks(text, replacements, opts) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var list = (replacements || []).filter(Boolean);
+    if (!list.length || src.indexOf("[[") < 0) return { text: src, changed: false, replaced: 0, removed: 0 };
+    var current = opts && opts.currentNode ? opts.currentNode : null;
+    var lines = src.split("\n");
+    var out = [];
+    var changed = false, replaced = 0, removed = 0;
+    function match(link) {
+      for (var i = 0; i < list.length; i++) {
+        var rep = list[i];
+        if (rep.from && linkTargetsNode(link, rep.from, opts && opts.graph)) return rep;
+      }
+      return null;
+    }
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
+      if (line.indexOf("[[") < 0) { out.push(line); continue; }
+      var links = extractLinks(line, { stripCode: false }).filter(function (l) {
+        var ticks = (line.slice(0, l.index).match(/`/g) || []).length;
+        return ticks % 2 === 0;
+      });
+      if (!links.length) { out.push(line); continue; }
+      var pos = 0;
+      var pieces = [];
+      var localChanged = false;
+      for (var x = 0; x < links.length; x++) {
+        var l = links[x];
+        var rep = match(l);
+        pieces.push(line.slice(pos, l.index));
+        pos = l.index + l.raw.length;
+        if (!rep) { pieces.push(l.raw); continue; }
+        var to = rep.to;
+        var anchor = l.anchor ? "#" + l.anchor : l.blockId ? "#^" + ((rep.anchorMap && rep.anchorMap[l.blockId]) || l.blockId) : "";
+        var pointsToSelf = current && to && noteKeyMatch(to.path, current) && !anchor;
+        if (pointsToSelf && !(opts && opts.keepSelfLinks)) {
+          pieces.push(l.hasAlias && l.alias ? l.alias : sanitizeLabel(to.name || to.stem));
+          removed++;
+        } else {
+          var raw = (l.linkType === "embed" ? "!" : "") + "[[" + to.stem + anchor + (l.hasAlias ? "|" + (l.alias || "") : "") + "]]";
+          pieces.push(raw);
+          replaced++;
+        }
+        localChanged = true;
+      }
+      pieces.push(line.slice(pos));
+      var merged = pieces.join("").replace(/[ \t]{2,}/g, " " ).replace(/[ \t]+$/g, "");
+      out.push(merged);
+      if (localChanged && merged !== line) changed = true;
+    }
+    var textOut = out.join("\n");
+    return { text: changed ? textOut : src, changed: changed, replaced: replaced, removed: removed };
+  }
+
+  function planNodeMerge(graph, ids, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var byId = (graph && graph._byId) || {};
+    var list = [];
+    if (ids && ids.keep && ids.drop) list = [ids.keep].concat(ids.drop);
+    else if (Object.prototype.toString.call(ids) === "[object Array]") list = ids;
+    else if (ids) list = [ids];
+    list = list.map(function (x) { return typeof x === "string" ? byId[x] : x; }).filter(Boolean);
+    if (list.length < 2) return { keep: null, drop: [], refs: [], children: [], targets: [], files: 0 };
+    var keep = ids && ids.keep ? (typeof ids.keep === "string" ? byId[ids.keep] : ids.keep) : pickDuplicateKeeper(list);
+    var drop = list.filter(function (n) { return n && keep && n.id !== keep.id; });
+    var targets = drop.slice();
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!n || !n.inline) return;
+      if (drop.some(function (d) { return d.path === n.path; })) targets.push(n);
+    });
+    var refs = [];
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!n || n.inline) return;
+      var links = (n.links || []).filter(function (l) {
+        return targets.some(function (t) { return linkTargetsNode(l, t, graph); });
+      });
+      if (!links.length) return;
+      refs.push({ id: n.id, path: n.path, type: n.type, name: n.name, links: links.length });
+    });
+    var dropIds = {};
+    drop.forEach(function (n) { dropIds[n.id] = true; });
+    var children = ((graph && graph.nodes) || []).filter(function (n) {
+      return n && !n.inline && dropIds[n.parent];
+    }).map(function (n) {
+      return { id: n.id, path: n.path, type: n.type, name: n.name, parent: n.parent, chapter: n.chapter };
+    });
+    return {
+      keep: keep,
+      drop: drop,
+      refs: refs,
+      children: children,
+      targets: targets,
+      files: 1 + refs.length + children.length + drop.length,
+      patch: mergedNodePatch(keep, drop, cfg),
+    };
+  }
+
   /* ------------------------------------------------- создание узлов из вида */
 
   var RELATED_TYPE_LABEL = { chapter: "глава", section: "секция", heading: "заголовок", block: "блок" };
@@ -4139,6 +4626,12 @@
     neighborhood: neighborhood,
     components: components,
     filterNodes: filterNodes,
+    findDuplicateGroups: findDuplicateGroups,
+    duplicateScore: duplicateScore,
+    pickDuplicateKeeper: pickDuplicateKeeper,
+    mergedNodePatch: mergedNodePatch,
+    mergeNodeBodies: mergeNodeBodies,
+    retargetLinks: retargetLinks,
     relatedByName: relatedByName,
     nextNodeId: nextNodeId,
     composeNote: composeNote,
@@ -4149,6 +4642,9 @@
     stripInlineAnchor: stripInlineAnchor,
     dropEmptySection: dropEmptySection,
     planNodeDelete: planNodeDelete,
+    planNodeMerge: planNodeMerge,
+    mergeBodyCore: mergeBodyCore,
+    duplicateProfile: duplicateProfile,
     esc: esc,
   };
 });

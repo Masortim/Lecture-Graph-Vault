@@ -18,6 +18,7 @@
   "includeInlineAnchors": false,
   "confirmDelete": true,
   "deleteKey": true,
+  "autoMergeDuplicates": true,
   "indexNote": "Course Index.md",
   "indexGraphDoc": "02 Graph — как читать и править",
   "labelCharsFor": {
