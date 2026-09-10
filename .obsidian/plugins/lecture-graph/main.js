@@ -4258,6 +4258,9 @@ class LectureGraphView extends obsidian.ItemView {
     this.layer.appendChild(this.edgesStruct);
     this.layer.appendChild(this.edgesRef);
     this.layer.appendChild(this.edgesSel);
+    // Рёбра вручную установленных связей между двумя выделенными графами
+    this.edgesManual = svgEl("path", { class: "lg-edges lg-edges--manual" });
+    this.layer.appendChild(this.edgesManual);
     this.layer.appendChild(this.nodesLayer);
     this.svg.appendChild(this.layer);
     stage.appendChild(this.svg);
@@ -4906,6 +4909,22 @@ class LectureGraphView extends obsidian.ItemView {
     // меняется; кегль тоже считается от k
     if (labels) this.updateLabels();
     this.placeBubble();
+    // Обновить ручную связь при перерисовке, если выбраны две вершины
+    if (this.selected && this.selected2) this.updateManualLink();
+  }
+
+  /** Позиционирование линии ручной связи между двумя выделенными вершинами. */
+  updateManualLink() {
+    if (!this.selected || !this.selected2) return;
+    var n1 = this.byId[this.selected];
+    var n2 = this.byId[this.selected2];
+    if (!n1 || !n2) return;
+    var k = this.view.k;
+    var x1 = n1.x * k + this.view.x;
+    var y1 = n1.y * k + this.view.y;
+    var x2 = n2.x * k + this.view.x;
+    var y2 = n2.y * k + this.view.y;
+    this.edgesManual.setAttribute("d", "M " + x1 + " " + y1 + " L " + x2 + " " + y2);
   }
 
   /** Пузырёк сообщения ставим у вершины, но так, чтобы он не закрывал ни её, ни подпись. */
@@ -5373,12 +5392,53 @@ class LectureGraphView extends obsidian.ItemView {
       n.fixed = true;
       this.frozen = true;
       if (this.freezeBtn) this.freezeBtn.setText("⏸ Physics off");
-      this.select(n.id);
+      if (ev.ctrlKey) {
+        // Ctrl+click: manage manual linking
+        if (this.selected === n.id) {
+          // Already selected first node — deselect both and clear link
+          this.selected = null;
+          this.selected2 = null;
+          this.edgesManual.setAttribute("d", "");
+        } else if (this.selected && !this.selected2) {
+          // Second node with Ctrl — draw link between first and second
+          this.selected2 = n.id;
+          this.drawManualLink(this.selected, this.selected2);
+        } else {
+          // First node with Ctrl (no second yet)
+          this.selected = n.id;
+          this.selected2 = null;
+          this.edgesManual.setAttribute("d", "");
+        }
+        this.redraw({ geometry: false, classes: true, selection: true });
+      } else {
+        // Normal click: reset selection and link
+        this.selected = n.id;
+        this.selected2 = null;
+        this.edgesManual.setAttribute("d", "");
+        this.select(n.id);
+      }
     } else {
       this.drag = { pan: true, sx: ev.clientX, sy: ev.clientY, vx: this.view.x, vy: this.view.y, moved: false };
       this.select(null);
+      this.selected = null;
+      this.selected2 = null;
+      this.edgesManual.setAttribute("d", "");
     }
     ev.preventDefault();
+  }
+
+  /** Рисует прямую линию между двумя узлами какManual‑связь. */
+  drawManualLink(id1, id2) {
+    var n1 = this.byId[id1];
+    var n2 = this.byId[id2];
+    if (!n1 || !n2) return;
+    var k = this.view.k;
+    var x1 = n1.x * k + this.view.x;
+    var y1 = n1.y * k + this.view.y;
+    var x2 = n2.x * k + this.view.x;
+    var y2 = n2.y * k + this.view.y;
+    this.edgesManual.setAttribute("d", "M " + x1 + " " + y1 + " L " + x2 + " " + y2);
+    this.redraw({ geometry: false, classes: true, selection: true });
   }
 
   onPointerMove(ev) {
