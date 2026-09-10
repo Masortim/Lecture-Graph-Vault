@@ -1298,4 +1298,113 @@ ok("JSON-выгрузка несёт список фраз, вес, главу-�
   assert.strictEqual(plain.size_value, plain.in);
 });
 
+console.log("\n== раунд 20: создание узлов из окна графа ==");
+
+ok("relatedByName: точное совпадение имени/файла, порядок уровней, exclude и limit", () => {
+  const ch = core.relatedByName(graph, ["Metric Spaces and Completion"]);
+  assert.strictEqual(ch.length, 1, "глава не найдена по имени: " + ch.length);
+  assert.strictEqual(ch[0].node.id, "Ch01");
+  assert.strictEqual(ch[0].phrase, "Metric Spaces and Completion");
+  const none = core.relatedByName(graph, ["Такой темы в курсе нет"]);
+  assert.strictEqual(none.length, 0, "найдено то, чего нет: " + JSON.stringify(none.map((h) => h.node.id)));
+  const h = core.relatedByName(graph, ["Definition: Vector Space"]);
+  assert.ok(h.length >= 1, "заголовок не найден по имени");
+  assert.ok(h.every((x) => x.node.type === "heading"), "совпадение не заголовок");
+  assert.ok(h.some((x) => x.node.id === "Ch01-S01-H01"), "именно этот заголовок не найден");
+  // глава раньше заголовка, внутри уровня — по убыванию связности, limit режет хвост
+  const both = core.relatedByName(graph, ["Metric Spaces and Completion", "Definition: Vector Space"]);
+  assert.ok(both.length >= 2, "обе темы не найдены");
+  assert.strictEqual(both[0].node.type, "chapter", "глава не первым уровнем");
+  assert.strictEqual(core.relatedByName(graph, ["Metric Spaces and Completion", "Definition: Vector Space"], { limit: 1 }).length, 1);
+  assert.strictEqual(core.relatedByName(graph, ["Metric Spaces and Completion"], { exclude: ["Ch01"] }).length, 0, "exclude не работает");
+  assert.strictEqual(core.relatedByName(graph, []).length, 0, "пустой список фраз должен давать пустой ответ");
+});
+
+ok("nextNodeId: конвенция курса (родитель+суффикс) и серия MN без родителя", () => {
+  const byId = graph._byId;
+  const b = core.nextNodeId(graph, "block", "Ch01-S01-H01");
+  assert.ok(/^Ch01-S01-H01-B\d+$/.test(b), "id блока не по конвенции: " + b);
+  assert.ok(!byId[b], "id уже занят: " + b);
+  const h = core.nextNodeId(graph, "heading", "Ch01-S01");
+  assert.ok(/^Ch01-S01-H\d+$/.test(h) && !byId[h], "id заголовка не по конвенции: " + h);
+  const s = core.nextNodeId(graph, "section", "Ch01");
+  assert.ok(/^Ch01-S\d+$/.test(s) && !byId[s], "id секции не по конвенции: " + s);
+  assert.strictEqual(core.nextNodeId(graph, "chapter", null), "Ch10", "десятая глава должна быть Ch10");
+  assert.strictEqual(core.nextNodeId(graph, "block", null), "MN-01", "первый ручной узел должен быть MN-01");
+  assert.ok(/^MN-\d+$/.test(core.nextNodeId({ nodes: [{ id: "MN-01" }, { id: "MN-02" }], _byId: { "MN-01": 1, "MN-02": 1 } }, "block", null)), "серия MN не продолжается");
+});
+
+ok("composeNote: конвенции frontmatter + регион фраз + Related topics в одной заметке", () => {
+  const marks = core.keywordMarkers();
+  const text = core.composeNote(
+    {
+      type: "block",
+      id: "MN-01",
+      name: "Test: Topic",
+      nameZh: "测试主题",
+      keywords: ["vector space", "compact set"],
+      weight: 7,
+      region: marks.begin + "\n\n- [[Ch01 - Metric Spaces and Completion|vector space ×7]]\n\n" + marks.end,
+      related: [{ stem: "Ch05 - Hilbert Space Geometry", name: "Hilbert Space Geometry", phrase: "Hilbert Space Geometry", type: "chapter" }],
+      parent: null,
+      chapter: "Ch01",
+    },
+    shippedCfg
+  );
+  // формат: без кавычек у простых значений (как в остальных заметках), пустая строка
+  // после ---, ровно один завершающий перевод строки
+  assert.ok(/^type: block$/m.test(text), "type должен быть без кавычек");
+  assert.ok(/^id: MN-01$/m.test(text), "id должен быть без кавычек");
+  assert.ok(/^status: draft$/m.test(text), "status должен быть без кавычек");
+  assert.ok(/---\n\n# Test: Topic/.test(text), "нет пустой строки между frontmatter и телом");
+  assert.ok(/\n$/.test(text) && !/\n\n$/.test(text), "лишние пустые строки в конце");
+  const p = core.parseFrontmatter(text);
+  assert.strictEqual(p.data.type, "block");
+  assert.strictEqual(p.data.id, "MN-01");
+  assert.strictEqual(p.data.name, "Test: Topic");
+  assert.strictEqual(p.data.name_zh, "测试主题");
+  assert.deepStrictEqual(p.data.aliases, ["MN-01"]);
+  assert.strictEqual(p.data.status, "draft");
+  assert.strictEqual(p.data.chapter, "Ch01");
+  assert.strictEqual(p.data.keywords_en, "vector space; compact set");
+  assert.strictEqual(p.data.weight, 7);
+  assert.deepStrictEqual(p.data.cssclasses, ["lg-node", "lg-node--block"]);
+  assert.ok(text.indexOf("[[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава") >= 0, "нет ссылки на тему по названию");
+  assert.ok(text.indexOf(marks.begin) >= 0 && text.indexOf(marks.end) > text.indexOf(marks.begin), "регион ключевых фраз не на месте");
+  // материализатор пишет регион в конец тела — заметка обязана рожаться уже в этом
+  // порядке, иначе первый же «Recompute keyword links» перепишет её всю
+  assert.ok(text.indexOf("## Related topics") < text.indexOf(marks.begin), "регион должен быть последним блоком тела");
+});
+
+ok("заметка из composeNote — сразу вершина графа: рёбра keyword и reference из коробки", () => {
+  const marks = core.keywordMarkers();
+  const text = core.composeNote(
+    {
+      type: "block",
+      id: "MN-99",
+      name: "Graph Made Node",
+      keywords: ["vector space"],
+      weight: 3,
+      region: marks.begin + "\n\n- [[Ch01 - Metric Spaces and Completion|vector space ×3]]\n\n" + marks.end,
+      related: [{ stem: "Ch05 - Hilbert Space Geometry", name: "Hilbert Space Geometry", phrase: "Graph Made Node", type: "chapter" }],
+      chapter: "Ch01",
+    },
+    shippedCfg
+  );
+  const g = core.buildGraph(allNotes.concat([{ path: "30 - Blocks/Ch01/MN-99 - Graph Made Node.md", text }]), shippedCfg);
+  const n = g._byId["MN-99"];
+  assert.ok(n, "новая заметка не стала вершиной графа");
+  assert.strictEqual(n.type, "block");
+  assert.deepStrictEqual(n.keywords, ["vector space"], "ключевые фразы не прочитались");
+  assert.strictEqual(n.kwWeight, 3, "вес по региону не 3");
+  assert.strictEqual(n.sizeValue, 3, "размер не по весу");
+  const kw = n.out.filter((o) => o.kind === "keyword");
+  assert.strictEqual(kw.length, 1, "ребро keyword не построено");
+  assert.strictEqual(kw[0].id, "Ch01", "ребро keyword не туда");
+  const ref = n.out.filter((o) => o.kind === "reference");
+  assert.ok(ref.some((o) => o.id === "Ch05"), "ссылка на главу из Related topics не стала ребром");
+  const e = g.edges.find((x) => x.source === "MN-99" && x.kind === "keyword");
+  assert.strictEqual(e.weight, 3, "вес ребра keyword не из «×3»");
+});
+
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));

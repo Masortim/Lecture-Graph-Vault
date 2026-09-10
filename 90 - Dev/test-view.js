@@ -1408,6 +1408,163 @@ const plugin = new PluginClass(app, manifest);
     view.select(null);
   });
 
+  console.log("\n== раунд 19: создание узла правым кликом по пустому холсту ==");
+
+  await ok("команда палитры «Create new node» зарегистрирована", async () => {
+    const cmd = plugin.commands.find((c) => c.id === "create-node");
+    assert.ok(cmd, "нет команды create-node");
+    assert.ok(/create/i.test(cmd.name), "имя команды невнятное: " + cmd.name);
+  });
+
+  await ok("пустой холст: правый клик открывает меню с созданием узла, модалка живая", async () => {
+    // подменяем Menu в стабе: главное — поймать экземпляр, который создаёт вид
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) {
+        super(a);
+        captured = this;
+      }
+    };
+    try {
+      view.svg.dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 40, clientY: 40 })
+      );
+      assert.ok(captured, "меню не создано");
+      const titles = captured.items.filter((i) => !i.sep).map((i) => i._t);
+      assert.ok(/Create node/i.test(titles.join(" | ")), "нет пункта создания узла: " + titles.join(" | "));
+      const item = captured.items.find((i) => i._t && /Create node/i.test(i._t));
+      await item._cb();
+      const modal = document.querySelector(".modal .lg-create");
+      assert.ok(modal, "модалка создания не открылась");
+      assert.ok(modal.querySelector("#lg-new-name"), "нет поля названия (EN)");
+      assert.ok(modal.querySelector("#lg-new-name-zh"), "нет поля названия (中文)");
+      assert.ok(modal.querySelector("#lg-new-keywords"), "нет поля ключевых слов");
+      assert.ok(modal.querySelector("#lg-new-type"), "нет выбора типа вершины");
+      assert.ok(modal.querySelector("#lg-new-parent"), "нет выбора родителя");
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+    // закрыть модалку — сама она не нужна, поток создания проверяем ниже
+    document.querySelector(".modal").parentNode.removeChild(document.querySelector(".modal"));
+  });
+
+  await ok("создание узла: заметка + авторазместка + автоматический поиск тем из корпуса", async () => {
+    const before = (await plugin.getGraph(false)).stats.nodes;
+    const res = await plugin.createNewNode({
+      type: "block",
+      nameEn: "Manual Test Topic",
+      nameZh: "Ручная тестовая тема",
+      keywords: "vector space; compact set",
+    });
+    assert.ok(res && res.file, "createNewNode не вернул результат");
+    const raw = fs.readFileSync(path.join(TMP, res.file.path), "utf8");
+    const parsed = obsidian_stub_parse(raw);
+    // конвенции заметки
+    assert.ok(/^MN-\d+$/.test(parsed.data.id), "id не из серии MN: " + parsed.data.id);
+    assert.strictEqual(parsed.data.type, "block");
+    assert.strictEqual(parsed.data.name, "Manual Test Topic");
+    assert.strictEqual(parsed.data.name_zh, "Ручная тестовая тема");
+    assert.strictEqual(parsed.data.status, "draft");
+    assert.ok(String(parsed.data.keywords_en).includes("vector space"), "keywords_en не записан");
+    assert.ok(parsed.data.weight > 0, "вес по корпусу не записан");
+    assert.ok(parsed.data.chapter, "глава-лидер не определилась");
+    // заметка легла в папку блоков своей главы, регион материализован
+    assert.ok(res.file.path.indexOf("30 - Blocks/") === 0, "не в папке блоков: " + res.file.path);
+    assert.ok(raw.indexOf("<!-- keywords:begin -->") >= 0 && raw.indexOf("<!-- keywords:end -->") > 0, "нет региона ключевых фраз");
+    assert.ok(/\[\[Ch\d+-S\d+(?:-H\d+)?[^\]]*\|/.test(raw), "в регионе нет ссылок на темы курса");
+    // граф пересобран: вершина с рёбрами keyword, размер по весу, выбрана в виде
+    const g = await plugin.getGraph(false);
+    assert.strictEqual(g.stats.nodes, before + 1, "вершин не прибавилось");
+    const n = g._byId[parsed.data.id];
+    assert.ok(n, "новой вершины нет в графе");
+    assert.strictEqual(n.kwWeight, parsed.data.weight, "вес в графе != weight: в заметке");
+    assert.strictEqual(n.sizeValue, n.kwWeight, "размер не по весу");
+    assert.ok(n.out.filter((o) => o.kind === "keyword").length >= 1, "рёбер keyword нет");
+    assert.strictEqual(n.chapter, parsed.data.chapter, "глава в графе != главе в заметке");
+    assert.strictEqual(view.selected, n.id, "новая вершина не выбрана в представлении");
+    // второй узел — другой id и другой путь
+    const res2 = await plugin.createNewNode({ type: "block", nameEn: "Second Manual Node" });
+    assert.ok(res2 && res2.file, "второй узел не создался");
+    assert.notStrictEqual(res2.id, res.id, "id повторился");
+    assert.notStrictEqual(res2.file.path, res.file.path, "путь повторился");
+    assert.ok(!res2.plan, "без ключевых фраз не должно быть плана корпуса");
+  });
+
+  await ok("создание с родителем: id по конвенции курса и структурное ребро", async () => {
+    const res = await plugin.createNewNode({
+      type: "block",
+      nameEn: "Child of a Heading",
+      nameZh: "ребёнок заголовка",
+      parent: "Ch01-S01-H01",
+    });
+    assert.ok(res, "узел не создан");
+    assert.ok(/^Ch01-S01-H01-B\d+$/.test(res.id), "id не по конвенции родителя: " + res.id);
+    const parsed = obsidian_stub_parse(fs.readFileSync(path.join(TMP, res.file.path), "utf8"));
+    assert.strictEqual(parsed.data.parent, "Ch01-S01-H01");
+    assert.strictEqual(parsed.data.chapter, "Ch01", "глава не от родителя");
+    const g = await plugin.getGraph(false);
+    assert.ok(
+      g.edges.some((e) => e.source === res.id && e.target === "Ch01-S01-H01" && e.kind === "structure"),
+      "структурного ребра на родителя нет"
+    );
+  });
+
+  await ok("создание узла: точное совпадение названия даёт связь с темой по имени", async () => {
+    const ch = (await plugin.getGraph(false)).nodes.find((n) => n.type === "chapter" && n.name === "Hilbert Space Geometry");
+    assert.ok(ch, "в курсе нет такой главы — тест пуст");
+    const res = await plugin.createNewNode({
+      type: "block",
+      nameEn: ch.name,
+      nameZh: "希尔伯特空间几何",
+      keywords: "orthogonal projection",
+    });
+    assert.ok(res, "узел не создан");
+    const raw = fs.readFileSync(path.join(TMP, res.file.path), "utf8");
+    assert.ok(raw.indexOf("[[" + ch.stem + "|") >= 0, "нет ссылки на главу с совпавшим названием");
+    assert.ok(/## Related topics/.test(raw), "нет раздела Related topics");
+    const g = await plugin.getGraph(false);
+    const n = g._byId[res.id];
+    assert.ok(n.out.some((o) => o.id === ch.id && o.kind === "reference"), "связь с главой не стала ребром reference");
+    // глава с совпавшим названием не дублируется в регионе корпуса (там только секции/заголовки)
+    assert.ok(!n.out.some((o) => o.id === ch.id && o.kind === "keyword"), "дубль связи в корпусе");
+  });
+
+  await ok("модалка: сабмит создаёт заметку и закрывает окно", async () => {
+    const modal = new PluginClass.CreateNodeModal(app, plugin, {});
+    modal.open();
+    const el = document.querySelector(".modal .lg-create");
+    assert.ok(el, "модалка не открылась");
+    el.querySelector("#lg-new-name").value = "Modal Made Node";
+    el.querySelector("#lg-new-name-zh").value = "模态创建的节点";
+    el.querySelector("#lg-new-keywords").value = "basis and coordinates";
+    const btn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Создать");
+    assert.ok(btn, "кнопки «Создать» нет");
+    await new Promise((r) => btn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true })) && r());
+    await new Promise((r) => setTimeout(r, 30));
+    assert.strictEqual(modal.isOpen, false, "модалка не закрылась после создания");
+    const g = await plugin.getGraph(false);
+    const n = g.nodes.find((x) => x.name === "Modal Made Node");
+    assert.ok(n, "заметки из модалки нет в графе");
+    assert.strictEqual(n.nameZh, "模态创建的节点");
+    assert.ok(n.keywords.includes("basis and coordinates"), "ключевые фразы из модалки не дошли");
+    const raw = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    assert.ok(/<!-- keywords:begin -->/.test(raw), "регион по фразам из модалки не построен");
+  });
+
+  await ok("созданный узел: повторный пересчёт фраз не меняет заметку (идемпотентность)", async () => {
+    const g0 = await plugin.getGraph(false);
+    const n = g0.nodes.filter((x) => /^MN-/.test(x.id) && x.keywords.length)[0];
+    assert.ok(n, "нет созданного узла с фразами");
+    const before = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    await plugin.recomputeKeywords();
+    const after = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    assert.strictEqual(after, before, "пересчёт переписал созданную заметку");
+    const g1 = await plugin.getGraph(false);
+    const n1 = g1._byId[n.id];
+    assert.strictEqual(n1.kwWeight, n.kwWeight, "вес изменился после пересчёта");
+  });
+
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));
   console.log("временное хранилище: " + TMP);
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}
