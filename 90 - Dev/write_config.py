@@ -177,6 +177,8 @@ jwrite(".obsidian/plugins/lecture-graph/data.json", {
     "labelFontMin": 9,
     "labelFontMax": 19,
     "labelFontBySize": True,
+    # множитель кегля подписей: им работают кнопки A−/A+ на панели (шаг ×1.15)
+    "labelScale": 1,
     "countStructural": False,
     "includeInlineAnchors": False,
     # оглавление курса — в корне хранилища: вне папок сканирования, поэтому в граф не попадает

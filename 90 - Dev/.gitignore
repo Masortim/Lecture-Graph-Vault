@@ -1,0 +1,4 @@
+# Зависимости для тестов (npm install jsdom). Сам стаб API Obsidian — часть репозитория,
+# поэтому node_modules в целом игнорируем, а node_modules/obsidian оставляем в Git.
+node_modules/*
+!node_modules/obsidian/

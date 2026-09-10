@@ -52,6 +52,11 @@ if os.path.isdir(os.path.join(DEV, "src")):
     if os.path.isdir(os.path.join(DEVDIR, "src")):
         shutil.rmtree(os.path.join(DEVDIR, "src"))
     shutil.copytree(os.path.join(DEV, "src"), os.path.join(DEVDIR, "src"))
+# предпросмотр плагина в браузере — тоже инструментарий, он едет целиком
+if os.path.isdir(os.path.join(DEV, "preview")):
+    if os.path.isdir(os.path.join(DEVDIR, "preview")):
+        shutil.rmtree(os.path.join(DEVDIR, "preview"))
+    shutil.copytree(os.path.join(DEV, "preview"), os.path.join(DEVDIR, "preview"))
 # стаб obsidian для тестов из копии
 stub_src = os.path.join(DEV, "node_modules", "obsidian")
 if os.path.isdir(stub_src):

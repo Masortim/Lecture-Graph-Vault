@@ -17,6 +17,24 @@
 .lg-num { width: 56px; font-size: var(--font-ui-small); }
 .lg-select { font-size: var(--font-ui-small); max-width: 220px; }
 .lg-fs { font-size: var(--font-ui-smaller); opacity: .8; min-width: 46px; text-align: center; }
+.lg-fs--px { min-width: 62px; font-variant-numeric: tabular-nums; }
+/* Кнопки зума — НА холсте: в полноэкранном режиме панель управления спрятана,
+   а приближать/отдалять граф нужно и там. */
+.lg-zoom {
+  position: absolute; right: 10px; bottom: 10px; z-index: 7;
+  display: flex; flex-direction: column; align-items: stretch; gap: 4px;
+  padding: 5px; border: 1px solid var(--background-modifier-border); border-radius: 10px;
+  background: var(--background-secondary); box-shadow: 0 6px 18px rgba(0, 0, 0, .26);
+}
+.lg-zoom__btn {
+  width: 30px; height: 26px; padding: 0; border-radius: 7px;
+  font-size: 16px; line-height: 1; font-weight: 600;
+  display: flex; align-items: center; justify-content: center;
+}
+.lg-zoom__val {
+  font-size: 10px; text-align: center; opacity: .75; color: var(--text-muted);
+  font-variant-numeric: tabular-nums; padding: 1px 0;
+}
 .lg-stage { position: relative; flex: 1 1 auto; min-height: 0; }
 /* Сообщение у вершины: «пузырёк» рядом с ней. Он не перекрывает ни круг, ни подпись:
    координаты считает view.placeBubble(). Постоянной строки состояния нет — временные
@@ -100,19 +118,30 @@ svg.lg-svg { width: 100%; height: 100%; display: block; background: var(--backgr
 .lg-root--full svg.lg-svg { cursor: crosshair; }
 body.lg-immersive .workspace-ribbon, body.lg-immersive .status-bar,
 body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-container { display: none !important; }
-.lg-edges { fill: none; pointer-events: none; }
+/* Толщина линий — в ЭКРАННЫХ пикселях: весь граф после Fit живёт на k≈0.07, и без
+   non-scaling-stroke дуга толщиной .7 превращалась бы в 0.05 px (то есть в ничто). */
+.lg-edges { fill: none; pointer-events: none; vector-effect: non-scaling-stroke; }
 .lg-edges--ref { stroke: var(--text-muted); stroke-opacity: .35; stroke-width: .7; }
 .lg-edges--struct { stroke: var(--text-faint); stroke-opacity: .5; stroke-width: .6; stroke-dasharray: 3 4; }
-/* рёбра выбранной вершины: клик по главе/секции обязан явно показать её связи */
-.lg-edges--sel { stroke: var(--text-normal); stroke-opacity: .9; stroke-width: 1.5; stroke-dasharray: none; }
+/* рёбра выбранной вершины — ДРУГИМ цветом: клик по главе/секции обязан явно показать
+   её связи, а не просто сделать чуть ярче общую подложку */
+.lg-edges--sel {
+  stroke: var(--interactive-accent, var(--text-accent)); stroke-opacity: .95;
+  stroke-width: 2.2; stroke-dasharray: none;
+  filter: drop-shadow(0 0 3px var(--interactive-accent, var(--text-accent)));
+}
 .lg-node { cursor: grab; }
-.lg-node circle { stroke: var(--background-primary); stroke-width: 1; }
+.lg-node circle { stroke: var(--background-primary); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .lg-node:hover circle { stroke: var(--text-normal); stroke-width: 1.6; }
 .lg-node--selected circle { stroke: var(--text-normal); stroke-width: 2.4; filter: drop-shadow(0 0 6px var(--text-normal)); }
 .lg-node--neigh circle { stroke: var(--text-normal); stroke-width: 1.4; stroke-opacity: .8; }
 .lg-node--dim { opacity: .12; }
 .lg-node--captioned circle { stroke: var(--text-accent); stroke-width: 2.2; }
-.lg-label { font-size: 10px; font-weight: 500; paint-order: stroke; stroke: var(--background-primary); stroke-width: 3px; pointer-events: none; }
+/* ВАЖНО: тут нет font-size и stroke-width. Они приходят presentation-атрибутом
+   (view.updateLabels ставит кегль каждой вершины отдельно), а presentation-атрибут
+   в CSS проигрывает ЛЮБОМУ селектору: пока в этом правиле был `font-size: 10px`,
+   все подписи рисовались ровно 10 px и кнопки A−/A+ ничего не делали на глаз. */
+.lg-label { font-weight: 500; paint-order: stroke; stroke: var(--background-primary); pointer-events: none; }
 .lg-label-en { fill: var(--text-normal); font-weight: 600; }
 .lg-label-zh { fill: #7fb2ff; }
 .lg-node--block .lg-label-en { font-weight: 400; }

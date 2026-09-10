@@ -702,18 +702,43 @@ const plugin = new PluginClass(app, manifest);
         }
       return n;
     };
+    // Подписи теперь КРУПНЫЕ и читаемые: кегль на экране не зависит от зума, поэтому
+    // на весь граф их влезает ровно сколько влезло по месту (десятки, не сотни —
+    // сотня меток по 150 px друг на друге не уместится ни при какой раскладке).
+    // Главное, что проверяем: наездов нет ни при каком размере вершин, а подписи
+    // глав с экрана не пропадают — за место они в очереди первые.
+    const screenFonts = (list) => list.map((r) => r.h / 2.6);
     [22, 12, 60].forEach((R) => {
       plugin.settings.maxRadius = R;
       view.neigh = null;
       view.applySizesNow();
+      view.fit(); // весь граф в кадре: подпись рисуется только тому, кто на экране
       const list = rects();
-      assert.ok(list.length > 40, "при maxRadius " + R + " подписей видно: " + list.length);
+      assert.ok(list.length >= 12, "при maxRadius " + R + " подписей видно: " + list.length);
       assert.strictEqual(overlaps(list), 0, "при maxRadius " + R + " наездов подписей: " + overlaps(list) + " (видно " + list.length + ")");
-      const top = view.graph.nodes.filter((n) => n.type === "chapter" || n.type === "section");
-      assert.ok(top.every((n) => { const el = view.nodeEls[n.id]; return el && el.querySelector("text").style.display !== "none"; }),
-        "при maxRadius " + R + " у глав/секций пропали подписи (дефект 1)");
-      if (R === 12) assert.ok(list.length > 200, "на мелком размере подписей мало: " + list.length);
+      const fs = screenFonts(list);
+      assert.ok(Math.min(...fs) > 6, "при maxRadius " + R + " подпись мельче 6 px на экране: " + Math.min(...fs).toFixed(1));
+      assert.ok(Math.max(...fs) < 40, "при maxRadius " + R + " подпись больше 40 px на экране: " + Math.max(...fs).toFixed(1));
+      // Главы идут за место ПЕРВЫМИ (приоритет по уровню), поэтому подписаны почти все.
+      // Строго «все» требовать нельзя: две главы на экране могут оказаться в 20 px друг
+      // от друга, и обе подписи шириной в пол-экрана не влезут никуда — раньше их
+      // разводила модельная упаковка (и за это платили кеглем 0.8 px на весь граф).
+      const chapters = view.graph.nodes.filter((n) => n.type === "chapter");
+      const labeled = chapters.filter((n) => view.nodeEls[n.id].querySelector("text").style.display !== "none");
+      assert.ok(chapters.length >= 5, "глав слишком мало для проверки: " + chapters.length);
+      assert.ok(labeled.length >= Math.ceil(chapters.length * 0.8),
+        "при maxRadius " + R + " подписано только " + labeled.length + " глав из " + chapters.length + " (дефект 1)");
     });
+    // приближение освобождает место и открывает новые подписи
+    plugin.settings.maxRadius = s0.maxRadius;
+    plugin.settings.labelMode = s0.labelMode;
+    view.applySizesNow();
+    const wide = rects().length;
+    view.zoomBy(2.5);
+    const near = rects().length;
+    assert.ok(near > wide, "приближение не открыло подписей: видно " + wide + " -> " + near);
+    assert.strictEqual(overlaps(rects()), 0, "после приближения появились наезды");
+    view.zoomBy(1 / 2.5);
     plugin.settings.maxRadius = s0.maxRadius;
     plugin.settings.labelMode = s0.labelMode;
     view.applySizesNow();
@@ -759,6 +784,7 @@ const plugin = new PluginClass(app, manifest);
     };
 
     const bboxes = {};
+    const poses = {};
     const before = view.graph.nodes.map((n) => Math.round(n.x) + ":" + Math.round(n.y));
     void before;
     ["fdp", "neato", "twopi", "clusters", "force"].forEach((m) => {
@@ -772,11 +798,23 @@ const plugin = new PluginClass(app, manifest);
       assert.strictEqual(circleBad(g), 0, m + ": наложений кругов " + circleBad(g));
       const b = core.bounds(g.nodes);
       bboxes[m] = Math.round(Math.hypot(b.maxX - b.minX, b.maxY - b.minY));
+      poses[m] = g.nodes.map((n) => [n.x, n.y]);
       if (m === "clusters") assert.ok(g._center && g._center.R > 100, "clusters: секторы не построены");
     });
-    // режимы обязаны давать РАЗНЫЕ картинки (иначе выбор раскладки — декорация)
-    assert.ok(Math.abs(bboxes.fdp - bboxes.twopi) / bboxes.twopi > 0.1, "fdp и twopi одинаковые: " + JSON.stringify(bboxes));
-    assert.ok(Math.abs(bboxes.neato - bboxes.fdp) / bboxes.fdp > 0.1, "neato и fdp одинаковые: " + JSON.stringify(bboxes));
+    // режимы обязаны давать РАЗНЫЕ картинки (иначе выбор раскладки — декорация).
+    // Мерим не размером bbox (два движка могут разложить по-разному, но в ту же площадь),
+    // а средним сдвигом каждой вершины: именно он и есть настоящая «разная картинка».
+    const rms = (a, b2) => {
+      let acc = 0;
+      for (let i = 0; i < a.length; i++) acc += (a[i][0] - b2[i][0]) ** 2 + (a[i][1] - b2[i][1]) ** 2;
+      return Math.sqrt(acc / Math.max(1, a.length));
+    };
+    const span = Math.max(...Object.keys(bboxes).map((m) => bboxes[m]));
+    const drift = { fdp_twopi: rms(poses.fdp, poses.twopi), neato_fdp: rms(poses.neato, poses.fdp) };
+    assert.ok(drift.fdp_twopi / span > 0.05, "fdp и twopi дали одну картинку: сдвиг " +
+      (drift.fdp_twopi / span).toFixed(3) + " от размера графа, bbox " + JSON.stringify(bboxes));
+    assert.ok(drift.neato_fdp / span > 0.05, "neato и fdp дали одну картинку: сдвиг " +
+      (drift.neato_fdp / span).toFixed(3) + " от размера графа, bbox " + JSON.stringify(bboxes));
 
     // выбор из панели: настройка сохраняется, граф перекладывается
     const posBefore = view.graph.nodes.map((n) => Math.round(n.x) + ":" + Math.round(n.y));
@@ -840,31 +878,41 @@ const plugin = new PluginClass(app, manifest);
     const s = plugin.settings;
     s.labelFontBySize = true;
     view.fontAutoEl.checked = true;
-    const min0 = s.labelFontMin, max0 = s.labelFontMax;
+    const scale0 = Number(s.labelScale) || 1;
     const big = view.graph.nodes.find((n) => n.type === "chapter");
     const small = view.graph.nodes.filter((n) => n.type === "block").sort((a, b) => a.degree - b.degree)[0];
     const mode0 = plugin.settings.labelMode;
     plugin.settings.labelMode = "always"; // подписи скрытых вершин тоже должны получать кегль
     view.updateLabels();
+    // В DOM лежит модельный кегль × labelComp(k): на ЭКРАНЕ он ровно n.font, поэтому
+    // «A+» видно сразу. Раньше кегль в DOM умножался на k≈0.07 — и кнопки «не работали».
     const fontOf = (n) => parseFloat(view.nodeEls[n.id].querySelector("text.lg-label").getAttribute("font-size"));
-    assert.ok(Math.abs(fontOf(big) - big.font) < 0.05, "кегль в DOM " + fontOf(big) + " != модель " + big.font);
-    assert.ok(Math.abs(fontOf(small) - small.font) < 0.05, "кегль мелкой вершины не в DOM");
+    const screenOf = (n) => fontOf(n) * view.view.k;
+    assert.ok(Math.abs(screenOf(big) - big.font) < 0.05, "кегль на экране " + screenOf(big) + " != модель " + big.font);
+    assert.ok(Math.abs(screenOf(small) - small.font) < 0.05, "кегль мелкой вершины не в DOM");
     assert.ok(big.font > small.font + 1, "в авто-режиме кегль не растёт с размером: " + big.font + " vs " + small.font);
     assert.ok(!isNaN(fontOf(small)), "у скрытой по порогу вершины нет font-size");
-    Array.from(view.rootEl.querySelectorAll("button")).find((b) => b.textContent.trim() === "A+").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-    assert.strictEqual(s.labelFontMax, max0 + 1, "A+ не изменил верхнюю границу");
-    assert.strictEqual(s.labelFontMin, min0 + 1, "A+ не изменил нижнюю границу");
-    assert.ok(big.font > parseFloat((min0 + 1).toFixed(2)), "кегль не пересчитан на месте");
-    assert.strictEqual(plugin._data.labelFontMax, s.labelFontMax, "не сохранено");
-    Array.from(view.rootEl.querySelectorAll("button")).find((b) => b.textContent.trim() === "A\u2212").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
-    assert.strictEqual(s.labelFontMax, max0, "A− не вернул назад");
+    const clickBtn = (txt) => Array.from(view.rootEl.querySelectorAll("button"))
+      .find((b) => b.textContent.trim() === txt).dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    const before = screenOf(big);
+    clickBtn("A+");
+    assert.ok(Math.abs(s.labelScale - scale0 * 1.15) < 1e-6, "A+ не поднял множитель кегля: " + s.labelScale);
+    assert.ok(screenOf(big) > before * 1.1, "A+ не увеличил кегль: " + before.toFixed(1) + " -> " + screenOf(big).toFixed(1));
+    assert.strictEqual(plugin._data.labelScale, s.labelScale, "множитель не сохранён");
+    // рядом с кнопками видно, чем кончилось: множитель и кегль в пикселях
+    assert.ok(/×/.test(view.fontPxEl.textContent), "нет индикатора множителя: «" + view.fontPxEl.textContent + "»");
+    assert.ok(/px/.test(view.fontRangeEl.textContent), "нет индикатора кегля: «" + view.fontRangeEl.textContent + "»");
+    clickBtn("A\u2212");
+    assert.ok(Math.abs(s.labelScale - scale0) < 1e-6, "A− не вернул назад: " + s.labelScale);
+    assert.ok(Math.abs(screenOf(big) - before) < 0.05, "кегль не вернулся: " + screenOf(big));
 
     // команды палитры работают без мыши
     const up = plugin.commands.find((c) => c.id === "bump-font-up");
     assert.ok(up && plugin.commands.find((c) => c.id === "bump-font-down"), "нет команд A+/A-");
     up.callback();
-    assert.strictEqual(s.labelFontMax, max0 + 1, "команда A+ не сработала");
+    assert.ok(Math.abs(s.labelScale - scale0 * 1.15) < 1e-6, "команда A+ не сработала");
     plugin.commands.find((c) => c.id === "bump-font-down").callback();
+    assert.ok(Math.abs(s.labelScale - scale0) < 1e-6, "команда A− не сработала");
 
     // выключенное авто -> единый кегль
     const fixed = 13;
@@ -913,9 +961,15 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(plugin.settings.sizeMode, "byType", "режим не сохранён");
     assert.strictEqual(plugin._data.sizeMode, "byType", "режим не уехал в data.json");
     assert.ok(rByType > rGlobal, "своё «максимум по уровню» должно добавлять размера: " + rByType + " vs " + rGlobal);
-    // размер в SVG обновился на месте (тот же DOM-узел)
+    // размер в SVG обновился на месте (тот же DOM-узел). В DOM лежит МОДЕЛЬНЫЙ радиус,
+    // увеличенный под текущий зум: вершина не должна вырождаться в точку на экране
     const el = view.nodeEls[hubId].querySelector("circle");
-    assert.ok(Math.abs(parseFloat(el.getAttribute("r")) - rByType) < 0.01, "r в DOM = " + el.getAttribute("r") + ", в модели " + rByType);
+    const hub = view.graph.nodes.find((n) => n.id === hubId);
+    // в DOM пишется модельный радиус с поправкой на зум (вершина не должна стать точкой);
+    // сравниваем с точностью до округления до 0.1, которое делает сам рендер
+    assert.ok(Math.abs(parseFloat(el.getAttribute("r")) - view.radiusModel(hub, view.view.k)) < 0.06,
+      "r в DOM = " + el.getAttribute("r") + ", ожидался модельный " + rByType + " с поправкой на зум (" +
+      view.radiusModel(hub, view.view.k).toFixed(1) + ")");
     view.normSel.value = "hybrid";
     view.normSel.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
     assert.ok(view.graph.stats.unresolved === 0);
@@ -977,15 +1031,29 @@ const plugin = new PluginClass(app, manifest);
     const small = view.graph.nodes.filter((n) => n.type === "block" && n.r < plugin.labelThreshold());
     const bigEnough = view.graph.nodes.filter((n) => n.r >= plugin.labelThreshold());
     assert.ok(small.length > 20 && bigEnough.length > 20, "порог делит граф некорректно: " + small.length + "/" + bigEnough.length);
+    const visibleLabels = () => view.graph.nodes.filter((n) => view.visible[n.id] &&
+      view.nodeEls[n.id].__t.getAttribute("style") === "display:block").length;
     const shown = small.filter((n) => view.nodeEls[n.id].__t.getAttribute("style") === "display:block").length;
     assert.strictEqual(shown, 0, "labels shown for small nodes");
     const big = bigEnough[0];
     assert.strictEqual(view.nodeEls[big.id].__t.getAttribute("style"), "display:block", "label hidden for r=" + big.r.toFixed(1));
+    const sizeMode = visibleLabels();
     plugin.settings.labelMode = "always";
     view.updateLabels();
-    assert.strictEqual(view.nodeEls[small[0].id].__t.getAttribute("style"), "display:block", "always-mode failed");
+    // «всегда» добавляет кандидатов; на экране места хватает не всем, но меньше чем
+    // было — точно не должно стать
+    assert.ok(visibleLabels() >= sizeMode, "always-режим показал меньше подписей, чем size: " + sizeMode + " -> " + visibleLabels());
+    // выбранная вершина получает подпись в любом режиме, даже если на экране тесно
+    view.select(small[0].id);
+    assert.strictEqual(view.nodeEls[small[0].id].__t.getAttribute("style"), "display:block", "у выбранной вершины нет подписи");
+    view.select(null);
+    // и наоборот: приближение открывает подписи мелких вершин
     plugin.settings.labelMode = "size";
     view.updateLabels();
+    const wide = visibleLabels();
+    view.zoomBy(3);
+    assert.ok(visibleLabels() > wide, "приближение не открыло подписей: " + wide + " -> " + visibleLabels());
+    view.fit();
   });
 
   await ok("взаимодействие: панорамирование, зум, перетаскивание вершины, dblclick", async () => {
@@ -1019,6 +1087,85 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(view.view.x, vx + 60, "pan failed");
     view.onPointerUp();
     assert.ok(view.layer.getAttribute("transform").startsWith("translate("), "layer transform missing");
+  });
+
+  await ok("зум: кнопки «+»/«−» на холсте и читаемость на любом масштабе", async () => {
+    view.select(null);
+    view.neigh = null;
+    view.fit();
+    const btn = (txt) => Array.from(view.rootEl.querySelectorAll("button.lg-zoom__btn"))
+      .find((b) => b.textContent.trim() === txt);
+    assert.ok(btn("+") && btn("\u2212"), "на холсте нет кнопок зума «+»/«−»");
+    assert.ok(view.zoomValEl, "нет индикатора масштаба");
+    assert.ok(view.zoomInBtn.parentNode.classList.contains("lg-zoom"), "кнопки зума не на холсте");
+    // кнопки лежат на сцене, а не в панели: в полноэкранном режиме панель спрятана
+    assert.strictEqual(view.zoomInBtn.closest(".lg-bar"), null, "кнопки зума попали в панель управления");
+
+    const k0 = view.view.k;
+    assert.ok(k0 < 0.5, "весь граф должен уезжать на k<0.5, иначе проверка бессмысленна: " + k0.toFixed(3));
+    btn("+").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.ok(Math.abs(view.view.k - k0 * 1.3) < 1e-6, "«+» не увеличил: " + view.view.k);
+    btn("\u2212").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.ok(Math.abs(view.view.k - k0) < 1e-6, "«−» не вернул: " + view.view.k);
+    assert.ok(/%/.test(view.zoomValEl.textContent), "индикатор масштаба пустой: «" + view.zoomValEl.textContent + "»");
+    // команды палитры дублируют кнопки
+    const zin = plugin.commands.find((c) => c.id === "zoom-in");
+    const zout = plugin.commands.find((c) => c.id === "zoom-out");
+    assert.ok(zin && zout && plugin.commands.find((c) => c.id === "zoom-fit"), "нет команд зума");
+    zin.callback();
+    assert.ok(view.view.k > k0 * 1.2, "команда zoom-in не сработала");
+    zout.callback();
+    assert.ok(Math.abs(view.view.k - k0) < 1e-6, "команда zoom-out не сработала");
+
+    // ГЛАВНОЕ: вершины и подписи остаются видимыми при любом отдалении.
+    // До правки на весь граф (k≈0.07) радиус 13 px давал 0.9 px, а кегль 11 px — 0.8 px.
+    const sample = view.graph.nodes.filter((n) => view.visible[n.id]).slice(0, 400);
+    const screenR = (n) => parseFloat(view.nodeEls[n.id].querySelector("circle").getAttribute("r")) * view.view.k;
+    const screenF = (n) => parseFloat(view.nodeEls[n.id].__t.getAttribute("font-size")) * view.view.k;
+    view.fit();
+    const rsFit = sample.map(screenR).sort((a, b) => a - b);
+    const rFit = rsFit[0], rMed = rsFit[rsFit.length >> 1];
+    const fFit = Math.min(...sample.map(screenF));
+    view.zoomBy(0.15); // отдаляемся ещё сильнее
+    const rsOut = sample.map(screenR).sort((a, b) => a - b);
+    const rOut = rsOut[0], fOut = Math.min(...sample.map(screenF));
+    assert.ok(rFit > 1.2, "после Fit вершина мельче 1.2 px: " + rFit.toFixed(2));
+    assert.ok(rMed > 2, "после Fit медианная вершина мельче 2 px: " + rMed.toFixed(2));
+    assert.ok(rOut > 1.2, "при отдалении вершина вырождается в точку: " + rOut.toFixed(2));
+    assert.ok(fFit > 8, "после Fit кегль мельче 8 px: " + fFit.toFixed(2));
+    assert.ok(Math.abs(fOut - fFit) < 0.05, "кегль на экране не постоянен: " + fFit.toFixed(2) + " -> " + fOut.toFixed(2));
+    // рёбра не должны исчезать: их толщина задана в экранных пикселях
+    const css = fs.readFileSync(path.join(PLUGIN_DIR, "styles.css"), "utf8").replace(/\r/g, "");
+    assert.ok(/\.lg-edges \{[^}]*non-scaling-stroke/.test(css), "толщина рёбер привязана к модели — при отдалении они исчезнут");
+    view.fit();
+  });
+
+  await ok("выделение вершины: связанные дуги рисуются своим цветом", async () => {
+    const css = fs.readFileSync(path.join(PLUGIN_DIR, "styles.css"), "utf8").replace(/\r/g, "");
+    const rule = (css.match(/\.lg-edges--sel\s*\{[^}]*\}/) || [""])[0];
+    assert.ok(rule, "нет правила для выделенных рёбер");
+    assert.ok(/stroke:\s*var\(--interactive-accent/.test(rule), "выделенные рёбра не своим цветом: " + rule);
+    assert.ok(!/stroke:\s*var\(--text-normal\)/.test(rule), "выделение обязано отличаться от обычного цвета");
+    // regression: .lg-label не должен задавать font-size — иначе он перебьёт кегль
+    // каждой вершины (presentation-атрибут проигрывает любому селектору) и A−/A+
+    // перестанут что-либо менять на экране
+    const labelRule = (css.match(/\.lg-label \{[^}]*\}/) || [""])[0];
+    assert.ok(labelRule, "нет правила .lg-label");
+    assert.ok(!/font-size/.test(labelRule), "в .lg-label снова задан font-size: " + labelRule);
+
+    const node = view.graph.nodes.find((n) => n.type === "chapter");
+    const degree = view.graph.edges.filter((e) => e.source === node.id || e.target === node.id).length;
+    assert.ok(degree > 3, "у главы слишком мало связей для проверки: " + degree);
+    view.select(null);
+    assert.strictEqual(view.edgesSel.getAttribute("d") || "", "", "без выбора слой рёбер непустой");
+    view.select(node.id);
+    const d = view.edgesSel.getAttribute("d") || "";
+    assert.ok(d.length > 20, "связи выбранной вершины не нарисованы");
+    const segs = (d.match(/M/g) || []).length;
+    assert.strictEqual(segs, degree, "нарисовано " + segs + " дуг из " + degree);
+    // снятие выделения гасит слой
+    view.select(node.id);
+    assert.strictEqual(view.edgesSel.getAttribute("d") || "", "", "слой рёбер не погас");
   });
 
   await ok("экспорт SVG: только видимые вершины, CJK-шрифт, валидный XML", async () => {
