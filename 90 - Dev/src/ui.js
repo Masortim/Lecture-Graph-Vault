@@ -1725,7 +1725,8 @@ class LectureGraphView extends obsidian.ItemView {
     if (!n) {
       // правый клик по пустому месту холста: новая вершина создаётся прямо из графа —
       // с английским и китайским названиями и списком ключевых фраз, по которым сразу
-      // пойдёт поиск связанных тем (корпус аннотаций + совпадения названий)
+      // пойдёт поиск связанных тем (корпус аннотаций + совпадения названий); тут же —
+      // глобальное слияние дубликатов по всему графу (с предпросмотром и отменой)
       ev.preventDefault();
       var menu = new obsidian.Menu(this.app);
       menu.addItem((it) =>
@@ -1734,6 +1735,25 @@ class LectureGraphView extends obsidian.ItemView {
           .setIcon("plus-circle")
           .onClick(() => new CreateNodeModal(this.app, this.plugin, {}).open())
       );
+      var dupCount = this.graph && this.graph.duplicateGroups ? this.graph.duplicateGroups.length : 0;
+      var dupSuffix = dupCount ? " (" + dupCount + ")" : "";
+      menu.addItem((it) =>
+        it
+          .setTitle("Preview duplicate groups" + dupSuffix + "…")
+          .setIcon("eye")
+          .onClick(() => this.plugin.previewDuplicateNodes())
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Merge all duplicate vertices" + dupSuffix)
+          .setIcon("git-merge")
+          .onClick(() => this.plugin.mergeDuplicateNodes())
+      );
+      if (this.plugin.lastMerge) {
+        menu.addItem((it) =>
+          it.setTitle("Undo last duplicate merge").setIcon("undo").onClick(() => this.plugin.undoDuplicateMerge())
+        );
+      }
       menu.addSeparator();
       menu.addItem((it) => it.setTitle("Fit graph to view").setIcon("maximize").onClick(() => this.fit()));
       menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
@@ -1749,6 +1769,7 @@ class LectureGraphView extends obsidian.ItemView {
     menu.addSeparator();
     menu.addItem((it) => it.setTitle("Copy wiki link").setIcon("link").onClick(() => this.plugin.copyLink(n)));
     menu.addItem((it) => it.setTitle("Merge duplicates of this vertex").setIcon("git-merge").onClick(() => this.plugin.mergeDuplicateNodes({ ids: [n.id] })));
+    menu.addItem((it) => it.setTitle("Preview duplicates of this vertex…").setIcon("eye").onClick(() => this.plugin.previewDuplicateNodes({ ids: [n.id] })));
     // ручная связь без Ctrl: если вершина уже выделена, меню предлагает оба направления
     if (this.selected && this.selected !== n.id && this.byId[this.selected]) {
       var srcSel = this.byId[this.selected];
@@ -2234,6 +2255,281 @@ class DeleteNodeModal extends obsidian.Modal {
   }
 }
 
+/* ------------------------------------------------- предпросмотр слияния */
+
+function dupReasonLabel(r) {
+  var s = String(r || "");
+  var pct = function () {
+    var m = /:(\d+)%$/.exec(s);
+    return m ? m[1] + "%" : "";
+  };
+  if (s === "same-title") return "одинаковое название";
+  if (s.indexOf("similar-title:") === 0) return "похожие названия (" + pct() + ")";
+  if (s === "same-title-zh") return "одинаковый перевод";
+  if (s.indexOf("similar-title-zh:") === 0) return "похожие переводы (" + pct() + ")";
+  if (s === "same-content") return "одинаковое содержимое";
+  if (s.indexOf("content-similarity:") === 0) return "содержимое похоже на " + pct();
+  if (s.indexOf("content-contains:") === 0) return "одно содержимое включает другое (" + pct() + ")";
+  if (s.indexOf("content-overlap:") === 0) return "содержимое пересекается (" + pct() + ")";
+  if (s === "same-keywords") return "одинаковые ключевые фразы";
+  if (s.indexOf("shared-keywords:") === 0) return "общие ключевые фразы (" + pct() + ")";
+  if (s.indexOf("shared-links:") === 0) return "общие связи (" + pct() + ")";
+  if (s === "shared-alias") return "общий алиас";
+  if (s === "same-parent") return "общий родитель";
+  if (s === "same-chapter") return "одна глава";
+  if (s === "manual-node") return "вершина создана вручную";
+  if (s === "different-chapter") return "разные главы";
+  return s;
+}
+
+function dupConfidenceLabel(c) {
+  if (c === "high") return "уверенно";
+  if (c === "medium") return "вероятно";
+  return "сомнительно";
+}
+
+function narrowDuplicateGroups(groups, target, mergeOpts) {
+  if (!target || !Object.keys(target).length) return (groups || []).slice();
+  return (groups || [])
+    .filter(function (gr) {
+      return gr.nodes.some(function (n) { return target[n.id]; });
+    })
+    .map(function (gr) {
+      var keepIds = {};
+      gr.nodes.forEach(function (seed) {
+        if (!target[seed.id]) return;
+        keepIds[seed.id] = true;
+        gr.nodes.forEach(function (other) {
+          if (!other || other.id === seed.id) return;
+          if (core.duplicateScore(seed, other, mergeOpts).match) keepIds[other.id] = true;
+        });
+      });
+      var nodes = gr.nodes.filter(function (n) { return keepIds[n.id]; });
+      if (nodes.length < 2) return null;
+      var keep = core.pickDuplicateKeeper(nodes);
+      return { id: keep.id, keep: keep, nodes: nodes, drop: nodes.filter(function (n) { return !keep || n.id !== keep.id; }), reasons: gr.reasons || [], score: gr.score || 0, contentScore: gr.contentScore || 0, titleSim: gr.titleSim || 0, containment: gr.containment || 0, confidence: gr.confidence || "low" };
+    })
+    .filter(Boolean);
+}
+
+class MergeDuplicatesModal extends obsidian.Modal {
+  constructor(app, plugin, groups, opts) {
+    super(app);
+    this.plugin = plugin;
+    this.groups = (groups || []).slice();
+    this.graph = (opts || {}).graph || null;
+    this.caption = (opts || {}).title || "Merge duplicate vertices";
+    this.busy = false;
+    this.selected = {};
+    this.keepers = {};
+    var self = this;
+    this.groups.forEach(function (g) {
+      self.selected[g.id] = true;
+      self.keepers[g.id] = g.keep.id;
+    });
+  }
+
+  groupPlan(gr, keeperId) {
+    if (!this.graph) return null;
+    var keeper = null;
+    for (var i = 0; i < gr.nodes.length; i++) {
+      if (gr.nodes[i].id === keeperId) { keeper = gr.nodes[i]; break; }
+    }
+    if (!keeper) keeper = gr.keep;
+    try {
+      return core.planNodeMerge(this.graph, { keep: keeper, drop: gr.nodes.filter(function (n) { return n.id !== keeper.id; }) });
+    } catch (e) {
+      return null;
+    }
+  }
+
+  onOpen() {
+    var content = this.contentEl;
+    content.addClass("lg-modal");
+    content.addClass("lg-merge");
+    var self = this;
+    content.createEl("h2", { text: this.caption + (this.groups.length ? " — групп: " + this.groups.length : "") });
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Дубликат — вершины одного уровня с одинаковым (или очень похожим) названием, переводом и содержимым; учитываются также ключевые фразы и общие связи. Одна и та же тема в разных главах — не дубликат. Ссылки, дети, фразы и подписи переносятся в keeper, дубли уходят в корзину, отмена — командой «Undo last duplicate merge».",
+    });
+    if (!this.groups.length) {
+      content.createDiv({
+        cls: "lg-merge__empty",
+        text: "Дубликаты не найдены. Если вершины выглядят одинаково, но живут в разных главах или у них разное содержимое, — это штатные позиции курса, и сливать их не нужно.",
+      });
+      var btns0 = content.createDiv({ cls: "lg-modal-btns" });
+      btns0.createEl("button", { text: "Закрыть", attr: { type: "button" } }).addEventListener("click", () => this.close());
+      return;
+    }
+    var toolbar = content.createDiv({ cls: "lg-merge__toolbar" });
+    toolbar.createEl("a", { text: "Выбрать все", href: "#" }).addEventListener("click", (ev) => { ev.preventDefault(); self.toggleAll(true); });
+    toolbar.createEl("span", { text: " · " });
+    toolbar.createEl("a", { text: "Снять все", href: "#" }).addEventListener("click", (ev) => { ev.preventDefault(); self.toggleAll(false); });
+    var list = content.createDiv({ cls: "lg-merge__list" });
+    this.groups.forEach(function (gr, gi) {
+      list.appendChild(self.renderGroup(gr, gi));
+    });
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    this.mergeBtn = btns.createEl("button", { cls: "mod-cta", text: "…", attr: { type: "button" } });
+    this.mergeBtn.addEventListener("click", () => this.submit());
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    this.updateMergeBtn();
+  }
+
+  toggleAll(v) {
+    var self = this;
+    this.groups.forEach(function (g) { self.selected[g.id] = v; });
+    var boxes = this.contentEl.querySelectorAll("input[data-lg-group]");
+    for (var i = 0; i < boxes.length; i++) boxes[i].checked = v;
+    this.updateMergeBtn();
+  }
+
+  selectedGroups() {
+    var self = this;
+    return this.groups.filter(function (g) { return self.selected[g.id]; });
+  }
+
+  updateMergeBtn() {
+    if (!this.mergeBtn) return;
+    var sel = this.selectedGroups();
+    var nodes = sel.reduce(function (s, g) { return s + g.nodes.length; }, 0);
+    this.mergeBtn.setText(sel.length ? "Merge selected (" + sel.length + " групп · " + nodes + " вершин)" : "Нечего сливать");
+    this.mergeBtn.disabled = !sel.length || this.busy;
+  }
+
+  renderGroup(gr, gi) {
+    var self = this;
+    var box = document.createElement("div");
+    box.className = "lg-merge__group";
+    var head = document.createElement("div");
+    head.className = "lg-merge__head";
+    var cb = document.createElement("input");
+    cb.type = "checkbox";
+    cb.checked = true;
+    cb.setAttribute("data-lg-group", gr.id);
+    cb.addEventListener("change", function () {
+      self.selected[gr.id] = cb.checked;
+      box.classList.toggle("lg-merge__group--off", !cb.checked);
+      self.updateMergeBtn();
+    });
+    head.appendChild(cb);
+    var title = document.createElement("div");
+    title.className = "lg-merge__title";
+    var conf = gr.confidence || "low";
+    title.textContent = "Группа " + (gi + 1) + " · " + (TYPE_LABEL[gr.keep.type] || gr.keep.type) + " · " + gr.nodes.length + " вершин · score " + (gr.score !== undefined ? gr.score : "—") + " · " + dupConfidenceLabel(conf);
+    head.appendChild(title);
+    var badge = document.createElement("span");
+    badge.className = "lg-merge__badge lg-merge__badge--" + conf;
+    badge.textContent = dupConfidenceLabel(conf);
+    head.appendChild(badge);
+    box.appendChild(head);
+
+    var reasons = document.createElement("div");
+    reasons.className = "lg-merge__reasons";
+    reasons.textContent = "Почему дубликат: " + (gr.reasons || []).map(dupReasonLabel).join("; ");
+    box.appendChild(reasons);
+
+    var keepRow = document.createElement("div");
+    keepRow.className = "lg-merge__keeper";
+    keepRow.appendChild(document.createTextNode("Оставить (keeper): "));
+    var sel = document.createElement("select");
+    gr.nodes.forEach(function (n) {
+      var o = document.createElement("option");
+      o.value = n.id;
+      o.textContent = (n.name || n.id) + " · " + n.id + " · ⇠" + (n.degree || 0);
+      if (n.id === gr.keep.id) o.selected = true;
+      sel.appendChild(o);
+    });
+    sel.addEventListener("change", function () {
+      self.keepers[gr.id] = sel.value;
+      planLine.textContent = self.planText(gr, sel.value);
+      warnLine.textContent = self.warnText(gr, sel.value);
+      warnLine.style.display = warnLine.textContent ? "" : "none";
+    });
+    keepRow.appendChild(sel);
+    box.appendChild(keepRow);
+
+    var ul = document.createElement("ul");
+    ul.className = "lg-merge__nodes";
+    gr.nodes.forEach(function (n) {
+      var li = document.createElement("li");
+      var bits = [(n.name || n.id) + (n.nameZh ? " · " + n.nameZh : "")];
+      bits.push("id " + n.id);
+      bits.push("⇠" + (n.degree || 0) + " / ⇢" + (n.outCount || 0));
+      if (n.parent) bits.push("parent " + n.parent);
+      if (n.chapter) bits.push("глава " + n.chapter);
+      if (n.isPlaceholder) bits.push("заглушка");
+      if (/^MN-\d+$/.test(n.id)) bits.push("вручную");
+      if (n.id === self.keepers[gr.id]) bits.push("KEEPER");
+      li.textContent = bits.join(" · ");
+      var path = document.createElement("div");
+      path.className = "lg-modal-path";
+      path.textContent = n.path;
+      li.appendChild(path);
+      ul.appendChild(li);
+    });
+    box.appendChild(ul);
+
+    var planLine = document.createElement("div");
+    planLine.className = "lg-merge__plan";
+    planLine.textContent = this.planText(gr, gr.keep.id);
+    box.appendChild(planLine);
+    var warnLine = document.createElement("div");
+    warnLine.className = "lg-merge__warn";
+    warnLine.textContent = this.warnText(gr, gr.keep.id);
+    if (!warnLine.textContent) warnLine.style.display = "none";
+    box.appendChild(warnLine);
+    return box;
+  }
+
+  planText(gr, keeperId) {
+    var plan = this.groupPlan(gr, keeperId);
+    if (!plan) return "План: keeper «" + keeperId + "», дублей " + (gr.nodes.length - 1) + ".";
+    var links = (plan.refs || []).reduce(function (s, r) { return s + (r.links || 0); }, 0);
+    return (
+      "План: keeper «" + plan.keep.id + "», дублей " + plan.drop.length +
+      " · входящих ссылок переписать: " + links + " в " + plan.refs.length + " заметках" +
+      " · детей перевесить: " + plan.children.length +
+      " · файлов затронет: " + plan.files
+    );
+  }
+
+  warnText(gr, keeperId) {
+    var plan = this.groupPlan(gr, keeperId);
+    if (!plan || !plan.warnings || !plan.warnings.length) return "";
+    return "Внимание: " + plan.warnings.join(" · ");
+  }
+
+  async submit() {
+    if (this.busy) return;
+    var sel = this.selectedGroups();
+    if (!sel.length) return;
+    this.busy = true;
+    this.updateMergeBtn();
+    var ids = [];
+    var keepers = {};
+    var self = this;
+    sel.forEach(function (gr) {
+      var keeper = self.keepers[gr.id] || gr.keep.id;
+      gr.nodes.forEach(function (n) {
+        ids.push(n.id);
+        keepers[n.id] = keeper;
+      });
+    });
+    this.close();
+    try {
+      await this.plugin.mergeDuplicateNodes({ ids: ids, keepers: keepers });
+    } finally {
+      this.busy = false;
+    }
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+  }
+}
+
 /* ------------------------------------------------------------------ settings */
 
 class LectureGraphSettingTab extends obsidian.PluginSettingTab {
@@ -2304,7 +2600,7 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
       .addToggle((t) => t.setValue(s.deleteKey !== false).onChange((v) => ((s.deleteKey = v), save())));
     new obsidian.Setting(el)
       .setName("Автослияние дубликатов после создания узла")
-      .setDesc("После команды Create node плагин сравнивает новую заметку с уже существующими вершинами того же уровня: одинаковое название, совпадающий перевод и близкое содержимое считаются сильным сигналом дубликата. В этом случае связи, дети и ключевые фразы переносятся в одну заметку, а дубль уходит в корзину.")
+      .setDesc("После команды Create node плагин сравнивает новую заметку с вершинами того же уровня: одинаковое или очень похожее название, перевод, содержимое, ключевые фразы и общие связи — сигналы дубликата (одна тема в разных главах — не дубликат). Совпавшие сливаются в одну заметку: связи, дети, фразы и подписи переносятся, дубль уходит в корзину. Массовое слияние — правый клик по пустому холсту графа, с предпросмотром.")
       .addToggle((t) => t.setValue(s.autoMergeDuplicates !== false).onChange((v) => ((s.autoMergeDuplicates = v), save())));
     new obsidian.Setting(el)
       .setName("Изгиб рёбер (дуги)")
@@ -2622,6 +2918,22 @@ class LectureGraphPlugin extends obsidian.Plugin {
       callback: () => this.mergeDuplicateNodes(),
     });
     this.addCommand({
+      id: "preview-duplicates",
+      name: "Preview duplicate groups (choose what to merge)",
+      callback: () => this.previewDuplicateNodes(),
+    });
+    this.addCommand({
+      id: "preview-current-note-duplicates",
+      name: "Preview duplicates of the current note",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.previewDuplicateNodes({ ids: [node.id] });
+      },
+    });
+    this.addCommand({
       id: "merge-current-note-duplicates",
       name: "Merge duplicates of the current note",
       editorCallback: () => {
@@ -2701,6 +3013,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
             var node = g.nodes.find((n) => n.path === file.path);
             if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
             else this.mergeDuplicateNodes({ ids: [node.id] });
+          })
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Preview duplicates of this vertex…")
+          .setIcon("eye")
+          .onClick(async () => {
+            var g = await this.getGraph(false);
+            var node = g.nodes.find((n) => n.path === file.path);
+            if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+            else this.previewDuplicateNodes({ ids: [node.id] });
           })
       );
     }));
@@ -3226,6 +3549,22 @@ class LectureGraphPlugin extends obsidian.Plugin {
     return { captionPatch: "[[" + chosenFile.basename + "]]", touched: changed, deleted: deleted, path: chosenFile.path };
   }
 
+  async previewDuplicateNodes(opts) {
+    opts = opts || {};
+    var mergeOpts = buildOptions(this.settings);
+    var g = await this.buildGraphModel(mergeOpts);
+    var groups = core.findDuplicateGroups(g, mergeOpts);
+    var target = {};
+    (opts.ids || []).forEach(function (id) {
+      var key = id && id.id ? id.id : id;
+      if (key) target[String(key)] = true;
+    });
+    if (Object.keys(target).length) groups = narrowDuplicateGroups(groups, target, mergeOpts);
+    var title = opts.title || (Object.keys(target).length ? "Merge duplicates of vertex" : "Merge all duplicate vertices");
+    new MergeDuplicatesModal(this.app, this, groups, { graph: g, title: title }).open();
+    return groups;
+  }
+
   async mergeDuplicateGroup(graph, group, bag) {
     var opts = buildOptions(this.settings);
     var plan = core.planNodeMerge(graph, group, opts);
@@ -3376,25 +3715,32 @@ class LectureGraphPlugin extends obsidian.Plugin {
       var mergeOpts = buildOptions(this.settings);
       var g = await this.buildGraphModel(mergeOpts);
       var dup = core.findDuplicateGroups(g, mergeOpts);
-      if (Object.keys(target).length) {
-        dup = dup.filter(function (gr) { return gr.nodes.some(function (n) { return target[n.id]; }); }).map(function (gr) {
-          var keepIds = {};
-          gr.nodes.forEach(function (seed) {
-            if (!target[seed.id]) return;
-            keepIds[seed.id] = true;
-            gr.nodes.forEach(function (other) {
-              if (!other || other.id === seed.id) return;
-              if (core.duplicateScore(seed, other, mergeOpts).match) keepIds[other.id] = true;
-            });
-          });
-          var nodes = gr.nodes.filter(function (n) { return keepIds[n.id]; });
-          if (nodes.length < 2) return null;
-          var keep = core.pickDuplicateKeeper(nodes);
-          return { keep: keep, nodes: nodes, drop: nodes.filter(function (n) { return !keep || n.id !== keep.id; }) };
-        }).filter(Boolean);
-      }
+      if (Object.keys(target).length) dup = narrowDuplicateGroups(dup, target, mergeOpts);
       if (!dup.length) break;
-      var res = await this.mergeDuplicateGroup(g, dup[0], { snapshot: snapshot });
+      var grp = dup[0];
+      // выбор keeper из окна предпросмотра: все вершины группы единогласно
+      // указывают на него (иначе граф успел измениться — берём keeper по умолчанию)
+      if (runOpts.keepers) {
+        var votes = {};
+        grp.nodes.forEach(function (n) {
+          var k = runOpts.keepers[n.id];
+          if (k) votes[k] = (votes[k] || 0) + 1;
+        });
+        var best = null, bestCount = 0;
+        Object.keys(votes).forEach(function (k) {
+          if (votes[k] > bestCount) { bestCount = votes[k]; best = k; }
+        });
+        if (best && bestCount === grp.nodes.length) {
+          var want = null;
+          for (var wi = 0; wi < grp.nodes.length; wi++) {
+            if (grp.nodes[wi].id === best) { want = grp.nodes[wi]; break; }
+          }
+          if (want && want.id !== grp.keep.id) {
+            grp = { id: want.id, keep: want, nodes: grp.nodes, drop: grp.nodes.filter(function (n) { return n.id !== want.id; }), reasons: grp.reasons || [], score: grp.score || 0 };
+          }
+        }
+      }
+      var res = await this.mergeDuplicateGroup(g, grp, { snapshot: snapshot });
       if (!res) break;
       merged.push(res);
       keepPaths[res.keepPath] = true;

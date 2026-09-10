@@ -1790,6 +1790,130 @@ See [[B]] and [[B#^eq-b|anchor]].
   assert.ok(res.text.indexOf("[[A#^eq-a|anchor]]") >= 0, "ссылка на якорь не переписана: " + JSON.stringify(res.text));
 });
 
+console.log("\n== раунд 23: умное слияние дубликатов (нечёткие названия, главы, номера, абзацы) ==");
+
+function dupNode(o) {
+  return Object.assign(
+    { type: "block", name: "Topic", stem: "Topic", body: "", data: {}, links: [], keywords: [] },
+    o || {}
+  );
+}
+
+ok("dupNormTitle/dupTitleSim: пунктуация, диакритика и опечатки", () => {
+  assert.strictEqual(core.dupNormTitle("Vector-Space: Proposition!"), "vector space proposition");
+  assert.strictEqual(core.dupTitleSim("vector space", "vector space"), 1);
+  const typo = core.dupTitleSim("vector space", "vector spase");
+  assert.ok(typo >= 0.85, "опечатка в одно слово не поймана: " + typo);
+  const diff = core.dupTitleSim("vector space", "linear operator");
+  assert.ok(diff < 0.5, "разные темы сочтены похожими: " + diff);
+  // одиночные цифры в номерах значимы, шумовые слова — нет
+  assert.ok(core.dupTitleSim("proposition 1 1 1a", "proposition 6 1 1a") >= 0.9, "номера не различили");
+});
+
+ok("duplicateScore: опечатка в названии — дубликат при том же переводе и содержимом", () => {
+  const body = "# T\n\nUseful statement about vector spaces and linear operators in detail here.";
+  const a = dupNode({ id: "A", name: "Vector Space", nameZh: "向量空间", parent: "H1", chapter: "Ch01", body: body });
+  const b = dupNode({ id: "B", name: "Vector Spase", nameZh: "向量空间", parent: "H1", chapter: "Ch01", body: body });
+  const sc = core.duplicateScore(a, b);
+  assert.ok(sc.match, "не совпало: " + JSON.stringify(sc));
+  assert.ok(sc.reasons.some((r) => r.indexOf("similar-title:") === 0), "нет similar-title: " + sc.reasons.join(","));
+});
+
+ok("duplicateScore: та же тема в разных главах — НЕ дубликат, ручная вершина — исключение", () => {
+  const mk = (id, chapter, parent) =>
+    dupNode({ id: id, type: "heading", name: "Definition: Vector Space", nameZh: "向量空间：定义", chapter: chapter, parent: parent, body: "# Definition\n\nSome heading body text here." });
+  const blocked = core.duplicateScore(mk("Ch01-S01-H01", "Ch01", "Ch01-S01"), mk("Ch06-S01-H01", "Ch06", "Ch06-S01"));
+  assert.ok(!blocked.match, "главы схлопнулись: " + JSON.stringify(blocked));
+  assert.ok(blocked.reasons.indexOf("different-chapter") >= 0, "нет different-chapter: " + blocked.reasons.join(","));
+  const manual = core.duplicateScore(mk("Ch01-S01-H01", "Ch01", "Ch01-S01"), mk("MN-01", "Ch06", null));
+  assert.ok(manual.match, "ручной дубль не совпал: " + JSON.stringify(manual));
+});
+
+ok("duplicateScore: разные номера в названии — НЕ дубликат (позиция курса)", () => {
+  const a = dupNode({ id: "A", name: "Vector Space Proposition 1.1.1a", nameZh: "向量空间命题 1.1.1a", parent: "H1", chapter: "Ch01", body: "Body about first position here." });
+  const b = dupNode({ id: "B", name: "Vector Space Proposition 1.1.2a", nameZh: "向量空间命题 1.1.2a", parent: "H2", chapter: "Ch01", body: "Body about second position here." });
+  const sc = core.duplicateScore(a, b);
+  assert.ok(!sc.match, "разные позиции схлопнулись: " + JSON.stringify(sc));
+  assert.ok(sc.reasons.indexOf("different-numbers") >= 0, "нет different-numbers: " + sc.reasons.join(","));
+});
+
+ok("duplicateScore: Estimate/Example под одним родителем — НЕ дубликат без supporting-сигналов", () => {
+  const a = dupNode({ id: "A", name: "Orthogonal Projection Estimate 3.4.2b", parent: "H", chapter: "Ch03", body: "A standard symmetrisation argument yields the quantitative bound for this case." });
+  const b = dupNode({ id: "B", name: "Orthogonal Projection Example 3.4.2c", parent: "H", chapter: "Ch03", body: "The model case below shows that the hypothesis cannot be dropped in general." });
+  const sc = core.duplicateScore(a, b);
+  assert.ok(!sc.match, "соседние блоки схлопнулись: " + JSON.stringify(sc));
+});
+
+ok("duplicateScore: шаблонный абзац новых узлов не считается содержимым", () => {
+  const tpl = "Узел создан из окна графа. Замените этот абзац содержимым: что это, на что опирается, где используется.";
+  const a = dupNode({ id: "MN-01", name: "First Manual", chapter: "Ch01", body: "# First Manual\n\n" + tpl, data: { keywords_en: "vector space" }, keywords: ["vector space"] });
+  const b = dupNode({ id: "MN-02", name: "Second Manual", chapter: "Ch01", body: "# Second Manual\n\n" + tpl, data: { keywords_en: "vector space" }, keywords: ["vector space"] });
+  assert.strictEqual(core.mergeBodyCore(a), "", "шаблон не вычтен: " + JSON.stringify(core.mergeBodyCore(a)));
+  assert.ok(!core.duplicateScore(a, b).match, "два свежих узла сочли дубликатами");
+});
+
+ok("findDuplicateGroups: опечатка находится через токенную блокировку, главы — нет", () => {
+  const body = "# T\n\nUseful statement about vector spaces and linear operators in detail here.";
+  const mini = [
+    { path: "30 - Blocks/A.md", text: "---\ntype: block\nid: A\nname: \"Vector Space\"\nname_zh: \"向量空间\"\nparent: H1\nchapter: Ch01\n---\n\n" + body + "\n" },
+    { path: "30 - Blocks/B.md", text: "---\ntype: block\nid: B\nname: \"Vector Spase\"\nname_zh: \"向量空间\"\nparent: H1\nchapter: Ch01\n---\n\n" + body + "\n" },
+    { path: "25 - Headings/H1.md", text: "---\ntype: heading\nid: H1\nname: \"Definition: Vector Space\"\nname_zh: \"向量空间：定义\"\nchapter: Ch01\n---\n\n# H1\n" },
+    { path: "25 - Headings/H2.md", text: "---\ntype: heading\nid: H2\nname: \"Definition: Vector Space\"\nname_zh: \"向量空间：定义\"\nchapter: Ch06\n---\n\n# H2\n" },
+  ];
+  const g = core.buildGraph(mini, {});
+  const groups = core.findDuplicateGroups(g);
+  assert.strictEqual(groups.length, 1, "групп: " + groups.length + " " + JSON.stringify(groups.map((x) => x.keep.id + "<-" + x.drop.map((n) => n.id))));
+  assert.deepStrictEqual(groups[0].nodes.map((n) => n.id).sort(), ["A", "B"]);
+  assert.ok(groups[0].confidence, "нет confidence");
+});
+
+ok("mergeBodyCore: хвост после региона фраз не съедается разделом Related", () => {
+  const body = "# T\n\nCore paragraph.\n\n## Related topics\n\n- [[X]] — added via graph\n\n<!-- keywords:begin -->\n\nregion\n\n<!-- keywords:end -->\n\n^tail-anchor\n\nTail sentence after region.\n";
+  const node = dupNode({ id: "D", name: "T", body: body });
+  const out = core.mergeBodyCore(node);
+  assert.ok(out.indexOf("Core paragraph.") >= 0, "ядро потеряно: " + JSON.stringify(out));
+  assert.ok(out.indexOf("Tail sentence after region.") >= 0, "хвост потерян: " + JSON.stringify(out));
+  assert.ok(out.indexOf("^tail-anchor") >= 0, "якорь потерян: " + JSON.stringify(out));
+  assert.ok(out.indexOf("Related topics") < 0, "Related не вырезан: " + JSON.stringify(out));
+  assert.ok(out.indexOf("keywords:begin") < 0, "регион не вырезан");
+});
+
+ok("mergeNodeBodies: поабзацно — повторы пропускаются, новое переносится", () => {
+  const keep = dupNode({ id: "K", name: "T", stem: "K", body: "First paragraph here.\n\nSecond paragraph here." });
+  const drop = dupNode({ id: "D", name: "T", stem: "D", body: "Second paragraph here.\n\nThird paragraph here." });
+  const res = core.mergeNodeBodies(keep, drop);
+  assert.ok(res.appended, "ничего не добавлено");
+  assert.ok(res.body.indexOf("Third paragraph here.") >= 0, "новое не перенесено");
+  assert.strictEqual(res.skipped, 1, "повтор не пропущен: " + JSON.stringify(res));
+  assert.strictEqual(res.kept, 1, "kept: " + JSON.stringify(res));
+  // полный повтор — добавлять нечего, но и дублем это не перестаёт быть
+  const res2 = core.mergeNodeBodies(keep, dupNode({ id: "D2", name: "T", stem: "D2", body: "First paragraph here.\n\nSecond paragraph here." }));
+  assert.ok(!res2.appended, "пустой перенос: " + JSON.stringify(res2));
+});
+
+ok("mergedNodePatch: теги объединяются, чужие названия уходят в aliases", () => {
+  const keep = dupNode({ id: "K", stem: "K - Keep", name: "Keep", nameZh: "保留", data: { aliases: ["K"], tags: ["math"] } });
+  const drop = dupNode({ id: "D", stem: "D - Drop", name: "Drop", nameZh: "丢弃", data: { aliases: ["D"], tags: ["algebra", "math"] } });
+  const patch = core.mergedNodePatch(keep, [drop]);
+  assert.ok(patch.aliases.indexOf("Drop") >= 0 && patch.aliases.indexOf("丢弃") >= 0, "названия не в aliases: " + patch.aliases.join(","));
+  assert.ok(patch.tags && patch.tags.indexOf("math") >= 0 && patch.tags.indexOf("algebra") >= 0, "теги не объединились: " + JSON.stringify(patch.tags));
+});
+
+ok("planNodeMerge: предупреждения о детях, ссылках и разных родителях", () => {
+  const mini = [
+    { path: "25 - Headings/H1.md", text: "---\ntype: heading\nid: H1\nname: \"H1\"\nchapter: Ch01\n---\n\n# H1\n" },
+    { path: "25 - Headings/H2.md", text: "---\ntype: heading\nid: H2\nname: \"H2\"\nchapter: Ch01\n---\n\n# H2\n" },
+    { path: "30 - Blocks/A.md", text: "---\ntype: block\nid: A\nname: \"Same\"\nparent: H1\nchapter: Ch01\n---\n\n# Same\n\nBody text one.\n" },
+    { path: "30 - Blocks/B.md", text: "---\ntype: block\nid: B\nname: \"Same\"\nparent: H2\nchapter: Ch01\n---\n\n# Same\n\nBody text one.\n" },
+    { path: "30 - Blocks/C.md", text: "---\ntype: block\nid: C\nname: \"Child\"\nparent: A\nchapter: Ch01\n---\n\n# Child\n" },
+  ];
+  const g = core.buildGraph(mini, {});
+  const plan = core.planNodeMerge(g, { keep: g._byId.B, drop: [g._byId.A] });
+  assert.ok(plan.warnings && plan.warnings.length >= 2, "предупреждений мало: " + JSON.stringify(plan.warnings));
+  assert.ok(plan.warnings.join(";").indexOf("перевешено") >= 0, "нет про детей: " + plan.warnings.join(";"));
+  assert.ok(plan.warnings.join(";").indexOf("Родители") >= 0, "нет про родителей: " + plan.warnings.join(";"));
+});
+
 // Итог — последней строкой: раунд 21 идёт после основного блока, поэтому счётчик
 // должен печататься тогда, когда все проверки уже выполнены.
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));
