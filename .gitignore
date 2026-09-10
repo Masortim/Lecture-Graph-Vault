@@ -1,0 +1,20 @@
+# --- инструментарий 90 - Dev -------------------------------------------------
+# Python-кэш: скрипты импортируют общий vault_root.py
+__pycache__/
+*.pyc
+# node_modules инструментария игнорируется отдельным правилом в 90 - Dev/.gitignore
+# (в Git живёт только стаб API Obsidian — 90 - Dev/node_modules/obsidian)
+
+# артефакт пайплайна: write_captions.py -> captions.json, его читает apply_captions.js
+90 - Dev/captions.json
+
+# --- Obsidian ---------------------------------------------------------------
+# корзина хранилища: сюда Obsidian складывает заметки, удалённые штатным способом,
+# в том числе вершины графа командой «удалить» — это не содержимое репозитория
+.trash/
+
+# --- результат работы плагина ----------------------------------------------
+# выгрузки по кнопкам ⤓ JSON / Export current graph as SVG (дата в имени файла)
+90 - Exports/lecture-graph-*.json
+90 - Exports/lecture-graph-*.svg
+90 - Exports/lecture-labels-*.csv

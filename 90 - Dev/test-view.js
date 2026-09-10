@@ -87,7 +87,7 @@ app.metadataCache = new MetadataCache(app.vault);
 app.workspace = new Workspace(app);
 app.keymap = { pushScope() {}, popScope() {} };
 app.scope = new obsidian.Scope();
-app.fileManager = { getMarkdownLink: (f) => "[[" + f.basename + "]]", generateMarkdownLink: (f) => "[[" + f.basename + "]]" };
+app.fileManager = new obsidian.FileManager(app);
 app.configDir = path.join(TMP, ".obsidian");
 const manifest = JSON.parse(fs.readFileSync(path.join(PLUGIN_DIR, "manifest.json"), "utf8"));
 const STATS = JSON.parse(fs.readFileSync(path.join(ROOT, ".vault-stats.json"), "utf8"));
@@ -1674,6 +1674,197 @@ const plugin = new PluginClass(app, manifest);
     } finally {
       obsidian.Menu = OrigMenu;
     }
+  });
+
+
+  console.log("\n== раунд 21: удаление выделенной вершины (Delete) ==");
+
+  const gDel0 = await plugin.getGraph(false);
+  const delTarget = gDel0.nodes.find((n) => n.type === "heading" && !n.inline && n.id === "Ch01-S01-H01");
+  const delPlan0 = core.planNodeDelete(gDel0, delTarget.id, plugin.settings);
+
+  await ok("меню и панель: пункт удаления с предупреждением, кнопка активна только при выделении", async () => {
+    assert.ok(delTarget, "нет фикстуры для удаления");
+    assert.ok(view.delBtn, "в панели нет кнопки удаления");
+    view.select(null);
+    assert.strictEqual(view.delBtn.disabled, true, "кнопка активна без выделения");
+    view.select(delTarget.id);
+    assert.strictEqual(view.delBtn.disabled, false, "кнопка неактивна при выделенной вершине");
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.nodeEls[delTarget.id].dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 10, clientY: 10 })
+      );
+      const item = captured.items.find((i) => i._t && i._t.indexOf("Delete vertex") === 0);
+      assert.ok(item, "в меню нет пункта удаления: " + captured.items.filter((i) => !i.sep).map((i) => i._t).join(" | "));
+      assert.strictEqual(item._warning, true, "пункт удаления не помечен как опасный (setWarning)");
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+    assert.ok(plugin.commands.some((c) => c.id === "delete-node"), "нет команды палитры delete-node");
+    assert.ok(plugin.commands.some((c) => c.id === "undo-delete"), "нет команды палитры undo-delete");
+  });
+
+  await ok("Delete открывает окно с последствиями; «Отмена» ничего не меняет", async () => {
+    view.select(delTarget.id, true);
+    const before = fs.readFileSync(path.join(TMP, delTarget.path), "utf8");
+    dom.window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    const deadline = Date.now() + 40000;
+    while (Date.now() < deadline && !plugin.deleteModal) await new Promise((r) => setTimeout(r, 100));
+    const modal = plugin.deleteModal;
+    assert.ok(modal && modal.isOpen, "окно подтверждения не открылось по клавише Delete");
+    const text = modal.contentEl.textContent;
+    assert.ok(text.indexOf(delTarget.path) >= 0, "в окне нет пути заметки");
+    assert.ok(text.indexOf(delTarget.name) >= 0, "в окне нет названия вершины");
+    assert.ok(text.indexOf(delTarget.nameZh) >= 0, "в окне нет второй строки подписи");
+    assert.ok(new RegExp("Ссылки снимутся в " + delPlan0.refs.length).test(text),
+      "число ссылающихся заметок не совпало с планом (" + delPlan0.refs.length + "): " + text.slice(0, 240));
+    assert.ok(new RegExp("Дочерних вершин: " + delPlan0.children.length).test(text),
+      "число детей не совпало с планом (" + delPlan0.children.length + ")");
+    const cancel = Array.from(modal.contentEl.querySelectorAll("button")).find((b) => b.textContent === "Отмена");
+    assert.ok(cancel, "нет кнопки «Отмена»");
+    cancel.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.strictEqual(modal.isOpen, false, "окно не закрылось");
+    assert.strictEqual(plugin.deleteModal, null, "плагин помнит закрытое окно");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, delTarget.path), "utf8"), before, "отмена изменила заметку");
+  });
+
+  await ok("Delete в поле ввода и при пустом выделении вершину не удаляет", async () => {
+    const other = (await plugin.getGraph(false)).nodes.find((n) => n.type === "block" && !n.inline && n.id !== delTarget.id);
+    view.select(null);
+    dom.window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+    assert.ok(!plugin.deleteModal, "окно открылось без выделения");
+    assert.ok(fs.existsSync(path.join(TMP, other.path)), "заметка удалена без выделения");
+    view.select(other.id);
+    view.searchEl.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    await new Promise((r) => setTimeout(r, 400));
+    assert.ok(!plugin.deleteModal, "клавиша Delete в поле поиска открыла окно удаления");
+    assert.ok(fs.existsSync(path.join(TMP, other.path)), "клавиша в поле поиска удалила заметку");
+    assert.strictEqual(view.selected, other.id, "выделение слетело");
+  });
+
+  let delBeforeTexts = {};
+  let delTargetPath = "";
+  let delTargetText = "";
+  let delNodesBefore = 0;
+
+  await ok("удаление: ссылки сняты, дети перевешены, заметка в корзине, граф чист", async () => {
+    const gBefore = await plugin.getGraph(false);
+    delNodesBefore = gBefore.nodes.length;
+    const plan = core.planNodeDelete(gBefore, delTarget.id, plugin.settings);
+    delTargetPath = plan.node.path;
+    delTargetText = fs.readFileSync(path.join(TMP, delTargetPath), "utf8");
+    delBeforeTexts = {};
+    plan.refs.forEach((r) => (delBeforeTexts[r.path] = fs.readFileSync(path.join(TMP, r.path), "utf8")));
+    plan.children.forEach((c) => (delBeforeTexts[c.path] = fs.readFileSync(path.join(TMP, c.path), "utf8")));
+    assert.ok(plan.refs.length >= 5 && plan.children.length >= 2, "фикстура бедная: refs=" + plan.refs.length + ", дети=" + plan.children.length);
+    view.select(delTarget.id, true);
+    await plugin.confirmDeleteNode(delTarget.id);
+    const modal = plugin.deleteModal;
+    assert.ok(modal && modal.isOpen, "окно подтверждения не открылось");
+    const del = Array.from(modal.contentEl.querySelectorAll("button")).find((b) => b.textContent === "Удалить");
+    assert.ok(del, "нет кнопки «Удалить»");
+    del.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    const deadline = Date.now() + 90000;
+    while (Date.now() < deadline && fs.existsSync(path.join(TMP, delTargetPath))) await new Promise((r) => setTimeout(r, 150));
+    assert.ok(!fs.existsSync(path.join(TMP, delTargetPath)), "заметка не удалена");
+    assert.ok(fs.existsSync(path.join(TMP, ".trash", path.basename(delTargetPath))),
+      "заметки нет ни в хранилище, ни в корзине (.trash) — удаление прошло мимо корзины");
+    // ссылки в чужих заметках сняты, посторонние — целы
+    plan.refs.forEach((r) => {
+      const t = fs.readFileSync(path.join(TMP, r.path), "utf8");
+      const links = core.extractLinks(t).map((l) => l.path);
+      assert.ok(!links.some((p) => core.noteKeyMatch(p, plan.node)), "осталась ссылка на удалённую вершину: " + r.path);
+      const before = core.extractLinks(delBeforeTexts[r.path]).map((l) => l.path);
+      assert.strictEqual(links.filter((p) => !core.noteKeyMatch(p, plan.node)).length,
+        before.filter((p) => !core.noteKeyMatch(p, plan.node)).length, "потерялись чужие ссылки: " + r.path);
+      assert.ok(!/weight: 0\b/.test(t), "weight: обнулился вместо пересчёта/удаления: " + r.path);
+    });
+    // дети перевешены на родителя удаляемой вершины
+    plan.children.forEach((c) => {
+      const fm = core.parseFrontmatter(fs.readFileSync(path.join(TMP, c.path), "utf8")).data;
+      assert.notStrictEqual(fm.parent, delTarget.id, "parent: остался на удалённой вершине: " + c.path);
+      if (plan.newParent) assert.strictEqual(String(fm.parent), plan.newParent, "ребёнок перевешен не на родителя: " + c.path);
+    });
+    const gAfter = await plugin.getGraph(false);
+    assert.ok(!gAfter._byId[delTarget.id], "вершина осталась в графе");
+    assert.strictEqual(gAfter.nodes.length, gBefore.nodes.length - 1, "вершин: " + gAfter.nodes.length);
+    assert.ok(!gAfter.edges.some((e) => e.source === delTarget.id || e.target === delTarget.id), "остались рёбра удалённой вершины");
+    assert.strictEqual(gAfter.stats.unresolved, 0, "битые ссылки после удаления: " + gAfter.stats.unresolved);
+    assert.strictEqual(view.selected, null, "выделение осталось на удалённой вершине");
+    assert.strictEqual(view.delBtn.disabled, true, "кнопка удаления активна без выделения");
+    assert.ok(Notice.all.some((m) => m.indexOf("удалена") >= 0), "нет уведомления об удалении");
+    // снимок для отмены: заметка обязана быть, дети (им правили свойства) — тоже;
+    // у заметки, ссылка в которой не изменилась, файла в снимке и не должно быть
+    const snapshotPaths = plugin.lastDelete.files.map((f) => f.path);
+    assert.ok(snapshotPaths.indexOf(plan.node.path) >= 0, "в снимке для отмены нет самой заметки");
+    plan.children.forEach((c) => assert.ok(snapshotPaths.indexOf(c.path) >= 0, "в снимке нет ребёнка: " + c.path));
+    const wentThrough = plan.refs.filter((r) => delBeforeTexts[r.path] !== fs.readFileSync(path.join(TMP, r.path), "utf8"));
+    wentThrough.forEach((r) => assert.ok(snapshotPaths.indexOf(r.path) >= 0, "правленая заметка не попала в снимок: " + r.path));
+    assert.ok(wentThrough.length >= 5, "ссылки почти не снялись: " + wentThrough.length);
+  });
+
+  await ok("Undo last vertex deletion: заметка и все правки возвращаются байт-в-байт", async () => {
+    await plugin.undoDelete();
+    assert.strictEqual(fs.readFileSync(path.join(TMP, delTargetPath), "utf8"), delTargetText, "текст заметки не совпал байт-в-байт");
+    Object.keys(delBeforeTexts).forEach((p) => {
+      assert.strictEqual(fs.readFileSync(path.join(TMP, p), "utf8"), delBeforeTexts[p], "не восстановлено байт-в-байт: " + p);
+    });
+    const g = await plugin.getGraph(false);
+    assert.ok(g._byId[delTarget.id], "вершина не вернулась в граф");
+    assert.strictEqual(g.nodes.length, delNodesBefore, "вершин после отмены: " + g.nodes.length + " вместо " + delNodesBefore);
+    assert.strictEqual(g.stats.unresolved, 0, "битые ссылки после отмены: " + g.stats.unresolved);
+    assert.ok(Notice.all.some((m) => /Удаление отменено/.test(m)), "нет уведомления об отмене");
+    assert.strictEqual(plugin.lastDelete, null, "плагин помнит уже отменённое удаление");
+    const again = await plugin.undoDelete();
+    assert.strictEqual(again, null, "повторная отмена что-то сделала");
+  });
+
+  await ok("настройка «не спрашивать»: удаление идёт сразу, без окна; Undo всё возвращает", async () => {
+    const victim = (await plugin.getGraph(false)).nodes.find((n) => n.type === "block" && !n.inline && n.id === "Ch01-S01-H01-B02");
+    const text = fs.readFileSync(path.join(TMP, victim.path), "utf8");
+    plugin.settings.confirmDelete = false;
+    try {
+      const res = await plugin.confirmDeleteNode(victim.id);
+      assert.ok(res && !plugin.deleteModal, "окно открылось, хотя вопросы выключены");
+      assert.ok(!fs.existsSync(path.join(TMP, victim.path)), "заметка не удалена без окна");
+    } finally {
+      plugin.settings.confirmDelete = true;
+      await plugin.undoDelete();
+    }
+    assert.strictEqual(fs.readFileSync(path.join(TMP, victim.path), "utf8"), text, "отмена не вернула заметку байт-в-байт");
+  });
+
+  await ok("инлайн-блок: удаление убирает якорь, текст абзаца остаётся", async () => {
+    const host = (await plugin.getGraph(false)).nodes.find((n) => n.type === "heading" && n.id === "Ch01-S01-H01");
+    const hostPath = path.join(TMP, host.path);
+    const original = fs.readFileSync(hostPath, "utf8");
+    plugin.settings.includeInlineAnchors = true;
+    try {
+      fs.writeFileSync(hostPath, original.replace(/\s+$/, "\n") + "\nАбзац с якорем.\n\n^lg-test-anchor\n");
+      plugin.markGraphDirty();
+      const g = await plugin.getGraph(true);
+      const inline = g.nodes.find((n) => n.inline && n.anchorName === "lg-test-anchor");
+      assert.ok(inline, "инлайн-вершина не построена");
+      await plugin.deleteNode(inline);
+      const after = fs.readFileSync(hostPath, "utf8");
+      assert.ok(after.indexOf("Абзац с якорем.") > 0, "текст абзаца пропал");
+      assert.strictEqual(after.indexOf("^lg-test-anchor"), -1, "якорь остался");
+      const g2 = await plugin.getGraph(false);
+      assert.ok(!g2.nodes.some((n) => n.anchorName === "lg-test-anchor"), "инлайн-вершина осталась в графе");
+    } finally {
+      plugin.settings.includeInlineAnchors = false;
+      await plugin.undoDelete(); // вернуть якорь в заметку
+      fs.writeFileSync(hostPath, original);
+      plugin.markGraphDirty();
+      await plugin.getGraph(true);
+    }
+    assert.strictEqual(fs.readFileSync(hostPath, "utf8"), original, "заметка-хозяин не восстановлена");
   });
 
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));

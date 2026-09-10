@@ -35,6 +35,18 @@ function wait(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
 
+/** То же, что ok(), но для проверок, которым нужно ждать асинхронную работу плагина. */
+async function okAsync(name, fn) {
+  try {
+    await fn();
+    pass++;
+    console.log("  ok   " + name);
+  } catch (e) {
+    fails.push(name);
+    console.log("  FAIL " + name + "\n       " + (e && e.message ? e.message : e));
+  }
+}
+
 (async function main() {
   await wait(700); // сервер успел подняться
   const vc = new VirtualConsole();
@@ -131,6 +143,41 @@ function wait(ms) {
     const rule = (css.match(/\.lg-edges--sel\s*\{[^}]*\}/) || [""])[0];
     if (!/interactive-accent/.test(rule)) throw new Error("цвет выделения не акцентный: " + rule);
     view.select(null);
+  });
+
+  await okAsync("Delete у выделенной вершины: окно с последствиями, отмена, удаление и Undo", async () => {
+    const plugin = win.__LG_PLUGIN__;
+    const n = view.graph.nodes.find((x) => x.type === "heading");
+    const siblings = view.graph.nodes.length;
+    view.select(n.id, true);
+    if (view.delBtn.disabled) throw new Error("кнопка удаления выключена при выделенной вершине");
+    win.dispatchEvent(new win.KeyboardEvent("keydown", { key: "Delete", bubbles: true }));
+    let deadline = Date.now() + 30000;
+    while (Date.now() < deadline && !plugin.deleteModal) await wait(120);
+    const modal = plugin.deleteModal;
+    if (!modal || !modal.isOpen) throw new Error("окно удаления не открылось по клавише Delete");
+    const text = modal.contentEl.textContent;
+    if (text.indexOf(n.path) < 0) throw new Error("в окне нет пути заметки");
+    const plan = await plugin.deletePlan(n.id);
+    if (plan.refs.length && text.indexOf("Ссылки снимутся в " + plan.refs.length) < 0)
+      throw new Error("число ссылающихся заметок не совпало с планом (" + plan.refs.length + ")");
+    if (plan.children.length && text.indexOf("Дочерних вершин: " + plan.children.length) < 0)
+      throw new Error("число детей не совпало с планом (" + plan.children.length + ")");
+    const cancel = Array.from(modal.contentEl.querySelectorAll("button")).find((b) => b.textContent === "Отмена");
+    cancel.dispatchEvent(new win.MouseEvent("click", { bubbles: true }));
+    if (modal.isOpen) throw new Error("окно не закрылось по «Отмена»");
+    if (view.graph.nodes.length !== siblings) throw new Error("отмена изменила граф");
+
+    const res = await plugin.deleteNode(plan);
+    if (!res || res.plan.node.id !== n.id) throw new Error("удаление не прошло");
+    let g2 = await plugin.getGraph(false);
+    if (g2._byId[n.id]) throw new Error("вершина осталась в графе предпросмотра");
+    if (g2.stats.unresolved !== 0) throw new Error("битые ссылки после удаления: " + g2.stats.unresolved);
+    if (g2.nodes.length !== siblings - 1) throw new Error("вершин: " + g2.nodes.length + " вместо " + (siblings - 1));
+    await plugin.undoDelete();
+    g2 = await plugin.getGraph(false);
+    if (!g2._byId[n.id]) throw new Error("Undo не вернул вершину");
+    if (g2.stats.unresolved !== 0) throw new Error("битые ссылки после отмены: " + g2.stats.unresolved);
   });
 
   dom.window.close();

@@ -8,6 +8,12 @@
 /* «+ Создать по шаблону» в пузырьке сообщения — единственный акцент в рамке */
 .lg-btn--cta { margin-top: 4px; border-color: var(--interactive-accent); color: var(--text-on-accent); background: var(--interactive-accent); font-weight: 600; }
 .lg-btn--cta:hover { background: var(--interactive-accent-hover); color: var(--text-on-accent); }
+/* «Удалить выделенную вершину»: кнопка опасного действия — акцент только при наведении,
+   выключенная (вершина не выделена) не выглядит нажимаемой */
+.lg-btn--danger { border-color: var(--background-modifier-error, #e5534b); color: var(--text-error, #e5534b); }
+.lg-btn--danger:hover { background: var(--background-modifier-error, #e5534b); color: var(--text-on-accent, #fff); }
+.lg-btn--danger:disabled, .lg-btn:disabled { opacity: .45; cursor: default; }
+.lg-btn--danger:disabled:hover { background: var(--background-primary); color: var(--text-error, #e5534b); }
 .lg-chip { display: inline-flex; align-items: center; gap: 4px; font-size: var(--font-ui-small); padding: 1px 8px 1px 4px; border-radius: 999px; border: 1px solid var(--background-modifier-border); cursor: pointer; }
 .lg-chip[data-type="chapter"] { border-color: #f2b33d; }
 .lg-chip[data-type="section"] { border-color: #4a9eda; }
@@ -161,4 +167,12 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-field-row { display: flex; gap: 6px; }
 .lg-modal-hint { font-size: var(--font-ui-smaller); opacity: .7; margin: 8px 0 14px; }
 .lg-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+/* окно удаления: список последствий — это то, ради чего оно нужно, поэтому списку
+   дан воздух, а «отмена удаления» отделена как единственная хорошая новость */
+.lg-delete .lg-modal-preview { border-left-color: var(--text-error, #e5534b); }
+.lg-delete__list { margin: 0 0 12px 18px; padding: 0; font-size: var(--font-ui-small); }
+.lg-delete__list li { margin-bottom: 5px; }
+.lg-delete__undo { color: var(--text-muted); }
+.lg-delete__noask { margin-bottom: 6px; }
+.lg-delete .mod-warning { border-color: var(--background-modifier-error, #e5534b); }
 .theme-light .lg-label-zh, .theme-light .lg-modal .lg-line--zh { fill: #2f6fd0; color: #2f6fd0; }

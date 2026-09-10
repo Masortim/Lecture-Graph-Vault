@@ -1463,4 +1463,175 @@ ok("appendManualLink: граф видит новую дугу как ребро 
   assert.strictEqual(e.kind, "reference", "ручная связь обязана быть ребром reference, не keyword");
 });
 
+console.log("\n== раунд 21: удаление вершин ==");
+
+ok("linkTargetsNode: имя файла, id, путь и «.md»; блочный якорь — это инлайн-блок, а не заметка", () => {
+  const head = graph._byId["Ch01-S01-H01"];
+  assert.ok(head, "нет фикстуры Ch01-S01-H01");
+  assert.ok(core.linkTargetsNode({ path: "Ch01-S01-H01 - Definition Vector Space" }, head, graph), "не узнал по имени файла");
+  assert.ok(core.linkTargetsNode({ path: "Ch01-S01-H01" }, head, graph), "не узнал по id");
+  assert.ok(core.linkTargetsNode({ path: head.path }, head, graph), "не узнал по пути");
+  assert.ok(core.linkTargetsNode({ path: head.path.replace(/\.md$/, "") }, head, graph), "не узнал по пути без .md");
+  assert.ok(!core.linkTargetsNode({ path: "Ch01-S01-H01-B01 - Proposition 1.1.1a" }, head, graph), "спутал соседнюю вершину");
+  assert.ok(!core.linkTargetsNode({ path: "" }, head, graph), "внутренняя [[#…]] не может считаться ссылкой на внешнюю вершину");
+  assert.ok(!core.linkTargetsNode({ path: head.stem, blockId: "eq-1" }, head, graph), "ссылка с якорем ведёт на блок, а не на заметку");
+  // инлайн-ветка — на синтетических заметках: в боевом курсе блочных якорей нет
+  const inlineNotes = [
+    { path: "30 - Blocks/Ch01/Ch01-S01-H01-B99 - Anchor home.md", text: "---\ntype: block\nid: ANCH\nname: \"Anchor home\"\n---\n\nАбзац с якорем.\n\n^eq-9\n" },
+    { path: "30 - Blocks/Ch01/Ch01-S01-H01-B98 - Ref.md", text: "---\ntype: block\nid: REF\nname: \"Ref\"\n---\n\nСм. [[Ch01-S01-H01-B99 - Anchor home#^eq-9]] и [[ANCH]].\n" },
+  ];
+  const gi = core.buildGraph(inlineNotes);
+  const an = gi.nodes.find((n) => n.inline);
+  assert.ok(an, "инлайн-вершина не построена");
+  assert.ok(core.linkTargetsNode(gi._byId.REF.links[0], an, gi), "ссылка на якорь не узнана");
+  assert.ok(!core.linkTargetsNode(gi._byId.REF.links[0], gi._byId.ANCH, gi), "ссылка с якорем приписана самой заметке");
+  assert.ok(!core.linkTargetsNode(gi._byId.REF.links[1], an, gi), "ссылка без якоря приписана инлайн-блоку");
+});
+
+ok("planNodeDelete: входящие ссылки, дети и цели удаления посчитаны по модели графа", () => {
+  const id = "Ch01-S01-H01";
+  const head = graph._byId[id];
+  const plan = core.planNodeDelete(graph, id, core.DEFAULTS);
+  assert.strictEqual(plan.node.id, id);
+  const wantRefs = graph.nodes.filter((n) => !n.inline && n.id !== id && (n.links || []).some((l) => core.linkTargetsNode(l, head, graph)));
+  assert.deepStrictEqual(plan.refs.map((r) => r.id).sort(), wantRefs.map((r) => r.id).sort(), "список ссылающихся заметок разошёлся с моделью");
+  assert.strictEqual(plan.refsTotal, plan.refs.reduce((s, r) => s + r.links, 0), "итог по ссылкам не сходится");
+  const kids = graph.nodes.filter((n) => !n.inline && n.parent === id);
+  assert.ok(kids.length >= 2, "у заголовка должны быть дети-блоки: " + kids.length);
+  assert.deepStrictEqual(plan.children.map((c) => c.id).sort(), kids.map((k) => k.id).sort());
+  assert.ok(plan.children.every((c) => c.type === "block"), "детьми заголовка могут быть только блоки");
+  assert.strictEqual(plan.newParent, head.parent, "перевешивать детей надо на родителя удаляемой вершины");
+  assert.strictEqual(plan.newChapter, head.chapter, "глава у детей не меняется");
+  assert.deepStrictEqual(plan.targets.map((t) => t.id), [id]);
+  assert.strictEqual(plan.files, plan.refs.length + plan.children.length + 1, "файлов в операции: " + plan.files);
+  assert.strictEqual(core.planNodeDelete(graph, "нет-такой-вершины").node, null, "несуществующая вершина должна давать пустой план");
+  // у главы дети — секции, а перевесить их не на кого: parent:/chapter: очистятся
+  const chPlan = core.planNodeDelete(graph, "Ch01");
+  assert.ok(chPlan.children.length >= 4, "у главы должны быть секции-дети: " + chPlan.children.length);
+  assert.strictEqual(chPlan.newParent, null);
+  assert.strictEqual(chPlan.newChapter, null);
+});
+
+ok("stripDeletedRefs: ссылок на удалённую вершину не остаётся, посторонние целы, повтор — байт-в-байт", () => {
+  const id = "Ch01-S01-H01-B01";
+  const target = graph._byId[id];
+  const plan = core.planNodeDelete(graph, id, core.DEFAULTS);
+  assert.ok(plan.refs.length >= 5, "у блока должно быть много ссылающихся заметок: " + plan.refs.length);
+  const ref = plan.refs.find((r) => r.reference > 0);
+  const note = allNotes.find((n) => n.path === ref.path);
+  const hit = (p) => core.linkTargetsNode({ path: p }, target, graph);
+  const before = core.extractLinks(note.text).map((l) => l.path);
+  const res = core.stripDeletedRefs(note.text, plan.targets, core.DEFAULTS);
+  assert.ok(res.removed > 0 && res.changed, "ничего не сняли: removed=" + res.removed);
+  const after = core.extractLinks(res.text).map((l) => l.path);
+  assert.strictEqual(after.filter(hit).length, 0, "остались ссылки на удалённую вершину");
+  assert.deepStrictEqual(after.filter((p) => !hit(p)).sort(), before.filter((p) => !hit(p)).sort(), "потерялись посторонние ссылки");
+  // проза не пострадала: разметка ссылки ушла, видимый текст (псевдоним) остался
+  const section = allNotes.find((n) => n.path === "20 - Sections/Ch01/Ch01-S01 - Setup and Notation.md");
+  const hPlan = core.planNodeDelete(graph, "Ch01-S01-H01", core.DEFAULTS);
+  const secRes = core.stripDeletedRefs(section.text, hPlan.targets, core.DEFAULTS);
+  assert.ok(secRes.text.indexOf("### Definition: Vector Space") > 0, "строка-заголовок со ссылкой развалилась");
+  assert.ok(secRes.text.indexOf("and the heading Definition: Vector Space.") > 0, "видимый текст ссылки пропал из прозы");
+  assert.strictEqual(core.stripDeletedRefs(res.text, plan.targets, core.DEFAULTS).text, res.text, "повторный проход меняет текст");
+  assert.strictEqual(core.stripDeletedRefs(note.text, [], core.DEFAULTS).text, note.text, "пустой список целей не должен менять заметку");
+  // текст остаётся живым для графа: у этой заметки рёбер на удалённую вершину больше нет,
+  // а её собственные связи сохранились
+  const g2 = core.buildGraph(allNotes.map((n) => (n.path === note.path ? { path: n.path, text: res.text } : n)));
+  const n2 = g2.nodes.find((n) => n.path === note.path);
+  assert.ok(!(n2.out || []).some((o) => o.id === id), "граф всё ещё видит ребро на удалённую вершину");
+  const nBefore = graph.nodes.find((n) => n.path === note.path);
+  assert.strictEqual(n2.out.length, nBefore.out.length - res.removed, "потерялись или добавились чужие рёбра");
+});
+
+ok("stripDeletedRefs: weight: и граф согласованы после снятия цели из региона ключевых фраз", () => {
+  const target = graph._byId["Ch01-S01-H01"];
+  const blockPath = "30 - Blocks/Ch01/Ch01-S01-H01-B03 - Estimate 1.1.1c.md";
+  const note = allNotes.find((n) => n.path === blockPath);
+  assert.ok(note && /keywords:begin/.test(note.text), "фикстура с регионом фраз не найдена");
+  const beforeWeight = core.parseFrontmatter(note.text).data.weight;
+  const res = core.stripDeletedRefs(note.text, [target], core.DEFAULTS);
+  assert.ok(res.removed >= 1, "ссылка из региона не снята");
+  assert.ok(res.weight < beforeWeight, "вес не уменьшился: " + beforeWeight + " -> " + res.weight);
+  const w = core.parseFrontmatter(res.text).data.weight;
+  assert.strictEqual(w, res.weight, "weight: в заметке (" + w + ") не равен пересчитанному (" + res.weight + ")");
+  const g2 = core.buildGraph(allNotes.map((n) => (n.path === note.path ? { path: n.path, text: res.text } : n)));
+  const n2 = g2.nodes.find((n) => n.path === blockPath);
+  assert.strictEqual(n2.kwWeight, w, "вес в графе (" + n2.kwWeight + ") не равен weight: (" + w + ")");
+  assert.ok(!core.extractLinks(res.text).some((l) => core.linkTargetsNode(l, target, graph)), "ссылка на удалённую вершину осталась");
+  const m = /\*\*Вес по ключевым фразам: (\d+)/.exec(res.text);
+  assert.ok(m && Number(m[1]) === w, "строка «Вес по ключевым фразам» разошлась с weight: " + (m && m[1]) + " vs " + w);
+});
+
+ok("stripDeletedRefs: пустой «Related topics» и опустевший регион уходят вместе со свойством weight:", () => {
+  const node = { id: "X", stem: "X", path: "30 - Blocks/X.md", name: "X Thing", type: "block" };
+  const text = [
+    "---", "type: block", "id: B1", "keywords_en: alpha", "weight: 4", "---", "",
+    "# B1", "",
+    "См. [[X|X Thing]] и [[Y|Y Thing]].", "",
+    "## Related topics", "",
+    "- [[X|X Thing]] — блок «X»", "",
+    "<!-- keywords:begin -->", "",
+    "Связи по `keywords_en` (alpha).", "",
+    "- [[X|alpha ×4]] — секция `X`", "",
+    "**Вес по ключевым фразам: 4 (текст до первого `##` — связь с секцией)**",
+    "<!-- keywords:end -->", "",
+  ].join("\n");
+  const res = core.stripDeletedRefs(text, node, core.DEFAULTS);
+  assert.strictEqual(res.removed, 3, "снято ссылок: " + res.removed);
+  assert.ok(res.regionGone, "регион без целей должен уйти целиком");
+  assert.strictEqual(res.text.indexOf("keywords:begin"), -1, "маркеры региона остались");
+  assert.strictEqual(res.text.indexOf("Related topics"), -1, "пустой раздел остался");
+  assert.strictEqual(/^weight:/m.test(res.text), false, "свойство weight: осталось без региона");
+  assert.ok(res.text.indexOf("См. X Thing и [[Y|Y Thing]].") > 0, "проза испорчена: " + JSON.stringify(res.text));
+  assert.strictEqual(core.stripDeletedRefs(res.text, node, core.DEFAULTS).text, res.text, "повтор меняет текст");
+  // раздел с другими ссылками остаётся на месте
+  const keep = core.dropEmptySection("## Related topics\n\n- [[A|A]] — блок\n- [[B|B]] — блок\n", core.RELATED_HEADING);
+  assert.strictEqual(keep.dropped, 0);
+  assert.ok(keep.text.indexOf("[[B|B]]") > 0, "чужие пункты пострадали");
+});
+
+ok("stripDeletedRefs: ссылка внутри инлайн-кода не трогается, врезка исчезает", () => {
+  const node = { id: "X", stem: "X", path: "30 - Blocks/X.md", name: "X Thing", type: "block" };
+  const res = core.stripDeletedRefs("Текст `[[X|X Thing]]` в коде и ![[X]] врезкой, плюс [[X|X Thing]].\n", node, core.DEFAULTS);
+  assert.ok(res.text.indexOf("`[[X|X Thing]]`") > 0, "ссылка в коде испорчена");
+  assert.strictEqual(res.text.indexOf("![[X]]"), -1, "врезка осталась");
+  assert.ok(/плюс X Thing\./.test(res.text), "видимый текст ссылки не сохранён: " + JSON.stringify(res.text));
+});
+
+ok("stripInlineAnchor: уходит только якорь, текст абзаца остаётся", () => {
+  const note = "---\ntype: section\n---\n\nАбзац с якорем. ^blk1\n\nВторой абзац. ^blk2\n";
+  const out = core.stripInlineAnchor(note, "blk1");
+  assert.ok(out.indexOf("Абзац с якорем.") > 0, "текст абзаца пропал");
+  assert.strictEqual(out.indexOf("^blk1"), -1, "якорь остался");
+  assert.ok(out.indexOf("^blk2") > 0, "чужой якорь снят");
+  assert.strictEqual(core.stripInlineAnchor(note, "nope"), note, "отсутствующий якорь не должен менять текст");
+  assert.strictEqual(core.stripInlineAnchor("Якорь на своей строке\n\n^only\n", "only").indexOf("^only"), -1, "якорь отдельной строкой не снят");
+});
+
+ok("сценарий удаления: после снятия ссылок и перевешивания детей граф чист — ни битых ссылок, ни висящих parent:", () => {
+  const id = "Ch01-S01-H01";
+  const plan = core.planNodeDelete(graph, id, core.DEFAULTS);
+  const patch = {};
+  plan.refs.forEach((r) => {
+    const n = allNotes.find((x) => x.path === r.path);
+    patch[r.path] = core.stripDeletedRefs(n.text, plan.targets, core.DEFAULTS).text;
+  });
+  plan.children.forEach((c) => {
+    const n = allNotes.find((x) => x.path === c.path);
+    const fields = {};
+    if (c.parent === id) fields.parent = plan.newParent || "";
+    if (c.chapter === id) fields.chapter = plan.newChapter || "";
+    patch[c.path] = core.setFrontmatterValues(patch[c.path] || n.text, fields);
+  });
+  const after = allNotes.filter((n) => n.path !== plan.node.path).map((n) => (patch[n.path] ? { path: n.path, text: patch[n.path] } : n));
+  const g2 = core.buildGraph(after);
+  assert.ok(!g2._byId[id], "вершина осталась в графе");
+  assert.strictEqual(g2.edges.filter((e) => e.source === id || e.target === id).length, 0, "остались рёбра удалённой вершины");
+  assert.strictEqual(g2.stats.unresolved, 0, "битые ссылки после удаления: " + g2.stats.unresolved);
+  assert.strictEqual(g2.nodes.length, graph.nodes.length - 1, "вершин после удаления: " + g2.nodes.length);
+  assert.strictEqual(g2.stats.byType.heading, N.heading - 1, "заголовков: " + g2.stats.byType.heading);
+});
+
+// Итог — последней строкой: раунд 21 идёт после основного блока, поэтому счётчик
+// должен печататься тогда, когда все проверки уже выполнены.
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));

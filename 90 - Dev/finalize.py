@@ -9,10 +9,16 @@ import shutil
 import subprocess
 import sys
 
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
 DEV = os.path.dirname(os.path.abspath(__file__))
 HOME = os.path.abspath(os.path.join(DEV, ".."))
-VAULT = os.path.join(HOME, "Lecture-Graph-Vault")
+# <dev>/.. — когда инструментарий лежит ВНУТРИ хранилища (как в этом репозитории),
+# <dev>/../Lecture-Graph-Vault — когда рядом с ним; копия инструментария в 90 - Dev
+# едет вместе с хранилищем, поэтому «источник» и «копия» могут совпадать.
+VAULT = vault_root(DEV)
 DEVDIR = os.path.join(VAULT, "90 - Dev")
+SELF_COPY = os.path.abspath(DEVDIR) == os.path.abspath(DEV)
 PLUGIN = os.path.join(VAULT, ".obsidian", "plugins", "lecture-graph")
 
 FILES = [
@@ -21,7 +27,7 @@ FILES = [
     "test-view.js", "obsidian-stub.js", "package.json", "README.md", "finalize.py",
     "check_label_metrics.py", "diag_graph.js", "write_captions.py", "apply_captions.js",
     "write_index.js", "vault-notes.js", "write_abstracts.py", "apply_keywords.js",
-    "probe_modes.js",
+    "probe_modes.js", "vault-root.js", "vault_root.py",
 ]
 fails = []
 
@@ -42,30 +48,31 @@ def check(name, cond, detail=""):
 
 print("== копия инструментария в 90 - Dev/ ==")
 os.makedirs(DEVDIR, exist_ok=True)
-for f in FILES:
-    src = os.path.join(DEV, f)
-    if not os.path.exists(src):
-        check("копия " + f, False, "нет исходника")
-        continue
-    shutil.copy2(src, os.path.join(DEVDIR, f))
-if os.path.isdir(os.path.join(DEV, "src")):
-    if os.path.isdir(os.path.join(DEVDIR, "src")):
-        shutil.rmtree(os.path.join(DEVDIR, "src"))
-    shutil.copytree(os.path.join(DEV, "src"), os.path.join(DEVDIR, "src"))
-# предпросмотр плагина в браузере — тоже инструментарий, он едет целиком
-if os.path.isdir(os.path.join(DEV, "preview")):
-    if os.path.isdir(os.path.join(DEVDIR, "preview")):
-        shutil.rmtree(os.path.join(DEVDIR, "preview"))
-    shutil.copytree(os.path.join(DEV, "preview"), os.path.join(DEVDIR, "preview"))
-# стаб obsidian для тестов из копии
-stub_src = os.path.join(DEV, "node_modules", "obsidian")
-if os.path.isdir(stub_src):
-    dst = os.path.join(DEVDIR, "node_modules", "obsidian")
-    os.makedirs(os.path.dirname(dst), exist_ok=True)
-    if os.path.isdir(dst):
-        shutil.rmtree(dst)
-    shutil.copytree(stub_src, dst)
-print("  скопировано:", len(FILES) + 1, "файлов + src/")
+if SELF_COPY:
+    # источник и есть 90 - Dev хранилища: копировать нечего и, главное, нельзя
+    # (rmtree по «копии» снёс бы сами исходники)
+    print("  источник совпадает с 90 - Dev хранилища — копирование пропущено")
+else:
+    for f in FILES:
+        src = os.path.join(DEV, f)
+        if not os.path.exists(src):
+            check("копия " + f, False, "нет исходника")
+            continue
+        shutil.copy2(src, os.path.join(DEVDIR, f))
+    for folder in ("src", "preview"):
+        if os.path.isdir(os.path.join(DEV, folder)):
+            if os.path.isdir(os.path.join(DEVDIR, folder)):
+                shutil.rmtree(os.path.join(DEVDIR, folder))
+            shutil.copytree(os.path.join(DEV, folder), os.path.join(DEVDIR, folder))
+    # стаб obsidian для тестов из копии
+    stub_src = os.path.join(DEV, "node_modules", "obsidian")
+    if os.path.isdir(stub_src):
+        dst = os.path.join(DEVDIR, "node_modules", "obsidian")
+        os.makedirs(os.path.dirname(dst), exist_ok=True)
+        if os.path.isdir(dst):
+            shutil.rmtree(dst)
+        shutil.copytree(stub_src, dst)
+    print("  скопировано:", len(FILES) + 1, "файлов + src/ и preview/")
 
 print("== согласованность ==")
 # 1. data.json против DEFAULTS ядра
@@ -99,8 +106,11 @@ import glob
 bad = []
 for pat in ("**/*.md", "**/*.css", "**/*.js", "**/*.json"):
     for f in glob.glob(os.path.join(VAULT, pat), recursive=True):
-        if "/.obsidian/plugins/" in f.replace(os.sep, "/") and f.endswith(("main.js", "styles.css")):
-            pass
+        rel = f.replace(os.sep, "/")
+        # node_modules — чужой код (и там есть КАТАЛОГИ с именем вида decimal.js:
+        # glob не различает файлы и папки, поэтому каталоги пропускаем по isfile)
+        if "/node_modules/" in rel or not os.path.isfile(f):
+            continue
         t = open(f, encoding="utf-8").read()
         if "\x00" in t or "\ufffd" in t:
             bad.append(f)
@@ -477,10 +487,18 @@ for script, name in (("validate_links.py", "ссылки (по имени фай
     check(name, r.returncode == 0, tail[:160])
 
 print("== архив ==")
-zip_path = os.path.join(HOME, "Lecture-Graph-Vault.zip")
+# архив кладём РЯДОМ с хранилищем (не внутрь): когда инструментарий лежит в самом
+# хранилище, HOME — это оно и есть, и zip пытался бы упаковать несуществующий путь
+OUT_DIR = os.path.dirname(os.path.abspath(VAULT))
+zip_path = os.path.join(OUT_DIR, "Lecture-Graph-Vault.zip")
 if os.path.exists(zip_path):
     os.remove(zip_path)
-r = subprocess.run(["zip", "-qr9", zip_path, os.path.basename(VAULT)], cwd=HOME, capture_output=True, text=True)
+# .git и node_modules — служебные (они же перечислены в userIgnoreFilters Obsidian),
+# в архив-артефакт они не едут: это не содержимое хранилища
+name = os.path.basename(VAULT)
+r = subprocess.run(["zip", "-qr9", zip_path, name,
+                    "-x", name + "/.git/*", "-x", name + "/*/node_modules/*"],
+                   cwd=OUT_DIR, capture_output=True, text=True)
 check("zip собран", r.returncode == 0, r.stderr.strip()[:200])
 r = subprocess.run(["unzip", "-t", zip_path], capture_output=True, text=True)
 check("zip цел (unzip -t)", r.returncode == 0 and "No errors detected" in r.stdout)

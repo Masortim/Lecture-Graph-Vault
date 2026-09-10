@@ -70,7 +70,20 @@ const fs = (function () {
       return Object.prototype.hasOwnProperty.call(files(), n) || dirs()[n] === true;
     },
     mkdirSync: function () {},
-    rmSync: function () {},
+    rmSync: function (p) { delete files()[norm(p)]; },
+    renameSync: function (from, to) {
+      // нужен стабу для «удалить в корзину» (.trash): в предпросмотре это просто
+      // перемещение по карте файлов — хранилище на диске не трогается ничем
+      const f = files();
+      const a = norm(from);
+      if (f[a] == null) {
+        const e = new Error("ENOENT: " + from);
+        e.code = "ENOENT";
+        throw e;
+      }
+      f[norm(to)] = f[a];
+      delete f[a];
+    },
     statSync: function (p) {
       const n = norm(p);
       const isDir = dirs()[n] === true;

@@ -142,8 +142,32 @@ class Vault extends Events {
   }
   async createFolder(p) { fs.mkdirSync(this._abs(p), { recursive: true }); return new TFolder(p); }
   async delete(f) { fs.rmSync(f._real || this._abs(f.path), { force: true }); }
+  /** Как в Obsidian: «в корзину» — это .trash хранилища (системную корзину стаб не умеет). */
+  async trash(f, system) {
+    if (system) return this.delete(f);
+    const abs = f._real || this._abs(f.path);
+    const dir = path.join(this.root, ".trash");
+    fs.mkdirSync(dir, { recursive: true });
+    const to = path.join(dir, path.basename(f.path));
+    fs.renameSync(abs, to);
+    const moved = new TFile(".trash/" + path.basename(f.path), to);
+    this.trigger("delete", f);
+    return moved;
+  }
   getName() { return path.basename(this.root); }
   configDir = ".obsidian";
+}
+
+/**
+ * app.fileManager. У плагина из него нужен trashFile — то же «удалить в корзину», что
+ * делает штатное удаление (в Obsidian 1.6+ оно уважает настройку «Deleted files»).
+ */
+class FileManager {
+  constructor(app) { this.app = app; }
+  async trashFile(f) { return this.app.vault.trash(f, false); }
+  async deleteFile(f) { return this.app.vault.delete(f); }
+  getMarkdownLink(f) { return "[[" + (f && f.basename) + "]]"; }
+  generateMarkdownLink(f) { return this.getMarkdownLink(f); }
 }
 
 class MetadataCache extends Events {
@@ -250,6 +274,7 @@ class Menu {
       setTitle(t) { this._t = t; return this; },
       setIcon(i) { this._i = i; return this; },
       setDisabled() { return this; },
+      setWarning() { this._warning = true; return this; },
       setSection(sec) { this._s = sec; return this; },
       setTitleSize() { return this; },
       onClick(fn) { this._cb = fn; return this; },
@@ -419,6 +444,7 @@ module.exports = {
   TFile,
   TFolder,
   Vault,
+  FileManager,
   MetadataCache,
   Workspace,
   Leaf,

@@ -18,11 +18,13 @@ import sys
 from PIL import ImageFont
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-VAULT = os.path.abspath(os.path.join(HERE, "..", "Lecture-Graph-Vault"))
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+VAULT = vault_root(HERE)
 DUMP = r"""
 const fs=require("fs"),path=require("path");
 const core=require("./src/graph-core.js"),vaultNotes=require("./vault-notes.js");
-const ROOT=path.resolve(__dirname,"..","Lecture-Graph-Vault");
+const ROOT=require("./vault-root.js")(__dirname);
 const settings=JSON.parse(fs.readFileSync(path.join(ROOT,".obsidian/plugins/lecture-graph/data.json"),"utf8"));
 const R=Number(process.argv[2]||0);
 if(R) settings.maxRadius=R;

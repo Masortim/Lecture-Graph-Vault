@@ -4,7 +4,9 @@
 import os
 import json
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Lecture-Graph-Vault"))
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+ROOT = vault_root(os.path.dirname(os.path.abspath(__file__)))
 OBS = os.path.join(ROOT, ".obsidian")
 
 
@@ -18,6 +20,19 @@ def write(rel, text):
 
 def jwrite(rel, obj):
     write(rel, json.dumps(obj, ensure_ascii=False, indent=2))
+
+
+def jwrite_keep(rel, obj):
+    """Записать настройки стороннего плагина, только если файла ещё нет.
+
+    Свои настройки плагины пишут сами, и их файл на порядок полнее любого разумного
+    стартового набора (у Excalidraw — сотни ключей). Перезапись стирала бы выбор
+    пользователя, поэтому генератор заводит такой файл в новом хранилище и больше
+    к нему не притрагивается."""
+    if os.path.exists(os.path.join(ROOT, rel)):
+        print("  keep", rel)
+        return
+    jwrite(rel, obj)
 
 
 def rgb(h):
@@ -53,11 +68,20 @@ jwrite(".obsidian/appearance.json", {
     "monospaceFontFamily": "JetBrains Mono, Consolas",
 })
 
-jwrite(".obsidian/core-plugins.json", [
-    "file-explorer", "global-search", "switcher", "graph", "backlink", "outgoing-link",
-    "tag-pane", "page-preview", "properties", "note-composer", "command-palette",
-    "editor-status", "bookmarks", "outline", "word-count", "file-recovery",
-])
+# Obsidian 1.9+ держит core-plugins.json картой "id": включён/выключен (старый формат —
+# просто список включённых). Пишем карту: выключенные ядровые плагины видны сразу, и файл
+# после запуска Obsidian не переписывается в другой формат.
+jwrite(".obsidian/core-plugins.json", {
+    "file-explorer": True, "global-search": True, "switcher": True, "graph": True,
+    "backlink": True, "outgoing-link": True, "tag-pane": True, "page-preview": True,
+    "daily-notes": False, "templates": False, "note-composer": True,
+    "command-palette": True, "slash-command": False, "editor-status": True,
+    "markdown-importer": False, "zk-prefixer": False, "random-note": False,
+    "outline": True, "word-count": True, "slides": False, "audio-recorder": False,
+    "workspaces": False, "file-recovery": True, "publish": False, "sync": False,
+    "canvas": True, "footnotes": False, "properties": True, "bookmarks": True,
+    "bases": True, "webviewer": False,
+})
 
 jwrite(".obsidian/types.json", {
     "types": {
@@ -136,24 +160,31 @@ jwrite(".obsidian/graph.json", {
                '-path:"90 - Exports" -path:"60 - Drawings"'),
 })
 
-# только реально существующие ключи settings Templater (проверено по main.js 2.25.0)
+# ключи settings Templater (схема data_version 2: плоские ключи старых версий —
+# trigger_on_file_creation / enable_system_commands / enable_folder_templates — заменены)
 jwrite(".obsidian/plugins/templater-obsidian/data.json", {
+    "data_version": 2,
+    "command_timeout": 5,
     "templates_folder": "40 - Templates",
-    "trigger_on_file_creation": False,
+    "templates_pairs": [],
+    "trigger_on_file_creation_mode": "none",
     "auto_jump_to_cursor": True,
-    "enable_system_commands": False,
+    "jump_to_cursor_after_file_name": False,
     "shell_path": "",
     "user_scripts_folder": "",
-    "enable_folder_templates": False,
     "folder_templates": [],
     "file_templates": [],
     "syntax_highlighting": True,
+    "syntax_highlighting_mobile": False,
     "enabled_templates_hotkeys": [],
     "startup_templates": [],
+    "intellisense_render": "1",
+    "ignore_folders_on_creation": [],
 })
 
-# у Excalidraw 2.27 реальный ключ папки — folder (default "Excalidraw")
-jwrite(".obsidian/plugins/obsidian-excalidraw-plugin/data.json", {
+# у Excalidraw 2.27 реальный ключ папки — folder (default "Excalidraw"); остальные его
+# настройки пишет сам плагин, поэтому файл заводим с нуля, но не перезаписываем
+jwrite_keep(".obsidian/plugins/obsidian-excalidraw-plugin/data.json", {
     "folder": "60 - Drawings",
 })
 
@@ -181,6 +212,9 @@ jwrite(".obsidian/plugins/lecture-graph/data.json", {
     "labelScale": 1,
     "countStructural": False,
     "includeInlineAnchors": False,
+    # удаление вершины: подтверждение с разбором последствий и клавиша Delete/Backspace
+    # (Backspace — потому что на macOS клавиши Delete нет; в полях ввода клавиша работает как обычно)
+    "confirmDelete": True, "deleteKey": True,
     # оглавление курса — в корне хранилища: вне папок сканирования, поэтому в граф не попадает
     "indexNote": "Course Index.md",
     "indexGraphDoc": "02 Graph \u2014 как читать и править",
@@ -188,6 +222,8 @@ jwrite(".obsidian/plugins/lecture-graph/data.json", {
     # ширина подписи в пикселах на базовом кегле: у глав кольцо свободное, им - длинные
     # названия целиком; заголовкам и блокам - короткие (иначе граф раздувается впустую)
     "labelWidthFor": {"chapter": 520, "section": 380, "heading": 190, "block": 170},
+    # какие типы подписывать в режиме «по размеру вершины»
+    "labelForTypes": {"chapter": True, "section": True, "heading": True, "block": False},
     "labelMode": "size",
     "labelRadiusThreshold": 11,  # подписи заголовков не должны пропадать из-за веса по ключевым фразам
     "autoRefresh": True,
@@ -199,6 +235,12 @@ jwrite(".obsidian/plugins/lecture-graph/data.json", {
     "labelAlwaysFor": {"chapter": True, "section": True},
     # размер и цвет вершины правятся свойствами заметки: size: / color: / caption: / keywords_en:
     "sizeKey": "size", "colorKey": "color", "captionKey": "caption",
+    # заметки сообщений: папка и шаблоны по типам вершин (см. команду write_captions.py)
+    "captionFolder": "45 - Captions",
+    "captionChapterTemplate": "40 - Templates/T Caption Chapter.md",
+    "captionSectionTemplate": "40 - Templates/T Caption Section.md",
+    "captionHeadingTemplate": "40 - Templates/T Caption Heading.md",
+    "captionBlockTemplate": "40 - Templates/T Caption Block.md",
     # этап 2: связи (и размер) по ключевым фразам; корпус — аннотации, они вне графа
     "keywordLinks": True, "keywordFolder": "35 - Abstracts", "weightKey": "weight",
     # цвет по главам: секции/заголовки/блоки наследуют цвет своей главы

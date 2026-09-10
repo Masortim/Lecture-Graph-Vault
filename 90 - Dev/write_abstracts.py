@@ -15,7 +15,9 @@ import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.abspath(os.path.join(HERE, "..", "Lecture-Graph-Vault"))
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+ROOT = vault_root(HERE)
 ABS_FOLDER = "35 - Abstracts"
 F_SEC, F_HEAD, F_BLOCK = "20 - Sections", "25 - Headings", "30 - Blocks"
 

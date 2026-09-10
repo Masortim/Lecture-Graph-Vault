@@ -16,19 +16,10 @@
   "labelScale": 1,
   "countStructural": false,
   "includeInlineAnchors": false,
+  "confirmDelete": true,
+  "deleteKey": true,
   "indexNote": "Course Index.md",
   "indexGraphDoc": "02 Graph — как читать и править",
-  "labelMode": "size",
-  "labelRadiusThreshold": 11,
-  "sizeFloor": {
-    "chapter": 16,
-    "section": 13,
-    "heading": 10
-  },
-  "labelAlwaysFor": {
-    "chapter": true,
-    "section": true
-  },
   "labelCharsFor": {
     "chapter": 30,
     "section": 24,
@@ -47,6 +38,26 @@
     "heading": true,
     "block": false
   },
+  "labelMode": "size",
+  "labelRadiusThreshold": 11,
+  "autoRefresh": true,
+  "maxNodes": 4000,
+  "exportFolder": "90 - Exports",
+  "colors": {
+    "chapter": "#f2b33d",
+    "section": "#4a9eda",
+    "heading": "#59c98a",
+    "block": "#c07ad8"
+  },
+  "sizeFloor": {
+    "chapter": 16,
+    "section": 13,
+    "heading": 10
+  },
+  "labelAlwaysFor": {
+    "chapter": true,
+    "section": true
+  },
   "sizeKey": "size",
   "colorKey": "color",
   "captionKey": "caption",
@@ -57,7 +68,7 @@
   "captionBlockTemplate": "40 - Templates/T Caption Block.md",
   "keywordLinks": true,
   "keywordFolder": "35 - Abstracts",
-  "curvature": 0.24,
+  "weightKey": "weight",
   "chapterColors": true,
   "chapterPalette": [
     "#f2b33d",
@@ -71,26 +82,43 @@
     "#9a8cff",
     "#f2c14e"
   ],
-  "autoRefresh": true,
-  "maxNodes": 4000,
-  "exportFolder": "90 - Exports",
-  "colors": {
-    "chapter": "#f2b33d",
-    "section": "#4a9eda",
-    "heading": "#59c98a",
-    "block": "#c07ad8"
-  },
+  "curvature": 0.24,
   "layout": {
-    "mode": "neato",
+    "mode": "fdp",
     "linkDistance": 88,
     "repel": 2700,
     "gravity": 0.014,
     "friction": 0.82,
     "collide": true,
     "radius": 1300,
-    "iterations": 700,
+    "radialStrength": 0.05,
     "anchorStrength": 0.34,
     "packLabels": true,
+    "packPasses": 70,
+    "clusterBands": {
+      "chapter": [
+        0.2,
+        0.3
+      ],
+      "section": [
+        0.38,
+        0.6
+      ],
+      "heading": [
+        0.8,
+        1.0
+      ],
+      "block": [
+        1.06,
+        1.26
+      ]
+    },
+    "clusterPad": 10,
+    "clusterGap": 0.07,
+    "clusterFill": 0.94,
+    "autoTune": true,
+    "iterations": 700,
+    "polish": 26,
     "fdpIters": 260,
     "frK": 1,
     "frRepel": 1,
@@ -106,31 +134,6 @@
     "postLabels": true,
     "postCircles": true,
     "dispCap": 0.5,
-    "packPasses": 70,
-    "clusterPad": 10,
-    "clusterGap": 0.07,
-    "clusterFill": 0.94,
-    "radialStrength": 0.05,
-    "clusterBands": {
-      "chapter": [
-        0.2,
-        0.3
-      ],
-      "section": [
-        0.38,
-        0.6
-      ],
-      "heading": [
-        0.8,
-        1
-      ],
-      "block": [
-        1.06,
-        1.26
-      ]
-    },
-    "autoTune": true,
-    "polish": 26,
     "polishPasses": 0,
     "polishGrow": 6,
     "spreadMax": 12
@@ -145,6 +148,5 @@
     "minDegree": 0,
     "chapter": "",
     "hidePlaceholders": false
-  },
-  "weightKey": "weight"
+  }
 }

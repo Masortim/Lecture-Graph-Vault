@@ -4,7 +4,8 @@ const fs = require("fs");
 const path = require("path");
 const core = require("./src/graph-core.js");
 const vaultNotes = require("./vault-notes.js");
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// корень хранилища: <dev>/.. (инструментарий внутри) или <dev>/../Lecture-Graph-Vault
+const ROOT = require("./vault-root.js")(__dirname);
 const normRel = (p) => { const x = String(p || "").trim().replace(/^\.\//, "").replace(/\\/g, "/"); return !x ? "Course Index.md" : (/\.(md|markdown)$/i.test(x) ? x : x + ".md"); };
 
 const settingsPath = path.join(ROOT, ".obsidian", "plugins", "lecture-graph", "data.json");

@@ -2,7 +2,8 @@
 const fs = require("fs");
 const path = require("path");
 const core = require("./src/graph-core.js");
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// корень хранилища: <dev>/.. (инструментарий внутри) или <dev>/../Lecture-Graph-Vault
+const ROOT = require("./vault-root.js")(__dirname);
 const vaultNotes = require("./vault-notes.js");
 
 // те же настройки, что у плагина в хранилище, — чтобы превью совпадало с тем, что видит пользователь

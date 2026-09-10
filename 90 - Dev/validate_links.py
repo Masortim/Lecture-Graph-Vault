@@ -17,7 +17,9 @@ import os
 import re
 import sys
 
-ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "Lecture-Graph-Vault"))
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+ROOT = vault_root(os.path.dirname(os.path.abspath(__file__)))
 WIKI = re.compile(r"(!?)\[\[([^\[\]\n]+)\]\]")
 FENCE = re.compile(r"^```[\s\S]*?^```[ \t]*$", re.M)
 INLINE_CODE = re.compile(r"`[^`\n]*`")

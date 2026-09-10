@@ -5,7 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const core = require("./src/graph-core.js");
 
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// корень хранилища: <dev>/.. (инструментарий внутри) или <dev>/../Lecture-Graph-Vault
+const ROOT = require("./vault-root.js")(__dirname);
 const list = JSON.parse(fs.readFileSync(path.join(__dirname, "captions.json"), "utf8"));
 const key = "caption";
 let changed = 0, skipped = 0, missing = [];

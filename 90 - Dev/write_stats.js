@@ -5,7 +5,8 @@ const fs = require("fs");
 const path = require("path");
 const core = require("./src/graph-core.js");
 const vaultNotes = require("./vault-notes.js");
-const ROOT = path.resolve(__dirname, "..", "Lecture-Graph-Vault");
+// корень хранилища: <dev>/.. (инструментарий внутри) или <dev>/../Lecture-Graph-Vault
+const ROOT = require("./vault-root.js")(__dirname);
 
 const settingsPath = path.join(ROOT, ".obsidian", "plugins", "lecture-graph", "data.json");
 const settings = fs.existsSync(settingsPath) ? JSON.parse(fs.readFileSync(settingsPath, "utf8")) : {};

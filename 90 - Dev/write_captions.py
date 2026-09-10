@@ -19,7 +19,9 @@ import os
 import re
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-ROOT = os.path.join(HERE, "..", "Lecture-Graph-Vault")
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+ROOT = vault_root(HERE)
 CAP_FOLDER = "45 - Captions"
 ABS_FOLDER = "35 - Abstracts"
 MARK = "%% lecture-graph: заготовка сообщения — замените этот абзац своим текстом %%"
