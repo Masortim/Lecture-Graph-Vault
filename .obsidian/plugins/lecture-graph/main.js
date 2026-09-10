@@ -5889,10 +5889,19 @@ class LectureGraphView extends obsidian.ItemView {
     return { x: cx, y: cy };
   }
 
-  /** Камера посчитана под другой размер сцены? (то, из-за чего граф «уезжает» от центра) */
+  /** Камера посчитана под другой размер или положение сцены? */
   boxChanged() {
     var f = this._fitBox;
-    return !f || Math.abs(this.width() - f.w) > 0.5 || Math.abs(this.height() - f.h) > 0.5;
+    var fr = this.fitFrame();
+    var c = this.centerTarget(fr);
+    // При входе в Fullscreen API ширина из fitFrame() сразу равна ширине окна,
+    // однако сам SVG ещё несколько кадров сохраняет прежний left/top. Поэтому одной
+    // проверки w/h недостаточно: после перекладки размер формально тот же, но центр
+    // экрана в координатах холста уже другой. Именно это оставляло граф слева вплоть
+    // до ручного Fit.
+    return !f || !isFinite(f.cx) || !isFinite(f.cy) ||
+      Math.abs(fr.w - f.w) > 0.5 || Math.abs(fr.h - f.h) > 0.5 ||
+      Math.abs(c.x - f.cx) > 0.5 || Math.abs(c.y - f.cy) > 0.5;
   }
 
   /*
@@ -6554,7 +6563,9 @@ class LectureGraphView extends obsidian.ItemView {
     // экране) или сцены, и по X, и по Y
     var c = this.centerTarget(fr);
     this.view = { k: k, x: c.x - ((b.minX + b.maxX) * k) / 2, y: c.y - ((b.minY + b.maxY) * k) / 2 };
-    this._fitBox = { w: w, h: h }; // под какой размер посчитана камера: boxChanged() сверяется с ним
+    // Запоминаем не только размер, но и фактический центр окна в координатах SVG:
+    // при асинхронной перекладке fullscreen left/top меняются без изменения w/h.
+    this._fitBox = { w: w, h: h, cx: c.x, cy: c.y };
     // после смены камеры круги и подписи пересобираются: их размер на экране от k зависит
     this.updateNodeSizes();
     this.updateLabels();
