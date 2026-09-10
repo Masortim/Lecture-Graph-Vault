@@ -63,6 +63,7 @@ const DEFAULT_SETTINGS = {
   // (Backspace — потому что на macOS клавиши Delete нет, там удаление идёт по ним)
   confirmDelete: true,
   deleteKey: true,
+  autoMergeDuplicates: true,
   // Оглавление курса лежит в КОРНЕ хранилища: папки из `folders` его не видят, поэтому в граф
   // оно не попадает ни при каких настройках сканирования (см. команду write-index и меню «Проводника»)
   indexNote: "Course Index.md",
@@ -211,6 +212,25 @@ function buildOptions(settings) {
     if (settings[k] !== undefined && settings[k] !== null) opts[k] = settings[k];
   });
   return opts;
+}
+
+function replaceNoteBody(text, body) {
+  var parsed = core.parseFrontmatter(text || "");
+  var next = String(body == null ? "" : body);
+  if (parsed.hasFrontmatter) return parsed.raw + (next ? (next.charAt(0) === "\n" ? next : "\n" + next) : "");
+  return next;
+}
+
+function mergeLooseBodies(base, extra, title) {
+  var a = String(base == null ? "" : base).replace(/\s+$/g, "");
+  var b = String(extra == null ? "" : extra).replace(/\s+$/g, "");
+  if (!b) return a ? a + "\n" : "";
+  var na = b ? String(a).replace(/\s+/g, " " ).trim() : "";
+  var nb = String(b).replace(/\s+/g, " " ).trim();
+  if (!a) return b + "\n";
+  if (!nb || na === nb || na.indexOf(nb) >= 0) return a + "\n";
+  var head = title ? "## " + title.replace(/\s+/g, " " ).trim() : "## Merged duplicate note";
+  return a + "\n\n" + head + "\n\n" + b + "\n";
 }
 
 function subsetGraph(graph, visibleSet) {
@@ -1728,6 +1748,7 @@ class LectureGraphView extends obsidian.ItemView {
     menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
     menu.addSeparator();
     menu.addItem((it) => it.setTitle("Copy wiki link").setIcon("link").onClick(() => this.plugin.copyLink(n)));
+    menu.addItem((it) => it.setTitle("Merge duplicates of this vertex").setIcon("git-merge").onClick(() => this.plugin.mergeDuplicateNodes({ ids: [n.id] })));
     // ручная связь без Ctrl: если вершина уже выделена, меню предлагает оба направления
     if (this.selected && this.selected !== n.id && this.byId[this.selected]) {
       var srcSel = this.byId[this.selected];
@@ -2282,6 +2303,10 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
       .setDesc("В окне графа Delete удаляет выделенный узел, Backspace — то же (на macOS клавиши Delete нет). В полях ввода клавиша работает как обычно.")
       .addToggle((t) => t.setValue(s.deleteKey !== false).onChange((v) => ((s.deleteKey = v), save())));
     new obsidian.Setting(el)
+      .setName("Автослияние дубликатов после создания узла")
+      .setDesc("После команды Create node плагин сравнивает новую заметку с уже существующими вершинами того же уровня: одинаковое название, совпадающий перевод и близкое содержимое считаются сильным сигналом дубликата. В этом случае связи, дети и ключевые фразы переносятся в одну заметку, а дубль уходит в корзину.")
+      .addToggle((t) => t.setValue(s.autoMergeDuplicates !== false).onChange((v) => ((s.autoMergeDuplicates = v), save())));
+    new obsidian.Setting(el)
       .setName("Изгиб рёбер (дуги)")
       .setDesc("0 — прямые линии. По умолчанию 0.24: структурные рёбра идут «веером» внутри своего сектора и не пересекаются.")
       .addSlider((t) => t.setLimits(0, 0.6, 0.02).setValue(num(s.curvature, 0.24)).onChange((v) => ((s.curvature = v), save(), this.plugin.forEachView((vw) => vw.redraw()))));
@@ -2465,6 +2490,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     // Пути, которые прямо сейчас пишет сам плагин. Их modify-события не должны
     // запускать сотни одинаковых refresh/layout во время пакетных команд.
     this.internalWrites = {};
+    this.lastMerge = null;
 
     this.addRibbonIcon("git-fork", "Lecture graph (полный экран — Shift+клик)", (ev) => this.activateView(!!(ev && (ev.shiftKey || ev.ctrlKey))));
     this.addCommand({
@@ -2591,6 +2617,27 @@ class LectureGraphPlugin extends obsidian.Plugin {
       callback: () => new CreateNodeModal(this.app, this, {}).open(),
     });
     this.addCommand({
+      id: "merge-duplicates",
+      name: "Merge duplicate vertices (same title / same content)",
+      callback: () => this.mergeDuplicateNodes(),
+    });
+    this.addCommand({
+      id: "merge-current-note-duplicates",
+      name: "Merge duplicates of the current note",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.mergeDuplicateNodes({ ids: [node.id] });
+      },
+    });
+    this.addCommand({
+      id: "undo-merge-duplicates",
+      name: "Undo last duplicate merge",
+      callback: () => this.undoDuplicateMerge(),
+    });
+    this.addCommand({
       id: "delete-node",
       name: "Delete selected vertex (Delete/Backspace key)",
       callback: () => {
@@ -2643,6 +2690,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
             var node = g.nodes.find((n) => n.path === file.path);
             if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
             else this.editLabel(node);
+          })
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Merge duplicates of this vertex")
+          .setIcon("git-merge")
+          .onClick(async () => {
+            var g = await this.getGraph(false);
+            var node = g.nodes.find((n) => n.path === file.path);
+            if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+            else this.mergeDuplicateNodes({ ids: [node.id] });
           })
       );
     }));
@@ -3062,23 +3120,27 @@ class LectureGraphPlugin extends obsidian.Plugin {
    * Свойства и тело вне региона не трогаются, второй прогон байт-в-байт
    * идемпотентен; заметки без списка фраз остаются как есть.
    */
-  async recomputeKeywords() {
+  async recomputeKeywords(runOpts) {
+    runOpts = runOpts || {};
     var opts = buildOptions(this.settings);
     // Плану keyword-ссылок нужны свежие frontmatter/body, но не координаты. Читаем
     // модель напрямую, чтобы не делать полную раскладку и до, и после batch-записи.
     var g = await this.buildGraphModel(opts);
     var abs = await this.keywordCorpusNotes();
     if (!abs.length) {
-      new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — ключевые фразы искать негде");
+      if (!runOpts.silent) new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — ключевые фразы искать негде");
       return null;
     }
     var corpus = core.buildKeywordCorpus(abs, g, opts);
     var weightKey = opts.weightKey || "weight";
     var touched = 0, planned = 0, sumWeight = 0, flipped = 0, cleaned = 0;
     var marks = core.keywordMarkers();
+    var only = {};
+    (runOpts.only || []).forEach(function (p) { if (p) only[String(p)] = true; });
     for (var i = 0; i < g.nodes.length; i++) {
       var n = g.nodes[i];
       if (n.inline || !n.path) continue;
+      if (Object.keys(only).length && !only[n.path]) continue;
       var file = this.app.vault.getAbstractFileByPath(n.path);
       if (!(file instanceof obsidian.TFile)) continue;
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
@@ -3116,10 +3178,290 @@ class LectureGraphPlugin extends obsidian.Plugin {
       " · записей обновлено " + touched + (cleaned ? " · снято " + cleaned : "") +
       (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
-    new obsidian.Notice(msg);
+    if (!runOpts.silent) new obsidian.Notice(msg);
     // getGraph(true) выше уже обновил cache и все View; повторный changed() только
     // запустил бы ещё одну полную пересборку через debounce.
     return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
+  }
+
+  /* -------------------------------------------------- дубликаты: слияние узлов */
+
+  async mergeDuplicateCaptions(keep, drops, snapshot) {
+    var keepCap = this.findCaptionFile(keep);
+    var pool = [];
+    if (keepCap) pool.push({ node: keep, file: keepCap });
+    (drops || []).forEach((n) => {
+      var f = this.findCaptionFile(n);
+      if (f) pool.push({ node: n, file: f });
+    });
+    if (!pool.length) return { captionPatch: keep.caption ? "[[" + String(keep.caption).replace(/^.*\//, "").replace(/\.md$/i, "") + "]]" : "", touched: 0, deleted: 0 };
+    var chosen = keepCap ? pool[0] : pool[0];
+    var chosenFile = chosen.file;
+    var chosenRaw = await this.app.vault.cachedRead(chosenFile);
+    var changed = 0;
+    var deleted = 0;
+    var mergedBody = core.parseFrontmatter(chosenRaw).body.trim();
+    var mergedRaw = chosenRaw;
+    for (var i = 0; i < pool.length; i++) {
+      var item = pool[i];
+      if (!item.file || item.file.path === chosenFile.path) continue;
+      var raw = await this.app.vault.cachedRead(item.file);
+      snapshot(item.file.path, raw);
+      mergedBody = mergeLooseBodies(mergedBody, core.parseFrontmatter(raw).body.trim(),
+        "Merged duplicate caption from " + ((item.node && item.node.id) || item.file.basename));
+    }
+    mergedRaw = replaceNoteBody(mergedRaw, mergedBody);
+    mergedRaw = core.setFrontmatterValues(mergedRaw, { node: keep.id, level: keep.type, color: keep.color || "" });
+    if (mergedRaw !== chosenRaw) {
+      snapshot(chosenFile.path, chosenRaw);
+      await this.processInternal(chosenFile, function () { return mergedRaw; });
+      changed++;
+    }
+    for (var j = 0; j < pool.length; j++) {
+      var extra = pool[j];
+      if (!extra.file || extra.file.path === chosenFile.path) continue;
+      await this.withInternalWrite(extra.file.path, () => this.trashFile(extra.file));
+      deleted++;
+    }
+    return { captionPatch: "[[" + chosenFile.basename + "]]", touched: changed, deleted: deleted, path: chosenFile.path };
+  }
+
+  async mergeDuplicateGroup(graph, group, bag) {
+    var opts = buildOptions(this.settings);
+    var plan = core.planNodeMerge(graph, group, opts);
+    if (!plan || !plan.keep || !plan.drop.length) return null;
+    var keep = plan.keep;
+    var keepFile = this.app.vault.getAbstractFileByPath(keep.path);
+    if (!(keepFile instanceof obsidian.TFile)) return null;
+    var snapshot = bag && bag.snapshot ? bag.snapshot : function () {};
+    var keepRaw = await this.app.vault.cachedRead(keepFile);
+    var keepParsed = core.parseFrontmatter(keepRaw);
+    var keepNode = Object.assign({}, keep, { body: keepParsed.body, data: keepParsed.data });
+    var mergedRaw = keepRaw;
+    var replacements = [];
+    var appended = 0;
+    var inlineByPath = {};
+    (plan.targets || []).forEach(function (t) {
+      if (!t || !t.inline) return;
+      (inlineByPath[t.path] || (inlineByPath[t.path] = [])).push(t);
+    });
+    for (var i = 0; i < plan.drop.length; i++) {
+      var drop = plan.drop[i];
+      var dropFile = this.app.vault.getAbstractFileByPath(drop.path);
+      var dropRaw = dropFile instanceof obsidian.TFile ? await this.app.vault.cachedRead(dropFile) : null;
+      if (dropRaw !== null) snapshot(drop.path, dropRaw);
+      var dropParsed = dropRaw === null ? { body: drop.body || "", data: drop.data || {} } : core.parseFrontmatter(dropRaw);
+      var dropNode = Object.assign({}, drop, { body: dropParsed.body, data: dropParsed.data });
+      var merged = core.mergeNodeBodies(keepNode, dropNode, opts);
+      keepNode.body = merged.body;
+      mergedRaw = replaceNoteBody(mergedRaw, merged.body);
+      if (merged.appended) appended++;
+      replacements.push({ from: dropNode, to: keepNode, anchorMap: merged.anchorMap || {} });
+      var inlineTargets = (inlineByPath[drop.path] || []).slice();
+      if (!inlineTargets.length) {
+        inlineTargets = core.extractAnchors(dropNode.body || "").map(function (a) {
+          return {
+            id: dropNode.stem + "#^" + a.id,
+            inline: true,
+            anchorName: a.id,
+            parent: dropNode.id,
+            stem: dropNode.stem,
+            path: dropNode.path,
+          };
+        });
+      }
+      inlineTargets.forEach(function (x) {
+        replacements.push({ from: x, to: keepNode, anchorMap: merged.anchorMap || {} });
+      });
+    }
+    var patch = core.mergedNodePatch(keepNode, plan.drop, opts);
+    var cap = await this.mergeDuplicateCaptions(keepNode, plan.drop, snapshot);
+    if (cap && cap.captionPatch) patch[this.settings.captionKey || "caption"] = cap.captionPatch;
+    var keepRewrite = core.retargetLinks(mergedRaw, replacements, { currentNode: keepNode, graph: graph });
+    mergedRaw = keepRewrite.text;
+    mergedRaw = core.setFrontmatterValues(mergedRaw, patch);
+
+    var dropIds = {};
+    plan.drop.forEach(function (n) { dropIds[n.id] = true; });
+    var chapterTarget = keepNode.type === "chapter" ? keepNode.id : (keepNode.chapter || "");
+    var ops = {};
+    var opFor = function (path, node) {
+      return ops[path] || (ops[path] = { path: path, node: node || null, rewrite: false, patch: {}, merged: null });
+    };
+    opFor(keep.path, keepNode).merged = mergedRaw;
+    var rewriteByPath = {};
+    (plan.refs || []).forEach(function (r) {
+      if (!r || !r.path || r.path === keep.path) return;
+      rewriteByPath[r.path] = (graph._byId && graph._byId[r.id]) || null;
+    });
+    (graph.nodes || []).forEach(function (n) {
+      if (!n || n.inline || !n.path || n.path === keep.path) return;
+      if ((n.links || []).some(function (l) {
+        return replacements.some(function (rep) { return core.linkTargetsNode(l, rep.from, graph); });
+      })) rewriteByPath[n.path] = n;
+    });
+    Object.keys(rewriteByPath).forEach(function (p) {
+      opFor(p, rewriteByPath[p]).rewrite = true;
+    });
+    (plan.children || []).forEach(function (c) {
+      var op = opFor(c.path, (graph._byId && graph._byId[c.id]) || null);
+      if (c.parent !== keepNode.id) op.patch[this.settings.parentKey || "parent"] = keepNode.id;
+      if (c.chapter !== chapterTarget) op.patch[this.settings.chapterKey || "chapter"] = chapterTarget || "";
+    }, this);
+
+    var touched = 0;
+    var retargeted = keepRewrite.replaced + keepRewrite.removed;
+    var reparented = 0;
+    var paths = Object.keys(ops);
+    for (var p = 0; p < paths.length; p++) {
+      var op = ops[paths[p]];
+      var file = this.app.vault.getAbstractFileByPath(op.path);
+      if (!(file instanceof obsidian.TFile)) continue;
+      var before = op.path === keep.path ? keepRaw : await this.app.vault.cachedRead(file);
+      var after = op.merged !== null ? op.merged : before;
+      if (op.rewrite && op.path !== keep.path) {
+        var rr = core.retargetLinks(after, replacements, { currentNode: op.node, graph: graph });
+        after = rr.text;
+        retargeted += rr.replaced + rr.removed;
+      }
+      if (Object.keys(op.patch).length) {
+        after = core.setFrontmatterValues(after, op.patch);
+        if (op.patch[this.settings.parentKey || "parent"] !== undefined || op.patch[this.settings.chapterKey || "chapter"] !== undefined) reparented++;
+      }
+      if (after === before) continue;
+      snapshot(op.path, before);
+      await this.processInternal(file, function () { return after; });
+      touched++;
+    }
+
+    for (var d = 0; d < plan.drop.length; d++) {
+      var dup = plan.drop[d];
+      var target = this.app.vault.getAbstractFileByPath(dup.path);
+      if (!(target instanceof obsidian.TFile)) continue;
+      await this.withInternalWrite(dup.path, () => this.trashFile(target));
+    }
+
+    return {
+      keepId: keepNode.id,
+      keepPath: keepNode.path,
+      keepName: keepNode.name || keepNode.id,
+      dropIds: plan.drop.map(function (n) { return n.id; }),
+      dropPaths: plan.drop.map(function (n) { return n.path; }),
+      touched: touched,
+      appended: appended,
+      retargeted: retargeted,
+      reparented: reparented,
+      captionTouched: cap ? cap.touched : 0,
+      captionDeleted: cap ? cap.deleted : 0,
+    };
+  }
+
+  async mergeDuplicateNodes(runOpts) {
+    runOpts = runOpts || {};
+    var target = {};
+    (runOpts.ids || []).forEach(function (id) {
+      var key = id && id.id ? id.id : id;
+      if (key) target[String(key)] = true;
+    });
+    var targeted = Object.keys(target).length > 0;
+    var snapshotMap = {};
+    var snapshot = function (path, text) {
+      if (snapshotMap[path] === undefined) snapshotMap[path] = text;
+    };
+    var merged = [];
+    var keepPaths = {};
+    var groups = 0;
+    var guard = 0;
+    while (guard++ < 40) {
+      var mergeOpts = buildOptions(this.settings);
+      var g = await this.buildGraphModel(mergeOpts);
+      var dup = core.findDuplicateGroups(g, mergeOpts);
+      if (Object.keys(target).length) {
+        dup = dup.filter(function (gr) { return gr.nodes.some(function (n) { return target[n.id]; }); }).map(function (gr) {
+          var keepIds = {};
+          gr.nodes.forEach(function (seed) {
+            if (!target[seed.id]) return;
+            keepIds[seed.id] = true;
+            gr.nodes.forEach(function (other) {
+              if (!other || other.id === seed.id) return;
+              if (core.duplicateScore(seed, other, mergeOpts).match) keepIds[other.id] = true;
+            });
+          });
+          var nodes = gr.nodes.filter(function (n) { return keepIds[n.id]; });
+          if (nodes.length < 2) return null;
+          var keep = core.pickDuplicateKeeper(nodes);
+          return { keep: keep, nodes: nodes, drop: nodes.filter(function (n) { return !keep || n.id !== keep.id; }) };
+        }).filter(Boolean);
+      }
+      if (!dup.length) break;
+      var res = await this.mergeDuplicateGroup(g, dup[0], { snapshot: snapshot });
+      if (!res) break;
+      merged.push(res);
+      keepPaths[res.keepPath] = true;
+      groups++;
+      if (Object.keys(target).length) {
+        dup[0].nodes.forEach(function (n) { delete target[n.id]; });
+        if (targeted && !Object.keys(target).length) break;
+      }
+    }
+    if (!merged.length) {
+      if (!runOpts.silent) new obsidian.Notice(Object.keys(target).length ? "Для выбранной вершины дубликаты не найдены" : "Дубликаты не найдены");
+      return { groups: 0, merged: 0, results: [] };
+    }
+    this.lastMerge = {
+      at: Date.now(),
+      files: Object.keys(snapshotMap).map(function (p) { return { path: p, text: snapshotMap[p] }; }),
+      results: merged.slice(),
+    };
+    await this.recomputeKeywords({ only: Object.keys(keepPaths), silent: true });
+    this.markGraphDirty();
+    var fresh = await this.getGraph(true);
+    var focus = merged[merged.length - 1].keepId;
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (focus && fresh._byId[focus]) v.select(focus, true);
+    });
+    var mergedNodes = merged.reduce(function (sum, r) { return sum + r.dropIds.length; }, 0);
+    var rewired = merged.reduce(function (sum, r) { return sum + r.retargeted; }, 0);
+    var reparented = merged.reduce(function (sum, r) { return sum + r.reparented; }, 0);
+    var msg = "Дубликаты объединены: групп " + groups + " · слито вершин " + mergedNodes +
+      (rewired ? " · перенаправлено ссылок " + rewired : "") +
+      (reparented ? " · детей перевешено " + reparented : "") +
+      " · отмена: команда ‘Undo last duplicate merge’";
+    if (!runOpts.silent) {
+      new obsidian.Notice(msg);
+      this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    }
+    return { groups: groups, merged: mergedNodes, results: merged, focusId: focus, files: Object.keys(snapshotMap).length };
+  }
+
+  async undoDuplicateMerge() {
+    var last = this.lastMerge;
+    if (!last || !last.files || !last.files.length) {
+      new obsidian.Notice("Отменять нечего: в этой сессии слияния дубликатов не было");
+      return null;
+    }
+    var n = 0;
+    for (var i = 0; i < last.files.length; i++) {
+      try {
+        await this.writeFile(last.files[i].path, last.files[i].text);
+        n++;
+      } catch (e) {
+        new obsidian.Notice("Не удалось вернуть " + last.files[i].path + ": " + (e && e.message ? e.message : e));
+      }
+    }
+    this.lastMerge = null;
+    this.markGraphDirty();
+    var g = await this.getGraph(true);
+    var focus = last.results && last.results.length ? last.results[last.results.length - 1].keepId : null;
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (focus && g._byId[focus]) v.select(focus, true);
+    });
+    var msg = "Слияние дубликатов отменено: восстановлено заметок — " + n;
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    return { files: n };
   }
 
   /* -------------------------------------------------- создание узла из графа */
@@ -3285,9 +3627,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
       new obsidian.Notice("Не удалось создать заметку: " + (e && e.message ? e.message : e));
       return null;
     }
-    // 7. Пересборка графа и выбор новой вершины: пользователь сразу видит её связи.
+    // 7. Если новая заметка оказалась дублем, сразу схлопываем её с существующей:
+    // переносим связи/ключевые фразы в одну заметку и не оставляем в графе «две одинаковые вершины».
+    var autoMerge = null;
+    if (this.settings.autoMergeDuplicates !== false) autoMerge = await this.mergeDuplicateNodes({ ids: [id], silent: true });
+    var finalId = autoMerge && autoMerge.focusId ? autoMerge.focusId : id;
+    // 8. Пересборка графа и выбор итоговой вершины: пользователь сразу видит её связи.
     var fresh = await this.getGraph(true);
-    var node = (fresh._byId && fresh._byId[id]) || this.nodeByPath(file.path);
+    var node = (fresh._byId && fresh._byId[finalId]) || this.nodeByPath(file.path);
+    if (node) file = this.app.vault.getAbstractFileByPath(node.path) || file;
     this.forEachView(function (v) {
       if (!node) return;
       if (!v.visible[node.id]) v.clearIsolation(); // фильтр главы прятал бы только что созданное
@@ -3295,14 +3643,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
     });
     var kwLinks = plan ? plan.targets.length : 0;
     var msg =
-      "Узел создан: " + file.path +
+      "Узел создан: " + (node ? node.path : file.path) +
       (nameZh ? " · " + nameEn + " / " + nameZh : "") +
       (chapter ? " · глава " + chapter : "") +
       (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
       (related.length ? " · по названиям: " + related.length : "") +
+      (autoMerge && autoMerge.merged ? " · автослияние дубликата: сохранена вершина " + finalId : "") +
       (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
     new obsidian.Notice(msg);
-    return { file: file, path: file.path, node: node, id: id, plan: plan, related: related, chapter: chapter };
+    return { file: file, path: node ? node.path : file.path, node: node, id: finalId, createdId: id, plan: plan, related: related, chapter: chapter, merged: autoMerge };
   }
 
   /**

@@ -1632,6 +1632,164 @@ ok("сценарий удаления: после снятия ссылок и �
   assert.strictEqual(g2.stats.byType.heading, N.heading - 1, "заголовков: " + g2.stats.byType.heading);
 });
 
+console.log("\n== раунд 22: слияние дубликатов ==");
+
+ok("findDuplicateGroups: одинаковые названия/содержимое схлопываются, keeper выбирается по насыщенности", () => {
+  const mini = [
+    { path: "25 - Headings/H1.md", text: `---
+type: heading
+id: H1
+name: "H1"
+chapter: Ch01
+---
+
+# H1
+` },
+    { path: "25 - Headings/H2.md", text: `---
+type: heading
+id: H2
+name: "H2"
+chapter: Ch01
+---
+
+# H2
+` },
+    { path: "30 - Blocks/A - Canon.md", text: `---
+type: block
+id: A
+name: "Duplicate Topic"
+name_zh: "重复主题"
+status: placeholder
+parent: H1
+chapter: Ch01
+keywords_en: "vector space"
+---
+
+# Duplicate Topic
+
+**重复主题**
+
+Useful statement.
+
+^dup-anchor
+` },
+    { path: "30 - Blocks/B - Rich.md", text: `---
+type: block
+id: B
+name: "Duplicate Topic"
+name_zh: "重复主题"
+status: draft
+parent: H2
+chapter: Ch01
+keywords_en: "compact set"
+caption: "[[B — caption]]"
+---
+
+# Duplicate Topic
+
+**重复主题**
+
+Useful statement.
+
+^dup-anchor
+` },
+    { path: "30 - Blocks/C - Child.md", text: `---
+type: block
+id: C
+name: "Child"
+parent: A
+chapter: Ch01
+---
+
+# Child
+` },
+    { path: "30 - Blocks/R - Ref.md", text: `---
+type: block
+id: R
+name: "Ref"
+---
+
+See [[A]] and [[A#^dup-anchor|anchor]].
+` },
+  ];
+  const g = core.buildGraph(mini, { includeInlineAnchors: true });
+  const groups = core.findDuplicateGroups(g);
+  assert.strictEqual(groups.length, 1, "групп дубликатов: " + groups.length);
+  assert.strictEqual(groups[0].keep.id, "B", "keeper выбран не по насыщенности: " + groups[0].keep.id);
+  assert.deepStrictEqual(groups[0].drop.map((n) => n.id), ["A"]);
+  const plan = core.planNodeMerge(g, groups[0]);
+  assert.strictEqual(plan.keep.id, "B");
+  assert.deepStrictEqual(plan.children.map((n) => n.id), ["C"]);
+  assert.ok(plan.targets.some((n) => n.inline && n.anchorName === "dup-anchor"), "инлайн-якорь дубля не попал в цели");
+  assert.ok(plan.refs.some((r) => r.id === "R"), "ссылка на дубликат не попала в план");
+  const patch = core.mergedNodePatch(plan.keep, plan.drop);
+  assert.ok(patch.aliases.includes("A") && patch.aliases.includes("B"), "aliases не объединились: " + patch.aliases.join(","));
+  assert.ok(String(patch.keywords_en).includes("vector space") && String(patch.keywords_en).includes("compact set"), "keywords не объединились: " + patch.keywords_en);
+});
+
+ok("mergeNodeBodies: конфликтующие ^якоря переименовываются, а материал дубля переносится в keeper", () => {
+  const keep = { id: "KEEP", name: "Topic", stem: "KEEP - Topic", body: `# Topic
+
+Body A.
+
+^eq
+` };
+  const drop = { id: "DROP", name: "Topic", stem: "DROP - Topic", body: `# Topic
+
+Body B.
+
+^eq
+` };
+  const res = core.mergeNodeBodies(keep, drop);
+  assert.ok(res.appended, "материал дубля не был добавлен");
+  assert.ok(res.anchorMap.eq && res.anchorMap.eq !== "eq", "якорь не переименован: " + JSON.stringify(res.anchorMap));
+  assert.ok(res.body.indexOf("## Duplicate material merged from DROP") >= 0, "нет блока переноса");
+  assert.ok(res.body.indexOf("Body B.") >= 0, "текст дубля не перенесён");
+  assert.ok(res.body.indexOf("^" + res.anchorMap.eq) >= 0, "новый якорь не записан в тело");
+});
+
+ok("retargetLinks: ссылки на заметку и на её ^якорь переписываются в keeper", () => {
+  const notes = [
+    { path: "30 - Blocks/A.md", text: `---
+type: block
+id: A
+name: "A"
+---
+
+# A
+
+^eq-a
+` },
+    { path: "30 - Blocks/B.md", text: `---
+type: block
+id: B
+name: "B"
+---
+
+# B
+
+^eq-b
+` },
+    { path: "30 - Blocks/R.md", text: `---
+type: block
+id: R
+name: "R"
+---
+
+See [[B]] and [[B#^eq-b|anchor]].
+` },
+  ];
+  const g = core.buildGraph(notes, { includeInlineAnchors: true });
+  const inline = g.nodes.find((n) => n.inline && n.parent === "B");
+  const res = core.retargetLinks(notes[2].text, [
+    { from: g._byId.B, to: g._byId.A },
+    { from: inline, to: g._byId.A, anchorMap: { "eq-b": "eq-a" } },
+  ], { graph: g });
+  assert.ok(res.changed, "текст не переписан");
+  assert.ok(res.text.indexOf("[[A]]") >= 0, "ссылка на заметку не переписана: " + JSON.stringify(res.text));
+  assert.ok(res.text.indexOf("[[A#^eq-a|anchor]]") >= 0, "ссылка на якорь не переписана: " + JSON.stringify(res.text));
+});
+
 // Итог — последней строкой: раунд 21 идёт после основного блока, поэтому счётчик
 // должен печататься тогда, когда все проверки уже выполнены.
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));

@@ -100,7 +100,7 @@ const plugin = new PluginClass(app, manifest);
     await plugin.onload();
     assert.ok(plugin.commands.length >= 6, "commands " + plugin.commands.length);
     const ids = plugin.commands.map((c) => c.id);
-    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts"].forEach((id) =>
+    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts", "merge-duplicates", "merge-current-note-duplicates", "undo-merge-duplicates"].forEach((id) =>
       assert.ok(ids.includes(id), "missing command " + id)
     );
     assert.strictEqual(plugin.ribbon.length, 1);
@@ -1450,8 +1450,11 @@ const plugin = new PluginClass(app, manifest);
   });
 
   await ok("создание узла: заметка + авторазместка + автоматический поиск тем из корпуса", async () => {
-    const before = (await plugin.getGraph(false)).stats.nodes;
-    const res = await plugin.createNewNode({
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      const before = (await plugin.getGraph(false)).stats.nodes;
+      const res = await plugin.createNewNode({
       type: "block",
       nameEn: "Manual Test Topic",
       nameZh: "Ручная тестовая тема",
@@ -1488,11 +1491,17 @@ const plugin = new PluginClass(app, manifest);
     assert.ok(res2 && res2.file, "второй узел не создался");
     assert.notStrictEqual(res2.id, res.id, "id повторился");
     assert.notStrictEqual(res2.file.path, res.file.path, "путь повторился");
-    assert.ok(!res2.plan, "без ключевых фраз не должно быть плана корпуса");
+      assert.ok(!res2.plan, "без ключевых фраз не должно быть плана корпуса");
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
   });
 
   await ok("создание с родителем: id по конвенции курса и структурное ребро", async () => {
-    const res = await plugin.createNewNode({
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      const res = await plugin.createNewNode({
       type: "block",
       nameEn: "Child of a Heading",
       nameZh: "ребёнок заголовка",
@@ -1504,14 +1513,20 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(parsed.data.parent, "Ch01-S01-H01");
     assert.strictEqual(parsed.data.chapter, "Ch01", "глава не от родителя");
     const g = await plugin.getGraph(false);
-    assert.ok(
-      g.edges.some((e) => e.source === res.id && e.target === "Ch01-S01-H01" && e.kind === "structure"),
-      "структурного ребра на родителя нет"
-    );
+      assert.ok(
+        g.edges.some((e) => e.source === res.id && e.target === "Ch01-S01-H01" && e.kind === "structure"),
+        "структурного ребра на родителя нет"
+      );
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
   });
 
   await ok("создание узла: точное совпадение названия даёт связь с темой по имени", async () => {
-    const ch = (await plugin.getGraph(false)).nodes.find((n) => n.type === "chapter" && n.name === "Hilbert Space Geometry");
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      const ch = (await plugin.getGraph(false)).nodes.find((n) => n.type === "chapter" && n.name === "Hilbert Space Geometry");
     assert.ok(ch, "в курсе нет такой главы — тест пуст");
     const res = await plugin.createNewNode({
       type: "block",
@@ -1526,12 +1541,18 @@ const plugin = new PluginClass(app, manifest);
     const g = await plugin.getGraph(false);
     const n = g._byId[res.id];
     assert.ok(n.out.some((o) => o.id === ch.id && o.kind === "reference"), "связь с главой не стала ребром reference");
-    // глава с совпавшим названием не дублируется в регионе корпуса (там только секции/заголовки)
-    assert.ok(!n.out.some((o) => o.id === ch.id && o.kind === "keyword"), "дубль связи в корпусе");
+      // глава с совпавшим названием не дублируется в регионе корпуса (там только секции/заголовки)
+      assert.ok(!n.out.some((o) => o.id === ch.id && o.kind === "keyword"), "дубль связи в корпусе");
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
   });
 
   await ok("модалка: сабмит создаёт заметку и закрывает окно", async () => {
-    const modal = new PluginClass.CreateNodeModal(app, plugin, {});
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      const modal = new PluginClass.CreateNodeModal(app, plugin, {});
     modal.open();
     const el = document.querySelector(".modal .lg-create");
     assert.ok(el, "модалка не открылась");
@@ -1548,8 +1569,11 @@ const plugin = new PluginClass(app, manifest);
     assert.ok(n, "заметки из модалки нет в графе");
     assert.strictEqual(n.nameZh, "模态创建的节点");
     assert.ok(n.keywords.includes("basis and coordinates"), "ключевые фразы из модалки не дошли");
-    const raw = fs.readFileSync(path.join(TMP, n.path), "utf8");
-    assert.ok(/<!-- keywords:begin -->/.test(raw), "регион по фразам из модалки не построен");
+      const raw = fs.readFileSync(path.join(TMP, n.path), "utf8");
+      assert.ok(/<!-- keywords:begin -->/.test(raw), "регион по фразам из модалки не построен");
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
   });
 
   await ok("созданный узел: повторный пересчёт фраз не меняет заметку (идемпотентность)", async () => {
@@ -1865,6 +1889,106 @@ const plugin = new PluginClass(app, manifest);
       await plugin.getGraph(true);
     }
     assert.strictEqual(fs.readFileSync(hostPath, "utf8"), original, "заметка-хозяин не восстановлена");
+  });
+
+  await ok("Create node: новый дубль автоматически сливается с существующей вершиной", async () => {
+    plugin.markGraphDirty();
+    const before = await plugin.getGraph(true);
+    const beforeCount = before.nodes.length;
+    const res = await plugin.createNewNode({
+      type: "block",
+      nameEn: "Vector Space Proposition 1.1.1a",
+      nameZh: "向量空间命题 1.1.1a",
+      keywords: "vector space",
+    });
+    assert.ok(res && res.merged && res.merged.merged >= 1, "автослияние не сработало");
+    plugin.markGraphDirty();
+    const after = await plugin.getGraph(true);
+    assert.strictEqual(after.nodes.length, beforeCount, "число вершин изменилось: " + after.nodes.length + " вместо " + beforeCount);
+    assert.ok(!after._byId[res.createdId], "в графе остался только что созданный дубль " + res.createdId);
+    assert.ok(after._byId[res.id], "итоговая вершина не найдена: " + res.id);
+    const raw = fs.readFileSync(path.join(TMP, after._byId[res.id].path), "utf8");
+    const parsed = obsidian_stub_parse(raw);
+    const aliases = String(parsed.data.aliases || "");
+    assert.ok(aliases.indexOf(res.createdId) >= 0, "id дубля не попал в aliases keeper: " + aliases);
+  });
+
+  await ok("Merge duplicates: ссылки, дети и тело дубля переносятся; Undo восстанавливает batch", async () => {
+    const baseGraph = await plugin.getGraph(false);
+    const keeper = baseGraph._byId["Ch01-S01-H01-B01"];
+    assert.ok(keeper, "нет базовой вершины для merge-теста");
+    const keeperPath = path.join(TMP, keeper.path);
+    const keeperBefore = fs.readFileSync(keeperPath, "utf8");
+    const dupId = "MN-77";
+    const childId = "MN-78";
+    const refId = "MN-79";
+    const dupPath = "30 - Blocks/Ch01/MN-77 - Vector Space Proposition 1.1.1a duplicate.md";
+    const childPath = "30 - Blocks/Ch01/MN-78 - Duplicate Child.md";
+    const refPath = "30 - Blocks/Ch01/MN-79 - Duplicate Ref.md";
+    let dupRaw = core.setFrontmatterValues(keeperBefore, {
+      id: dupId,
+      status: "draft",
+      parent: keeper.parent || "Ch01-S01-H01",
+      chapter: keeper.chapter || "Ch01",
+      keywords_en: "merge duplicate proof",
+    });
+    dupRaw = dupRaw.replace(/\^[A-Za-z0-9_-]+/g, "^mn-dup-anchor");
+    if (dupRaw.indexOf("^mn-dup-anchor") < 0) dupRaw = dupRaw.replace(/\s*$/, "\n\n^mn-dup-anchor\n");
+    dupRaw = dupRaw.replace(/\s*$/, "\n\nExtra duplicate sentence for merge test.\n");
+    const childRaw = [
+      "---",
+      "type: block",
+      "id: " + childId,
+      'name: "Duplicate Child"',
+      "parent: " + dupId,
+      "chapter: " + (keeper.chapter || "Ch01"),
+      "---",
+      "",
+      "# Duplicate Child",
+      "",
+      "Body.",
+      "",
+    ].join("\n");
+    const refRaw = [
+      "---",
+      "type: block",
+      "id: " + refId,
+      'name: "Duplicate Ref"',
+      "parent: " + (keeper.parent || "Ch01-S01-H01"),
+      "chapter: " + (keeper.chapter || "Ch01"),
+      "---",
+      "",
+      "See [[" + dupId + "]] and [[" + dupId + "#^mn-dup-anchor|anchor]].",
+      "",
+    ].join("\n");
+    await plugin.writeFile(dupPath, dupRaw);
+    await plugin.writeFile(childPath, childRaw);
+    await plugin.writeFile(refPath, refRaw);
+    plugin.markGraphDirty();
+    const g1 = await plugin.getGraph(true);
+    assert.ok(g1._byId[dupId], "дубликат не попал в граф");
+    const res = await plugin.mergeDuplicateNodes({ ids: [dupId], silent: true });
+    assert.ok(res && res.merged >= 1, "mergeDuplicateNodes ничего не слил");
+    const g2 = await plugin.getGraph(false);
+    const keepId = res.focusId;
+    assert.ok(keepId && g2._byId[keepId], "keeper после merge не найден: " + keepId);
+    assert.ok(!g2._byId[dupId], "дубликат остался в графе после merge");
+    assert.ok(!fs.existsSync(path.join(TMP, dupPath)), "файл дубля не удалён");
+    const childAfter = obsidian_stub_parse(fs.readFileSync(path.join(TMP, childPath), "utf8"));
+    assert.strictEqual(childAfter.data.parent, keepId, "ребёнок не перевешен на keeper");
+    const refAfter = fs.readFileSync(path.join(TMP, refPath), "utf8");
+    assert.strictEqual(refAfter.indexOf("[[" + dupId), -1, "в ссылках остался старый id дубля");
+    assert.ok(refAfter.indexOf("#^mn-dup-anchor|anchor]]") >= 0, "ссылка на якорь не сохранена");
+    const keeperAfter = fs.readFileSync(path.join(TMP, g2._byId[keepId].path), "utf8");
+    assert.ok(keeperAfter.indexOf("Extra duplicate sentence for merge test.") >= 0, "тело дубля не перенесено в keeper");
+    assert.ok(String(obsidian_stub_parse(keeperAfter).data.aliases || "").indexOf(dupId) >= 0, "aliases keeper не получили id дубля");
+    assert.ok(plugin.lastMerge && plugin.lastMerge.files.length >= 3, "undo-снимок merge не сформирован");
+    await plugin.undoDuplicateMerge();
+    assert.strictEqual(fs.readFileSync(keeperPath, "utf8"), keeperBefore, "keeper не восстановлен байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, dupPath), "utf8"), dupRaw, "дубликат не восстановлен байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, refPath), "utf8"), refRaw, "реферер не восстановлен байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, childPath), "utf8"), childRaw, "ребёнок не восстановлен байт-в-байт");
+    assert.strictEqual(plugin.lastMerge, null, "lastMerge не очищен после undo");
   });
 
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));

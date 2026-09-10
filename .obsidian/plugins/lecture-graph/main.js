@@ -1067,6 +1067,7 @@ var __LG_CORE__ = (function () {
     var graph = { nodes: nodes, edges: edges, stats: stats, config: cfg };
     graph._byId = byId;
     graph.chapterColors = resolveColors(graph, cfg); // цвет главы -> её секции/заголовки/блоки
+    findDuplicateGroups(graph, cfg);
     return graph;
   }
 
@@ -1851,6 +1852,8 @@ var __LG_CORE__ = (function () {
         maxWeight: graph.stats ? graph.stats.maxWeight || 0 : 0,
         keywordNodes: graph.stats ? graph.stats.keywordNodes || 0 : 0,
         unresolved: graph.stats ? graph.stats.unresolved : 0,
+        duplicateGroups: graph.stats ? graph.stats.duplicateGroups || 0 : 0,
+        duplicateNodes: graph.stats ? graph.stats.duplicateNodes || 0 : 0,
         byType: graph.stats ? graph.stats.byType : {},
       },
       settings: {
@@ -1895,6 +1898,8 @@ var __LG_CORE__ = (function () {
           label_font: Math.round((n.font || 0) * 100) / 100,
           color: n.color || null,
           caption: n.caption || null,
+          duplicate_of: n.duplicateOf || null,
+          duplicate_group: n.duplicateGroup || null,
           x: isFinite(n.x) ? Math.round(n.x * 10) / 10 : null,
           y: isFinite(n.y) ? Math.round(n.y * 10) / 10 : null,
         };
@@ -3637,6 +3642,488 @@ var __LG_CORE__ = (function () {
     });
   }
 
+  /* ------------------------------------------------- поиск и слияние дубликатов */
+
+  function dupNormText(text) {
+    return String(text == null ? "" : text)
+      .replace(/\r\n/g, "\n")
+      .replace(/\[\[([^\]|#]+)(?:#[^\]|]+)?(?:\|([^\]]+))?\]\]/g, function (_, path, alias) {
+        return sanitizeLabel(alias || stemOf(path));
+      })
+      .replace(/^>+\s*/gm, "")
+      .replace(/[*_`~]/g, "")
+      .replace(/\s+/g, " ")
+      .trim();
+  }
+
+  function removeHeadingSection(text, heading) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var low = String(heading || "").trim().toLowerCase();
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() !== low) continue;
+      var end = lines.length;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (/^#{1,6}\s/.test(lines[j])) { end = j; break; }
+      }
+      lines.splice(i, end - i);
+      break;
+    }
+    while (lines.length && !lines[0].trim()) lines.shift();
+    while (lines.length && !lines[lines.length - 1].trim()) lines.pop();
+    return lines.join("\n");
+  }
+
+  function mergeBodyCore(node) {
+    var name = normPhrase((node && (node.name || node.stem)) || "");
+    var zh = normPhrase((node && node.nameZh) || "");
+    var body = splitKeywordRegion((node && node.body) || "").outside.replace(/\r\n/g, "\n");
+    body = removeHeadingSection(body, RELATED_HEADING);
+    var lines = body.split("\n");
+    while (lines.length && !lines[0].trim()) lines.shift();
+    if (lines.length && /^#\s+/.test(lines[0])) {
+      var top = normPhrase(lines[0].replace(/^#\s+/, ""));
+      var stem = normPhrase((node && node.stem) || "");
+      if (top && (top === name || top === stem)) lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    if (lines.length && zh && /^\*\*.*\*\*$/.test(lines[0].trim())) {
+      var bold = normPhrase(lines[0].replace(/^\*\*|\*\*$/g, ""));
+      if (bold === zh) lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    if (lines.length && /^⬆️\s+Part of\b/i.test(lines[0].trim())) {
+      lines.shift();
+      while (lines.length && !lines[0].trim()) lines.shift();
+    }
+    return lines.join("\n").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function duplicateTokens(text) {
+    var seen = {};
+    var out = [];
+    var parts = String(text == null ? "" : text).toLowerCase().match(/[a-z0-9]+|[\u4e00-\u9fff]/g) || [];
+    for (var i = 0; i < parts.length; i++) {
+      var p = parts[i];
+      if (p.length <= 1 && !/[\u4e00-\u9fff]/.test(p)) continue;
+      if (seen[p]) continue;
+      seen[p] = true;
+      out.push(p);
+    }
+    return out;
+  }
+
+  function duplicateJaccard(a, b) {
+    var sa = duplicateTokens(a);
+    var sb = duplicateTokens(b);
+    if (!sa.length || !sb.length) return 0;
+    var map = {};
+    var i;
+    for (i = 0; i < sa.length; i++) map[sa[i]] = 1;
+    var hit = 0, union = sa.length;
+    for (i = 0; i < sb.length; i++) {
+      if (map[sb[i]] === 1) hit++;
+      else union++;
+      map[sb[i]] = 2;
+    }
+    return union ? hit / union : 0;
+  }
+
+  function duplicateKeywordsKey(node) {
+    return parseKeywords(node && node.keywords ? node.keywords : ((node && node.data && node.data.keywords_en) || ""))
+      .map(normPhrase)
+      .filter(Boolean)
+      .sort()
+      .join(";");
+  }
+
+  function duplicateProfile(node) {
+    var body = dupNormText(mergeBodyCore(node));
+    return {
+      title: normPhrase((node && node.name) || (node && node.stem) || ""),
+      titleZh: normPhrase((node && node.nameZh) || ""),
+      body: body,
+      bodyLen: body.length,
+      keywords: duplicateKeywordsKey(node),
+      manual: /^MN-\d+$/.test(String((node && node.id) || "")),
+    };
+  }
+
+  function duplicateScore(a, b, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    if (!a || !b || a === b || a.inline || b.inline) return { match: false, score: 0, contentScore: 0, reasons: [] };
+    if (a.type !== b.type) return { match: false, score: 0, contentScore: 0, reasons: ["different-type"] };
+    var pa = a._dupProfile || (a._dupProfile = duplicateProfile(a));
+    var pb = b._dupProfile || (b._dupProfile = duplicateProfile(b));
+    var sameTitle = !!pa.title && pa.title === pb.title;
+    var sameZh = !!pa.titleZh && pa.titleZh === pb.titleZh;
+    var sameBody = pa.bodyLen >= 80 && pa.body === pb.body && !!pa.body;
+    var bodySim = sameBody ? 1 : duplicateJaccard(pa.body, pb.body);
+    var sameKeywords = !!pa.keywords && pa.keywords === pb.keywords;
+    var sameParent = !!a.parent && a.parent === b.parent;
+    var homeA = a.chapter || (a.type === "chapter" ? a.id : null);
+    var homeB = b.chapter || (b.type === "chapter" ? b.id : null);
+    var sameChapter = !!homeA && homeA === homeB;
+    var manual = pa.manual || pb.manual;
+    var score = 0;
+    var reasons = [];
+    score += 0.18;
+    if (sameTitle) { score += 0.44; reasons.push("same-title"); }
+    if (sameZh) { score += 0.12; reasons.push("same-title-zh"); }
+    if (sameBody) { score += 0.62; reasons.push("same-content"); }
+    else if (bodySim >= 0.34) { score += Math.min(0.34, bodySim * 0.34); reasons.push("content-similarity:" + Math.round(bodySim * 100) + "%"); }
+    if (sameKeywords) { score += 0.08; reasons.push("same-keywords"); }
+    if (sameParent) { score += 0.08; reasons.push("same-parent"); }
+    if (sameChapter) { score += 0.05; reasons.push("same-chapter"); }
+    if (manual) { score += 0.12; reasons.push("manual-node"); }
+    var bodyBase = Math.min(pa.bodyLen || 0, pb.bodyLen || 0);
+    var strongContent =
+      (sameBody && (sameTitle || sameZh || sameKeywords)) ||
+      (bodyBase >= 160 && bodySim >= 0.9 && (sameKeywords || sameTitle || sameZh));
+    var match =
+      (sameTitle && (sameZh || bodySim >= 0.34 || manual || sameKeywords || sameParent)) ||
+      strongContent ||
+      (score >= 0.9 && (sameTitle || sameZh || strongContent));
+    if (!sameTitle && !sameZh && !strongContent) match = false;
+    return { match: !!match, score: Math.round(score * 1000) / 1000, contentScore: Math.round(bodySim * 1000) / 1000, reasons: reasons };
+  }
+
+  function duplicateKeeperScore(node) {
+    if (!node) return -Infinity;
+    var p = node._dupProfile || (node._dupProfile = duplicateProfile(node));
+    var score = 0;
+    if (!node.isPlaceholder) score += 8;
+    if (node.caption) score += 4;
+    if (node.nameZh) score += 2;
+    if (p.manual) score -= 6;
+    else score += 8;
+    score += Math.min(8, Math.round((node.degree || 0) / 3));
+    score += Math.min(8, Math.round(p.bodyLen / 80));
+    score += Math.min(4, (node.keywords || []).length);
+    if (node.outCount) score += Math.min(3, Math.round(node.outCount / 4));
+    return score;
+  }
+
+  function pickDuplicateKeeper(nodes) {
+    var arr = (nodes || []).slice().filter(Boolean);
+    arr.sort(function (a, b) {
+      var sa = duplicateKeeperScore(a);
+      var sb = duplicateKeeperScore(b);
+      if (sa !== sb) return sb - sa;
+      var da = a.degree || 0;
+      var db = b.degree || 0;
+      if (da !== db) return db - da;
+      var la = (a._dupProfile || (a._dupProfile = duplicateProfile(a))).bodyLen;
+      var lb = (b._dupProfile || (b._dupProfile = duplicateProfile(b))).bodyLen;
+      if (la !== lb) return lb - la;
+      return a.path < b.path ? -1 : a.path > b.path ? 1 : 0;
+    });
+    return arr[0] || null;
+  }
+
+  function findDuplicateGroups(graph, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var nodes = ((graph && graph.nodes) || []).filter(function (n) { return n && !n.inline; });
+    nodes.forEach(function (n) { n._dupProfile = duplicateProfile(n); n.duplicateOf = null; n.duplicateGroup = null; n.duplicateReasons = []; });
+    var titleBuckets = {}, zhBuckets = {}, bodyBuckets = {};
+    function push(map, key, node) {
+      if (!key) return;
+      (map[key] || (map[key] = [])).push(node);
+    }
+    nodes.forEach(function (n) {
+      push(titleBuckets, n.type + "\u0000" + n._dupProfile.title, n);
+      push(zhBuckets, n.type + "\u0000" + n._dupProfile.titleZh, n);
+      if (n._dupProfile.bodyLen >= 80) push(bodyBuckets, n.type + "\u0000" + n._dupProfile.body, n);
+    });
+    var pairKeys = {};
+    var pairs = [];
+    function addPair(a, b) {
+      if (!a || !b || a.id === b.id) return;
+      var ka = a.id < b.id ? a.id + "\u0000" + b.id : b.id + "\u0000" + a.id;
+      if (pairKeys[ka]) return;
+      pairKeys[ka] = true;
+      pairs.push([a, b]);
+    }
+    [titleBuckets, zhBuckets, bodyBuckets].forEach(function (map) {
+      Object.keys(map).forEach(function (k) {
+        var arr = map[k];
+        if (!arr || arr.length < 2) return;
+        for (var i = 0; i < arr.length; i++)
+          for (var j = i + 1; j < arr.length; j++) addPair(arr[i], arr[j]);
+      });
+    });
+    var parent = {}, rank = {}, matchInfo = {};
+    nodes.forEach(function (n) { parent[n.id] = n.id; rank[n.id] = 0; });
+    function find(x) {
+      while (parent[x] !== x) { parent[x] = parent[parent[x]]; x = parent[x]; }
+      return x;
+    }
+    function union(a, b) {
+      var ra = find(a), rb = find(b);
+      if (ra === rb) return;
+      if (rank[ra] < rank[rb]) parent[ra] = rb;
+      else if (rank[rb] < rank[ra]) parent[rb] = ra;
+      else { parent[rb] = ra; rank[ra]++; }
+    }
+    pairs.forEach(function (pair) {
+      var a = pair[0], b = pair[1];
+      var sc = duplicateScore(a, b, cfg);
+      if (!sc.match) return;
+      var key = a.id < b.id ? a.id + "\u0000" + b.id : b.id + "\u0000" + a.id;
+      matchInfo[key] = sc;
+      union(a.id, b.id);
+    });
+    var groupsByRoot = {};
+    nodes.forEach(function (n) {
+      var r = find(n.id);
+      (groupsByRoot[r] || (groupsByRoot[r] = [])).push(n);
+    });
+    var groups = [];
+    Object.keys(groupsByRoot).forEach(function (r) {
+      var arr = groupsByRoot[r];
+      if (!arr || arr.length < 2) return;
+      var keep = pickDuplicateKeeper(arr);
+      var drop = arr.filter(function (n) { return n.id !== keep.id; }).sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; });
+      var reasons = {};
+      var maxScore = 0, maxContent = 0;
+      drop.forEach(function (n) {
+        var key = keep.id < n.id ? keep.id + "\u0000" + n.id : n.id + "\u0000" + keep.id;
+        var info = matchInfo[key] || duplicateScore(keep, n, cfg);
+        n.duplicateOf = keep.id;
+        n.duplicateReasons = info.reasons.slice();
+        keep.duplicateReasons = keep.duplicateReasons.concat(info.reasons);
+        info.reasons.forEach(function (x) { reasons[x] = true; });
+        if (info.score > maxScore) maxScore = info.score;
+        if (info.contentScore > maxContent) maxContent = info.contentScore;
+      });
+      keep.duplicateGroup = keep.id;
+      keep.duplicateOf = null;
+      arr.forEach(function (n) { n.duplicateGroup = keep.id; });
+      groups.push({
+        id: keep.id,
+        keep: keep,
+        drop: drop,
+        nodes: arr.slice().sort(function (a, b) { return a.path < b.path ? -1 : a.path > b.path ? 1 : 0; }),
+        reasons: Object.keys(reasons).sort(),
+        score: Math.round(maxScore * 1000) / 1000,
+        contentScore: Math.round(maxContent * 1000) / 1000,
+      });
+    });
+    groups.sort(function (a, b) {
+      if (b.nodes.length !== a.nodes.length) return b.nodes.length - a.nodes.length;
+      if (b.score !== a.score) return b.score - a.score;
+      return a.keep.path < b.keep.path ? -1 : a.keep.path > b.keep.path ? 1 : 0;
+    });
+    if (graph) {
+      graph.duplicateGroups = groups;
+      if (graph.stats) {
+        graph.stats.duplicateGroups = groups.length;
+        graph.stats.duplicateNodes = groups.reduce(function (sum, g) { return sum + g.nodes.length; }, 0);
+      }
+    }
+    return groups;
+  }
+
+  function listAliases(v) {
+    if (v === undefined || v === null || v === "") return [];
+    if (Object.prototype.toString.call(v) === "[object Array]") return v.map(function (x) { return String(x).trim(); }).filter(Boolean);
+    return [String(v).trim()].filter(Boolean);
+  }
+
+  function mergedNodePatch(keep, dropNodes, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var arr = (dropNodes || []).filter(Boolean);
+    var aliases = {};
+    listAliases(keep && keep.data ? keep.data.aliases : []).concat([keep && keep.id, keep && keep.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+    var keywords = {};
+    var patch = {};
+    var order = [];
+    function takeKeyword(node) {
+      parseKeywords(node && node.data ? node.data[cfg.keywordsKey] : (node && node.keywords) || [], node && node.data ? node.data[cfg.keywordsAltKey] : null).forEach(function (k) {
+        var nk = normPhrase(k);
+        if (!nk || keywords[nk]) return;
+        keywords[nk] = k;
+        order.push(k);
+      });
+    }
+    takeKeyword(keep);
+    var status = (keep && keep.status) || (keep && keep.data && keep.data.status) || "";
+    var name = keep && keep.name ? keep.name : "";
+    var zh = keep && keep.nameZh ? keep.nameZh : "";
+    var chapter = keep && keep.chapter ? keep.chapter : null;
+    var parent = keep && keep.parent ? keep.parent : null;
+    var sizeRaw = keep && keep.sizeRaw ? keep.sizeRaw : null;
+    var colorProp = keep && keep.colorProp ? keep.colorProp : null;
+    var caption = keep && keep.caption ? keep.caption : null;
+    arr.forEach(function (n) {
+      listAliases(n && n.data ? n.data.aliases : []).concat([n.id, n.stem]).forEach(function (x) { if (x) aliases[x] = true; });
+      takeKeyword(n);
+      if ((!name || /^untitled$/i.test(name)) && n.name) name = n.name;
+      if (!zh && n.nameZh) zh = n.nameZh;
+      if ((!status || status === cfg.placeholderValue) && n.status && n.status !== cfg.placeholderValue) status = n.status;
+      if (!chapter && n.chapter) chapter = n.chapter;
+      if (!parent && n.parent) parent = n.parent;
+      if (!sizeRaw && n.sizeRaw) sizeRaw = n.sizeRaw;
+      if (!colorProp && n.colorProp) colorProp = n.colorProp;
+      if (!caption && n.caption) caption = n.caption;
+    });
+    patch.aliases = Object.keys(aliases).sort();
+    patch[cfg.keywordsKey || "keywords_en"] = order.length ? order.join("; ") : "";
+    patch[cfg.weightKey || "weight"] = "";
+    if (name) patch[cfg.nameKey || "name"] = name;
+    if (zh) patch[cfg.nameZhKey || "name_zh"] = zh;
+    if (status) patch[cfg.statusKey || "status"] = status;
+    if (chapter) patch[cfg.chapterKey || "chapter"] = chapter;
+    if (parent) patch[cfg.parentKey || "parent"] = parent;
+    if (sizeRaw) patch[cfg.sizeKey || "size"] = sizeRaw;
+    if (colorProp) patch[cfg.colorKey || "color"] = colorProp;
+    if (caption) patch[cfg.captionKey || "caption"] = caption;
+    return patch;
+  }
+
+  function rewriteAnchorIds(text, anchorMap) {
+    var out = String(text == null ? "" : text);
+    Object.keys(anchorMap || {}).forEach(function (oldId) {
+      var newId = anchorMap[oldId];
+      if (!newId || newId === oldId) return;
+      var escId = oldId.replace(/[.*+?^${}()|[\]\\]/g, "\$&");
+      out = out.replace(new RegExp("(\\[\\[#\\^)" + escId + "(\\]\\])", "g"), "$1" + newId + "$2");
+      out = out.replace(new RegExp("(\\[\\[[^\\]#|]+#\\^)" + escId + "((?:\\|[^\\]]*)?\\]\\])", "g"), "$1" + newId + "$2");
+      out = out.replace(new RegExp("(^|[^A-Za-z0-9_\\-^])(\\^" + escId + "\\b)", "gm"), function (m, pre) {
+        return pre + "^" + newId;
+      });
+    });
+    return out;
+  }
+
+  function renameAnchorsForMerge(baseBody, incomingBody, nodeId) {
+    var used = {};
+    extractAnchors(baseBody).forEach(function (a) { used[a.id] = true; });
+    var out = String(incomingBody == null ? "" : incomingBody);
+    var map = {};
+    extractAnchors(out).forEach(function (a) {
+      if (!used[a.id]) { used[a.id] = true; return; }
+      var stem = String(nodeId || "dup").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-+|-+$/g, "") || "dup";
+      var next = a.id + "-" + stem;
+      var idx = 2;
+      while (used[next]) { next = a.id + "-" + stem + "-" + idx; idx++; }
+      used[next] = true;
+      map[a.id] = next;
+    });
+    if (Object.keys(map).length) out = rewriteAnchorIds(out, map);
+    return { text: out, anchorMap: map };
+  }
+
+  function mergeNodeBodies(keep, drop, opts) {
+    var base = splitKeywordRegion((keep && keep.body) || "").outside.replace(/\s+$/g, "");
+    var add = mergeBodyCore(drop);
+    if (!add) return { body: base ? base + "\n" : "", anchorMap: {}, appended: false };
+    var ren = renameAnchorsForMerge(base, add, drop && drop.id);
+    add = ren.text.replace(/\s+$/g, "");
+    var same = dupNormText(mergeBodyCore(keep)) && dupNormText(mergeBodyCore(keep)) === dupNormText(mergeBodyCore(drop));
+    if (same || (add && dupNormText(base).indexOf(dupNormText(add)) >= 0)) return { body: (base ? base + "\n" : ""), anchorMap: ren.anchorMap, appended: false };
+    var block = "## Duplicate material merged from " + ((drop && drop.id) || "duplicate") +
+      "\n\n> merged automatically from duplicate note \"" + sanitizeLabel((drop && (drop.name || drop.stem)) || "duplicate") +
+      "\" (`" + String((drop && drop.path) || "") + "`).\n\n" + add;
+    return { body: (base ? base + "\n\n" : "") + block.replace(/\s+$/g, "") + "\n", anchorMap: ren.anchorMap, appended: true };
+  }
+
+  function retargetLinks(text, replacements, opts) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var list = (replacements || []).filter(Boolean);
+    if (!list.length || src.indexOf("[[") < 0) return { text: src, changed: false, replaced: 0, removed: 0 };
+    var current = opts && opts.currentNode ? opts.currentNode : null;
+    var lines = src.split("\n");
+    var out = [];
+    var changed = false, replaced = 0, removed = 0;
+    function match(link) {
+      for (var i = 0; i < list.length; i++) {
+        var rep = list[i];
+        if (rep.from && linkTargetsNode(link, rep.from, opts && opts.graph)) return rep;
+      }
+      return null;
+    }
+    for (var li = 0; li < lines.length; li++) {
+      var line = lines[li];
+      if (line.indexOf("[[") < 0) { out.push(line); continue; }
+      var links = extractLinks(line, { stripCode: false }).filter(function (l) {
+        var ticks = (line.slice(0, l.index).match(/`/g) || []).length;
+        return ticks % 2 === 0;
+      });
+      if (!links.length) { out.push(line); continue; }
+      var pos = 0;
+      var pieces = [];
+      var localChanged = false;
+      for (var x = 0; x < links.length; x++) {
+        var l = links[x];
+        var rep = match(l);
+        pieces.push(line.slice(pos, l.index));
+        pos = l.index + l.raw.length;
+        if (!rep) { pieces.push(l.raw); continue; }
+        var to = rep.to;
+        var anchor = l.anchor ? "#" + l.anchor : l.blockId ? "#^" + ((rep.anchorMap && rep.anchorMap[l.blockId]) || l.blockId) : "";
+        var pointsToSelf = current && to && noteKeyMatch(to.path, current) && !anchor;
+        if (pointsToSelf && !(opts && opts.keepSelfLinks)) {
+          pieces.push(l.hasAlias && l.alias ? l.alias : sanitizeLabel(to.name || to.stem));
+          removed++;
+        } else {
+          var raw = (l.linkType === "embed" ? "!" : "") + "[[" + to.stem + anchor + (l.hasAlias ? "|" + (l.alias || "") : "") + "]]";
+          pieces.push(raw);
+          replaced++;
+        }
+        localChanged = true;
+      }
+      pieces.push(line.slice(pos));
+      var merged = pieces.join("").replace(/[ \t]{2,}/g, " " ).replace(/[ \t]+$/g, "");
+      out.push(merged);
+      if (localChanged && merged !== line) changed = true;
+    }
+    var textOut = out.join("\n");
+    return { text: changed ? textOut : src, changed: changed, replaced: replaced, removed: removed };
+  }
+
+  function planNodeMerge(graph, ids, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var byId = (graph && graph._byId) || {};
+    var list = [];
+    if (ids && ids.keep && ids.drop) list = [ids.keep].concat(ids.drop);
+    else if (Object.prototype.toString.call(ids) === "[object Array]") list = ids;
+    else if (ids) list = [ids];
+    list = list.map(function (x) { return typeof x === "string" ? byId[x] : x; }).filter(Boolean);
+    if (list.length < 2) return { keep: null, drop: [], refs: [], children: [], targets: [], files: 0 };
+    var keep = ids && ids.keep ? (typeof ids.keep === "string" ? byId[ids.keep] : ids.keep) : pickDuplicateKeeper(list);
+    var drop = list.filter(function (n) { return n && keep && n.id !== keep.id; });
+    var targets = drop.slice();
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!n || !n.inline) return;
+      if (drop.some(function (d) { return d.path === n.path; })) targets.push(n);
+    });
+    var refs = [];
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!n || n.inline) return;
+      var links = (n.links || []).filter(function (l) {
+        return targets.some(function (t) { return linkTargetsNode(l, t, graph); });
+      });
+      if (!links.length) return;
+      refs.push({ id: n.id, path: n.path, type: n.type, name: n.name, links: links.length });
+    });
+    var dropIds = {};
+    drop.forEach(function (n) { dropIds[n.id] = true; });
+    var children = ((graph && graph.nodes) || []).filter(function (n) {
+      return n && !n.inline && dropIds[n.parent];
+    }).map(function (n) {
+      return { id: n.id, path: n.path, type: n.type, name: n.name, parent: n.parent, chapter: n.chapter };
+    });
+    return {
+      keep: keep,
+      drop: drop,
+      refs: refs,
+      children: children,
+      targets: targets,
+      files: 1 + refs.length + children.length + drop.length,
+      patch: mergedNodePatch(keep, drop, cfg),
+    };
+  }
+
   /* ------------------------------------------------- создание узлов из вида */
 
   var RELATED_TYPE_LABEL = { chapter: "глава", section: "секция", heading: "заголовок", block: "блок" };
@@ -4143,6 +4630,12 @@ var __LG_CORE__ = (function () {
     neighborhood: neighborhood,
     components: components,
     filterNodes: filterNodes,
+    findDuplicateGroups: findDuplicateGroups,
+    duplicateScore: duplicateScore,
+    pickDuplicateKeeper: pickDuplicateKeeper,
+    mergedNodePatch: mergedNodePatch,
+    mergeNodeBodies: mergeNodeBodies,
+    retargetLinks: retargetLinks,
     relatedByName: relatedByName,
     nextNodeId: nextNodeId,
     composeNote: composeNote,
@@ -4153,6 +4646,9 @@ var __LG_CORE__ = (function () {
     stripInlineAnchor: stripInlineAnchor,
     dropEmptySection: dropEmptySection,
     planNodeDelete: planNodeDelete,
+    planNodeMerge: planNodeMerge,
+    mergeBodyCore: mergeBodyCore,
+    duplicateProfile: duplicateProfile,
     esc: esc,
   };
 });
@@ -4224,6 +4720,7 @@ const DEFAULT_SETTINGS = {
   // (Backspace — потому что на macOS клавиши Delete нет, там удаление идёт по ним)
   confirmDelete: true,
   deleteKey: true,
+  autoMergeDuplicates: true,
   // Оглавление курса лежит в КОРНЕ хранилища: папки из `folders` его не видят, поэтому в граф
   // оно не попадает ни при каких настройках сканирования (см. команду write-index и меню «Проводника»)
   indexNote: "Course Index.md",
@@ -4372,6 +4869,25 @@ function buildOptions(settings) {
     if (settings[k] !== undefined && settings[k] !== null) opts[k] = settings[k];
   });
   return opts;
+}
+
+function replaceNoteBody(text, body) {
+  var parsed = core.parseFrontmatter(text || "");
+  var next = String(body == null ? "" : body);
+  if (parsed.hasFrontmatter) return parsed.raw + (next ? (next.charAt(0) === "\n" ? next : "\n" + next) : "");
+  return next;
+}
+
+function mergeLooseBodies(base, extra, title) {
+  var a = String(base == null ? "" : base).replace(/\s+$/g, "");
+  var b = String(extra == null ? "" : extra).replace(/\s+$/g, "");
+  if (!b) return a ? a + "\n" : "";
+  var na = b ? String(a).replace(/\s+/g, " " ).trim() : "";
+  var nb = String(b).replace(/\s+/g, " " ).trim();
+  if (!a) return b + "\n";
+  if (!nb || na === nb || na.indexOf(nb) >= 0) return a + "\n";
+  var head = title ? "## " + title.replace(/\s+/g, " " ).trim() : "## Merged duplicate note";
+  return a + "\n\n" + head + "\n\n" + b + "\n";
 }
 
 function subsetGraph(graph, visibleSet) {
@@ -5889,6 +6405,7 @@ class LectureGraphView extends obsidian.ItemView {
     menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
     menu.addSeparator();
     menu.addItem((it) => it.setTitle("Copy wiki link").setIcon("link").onClick(() => this.plugin.copyLink(n)));
+    menu.addItem((it) => it.setTitle("Merge duplicates of this vertex").setIcon("git-merge").onClick(() => this.plugin.mergeDuplicateNodes({ ids: [n.id] })));
     // ручная связь без Ctrl: если вершина уже выделена, меню предлагает оба направления
     if (this.selected && this.selected !== n.id && this.byId[this.selected]) {
       var srcSel = this.byId[this.selected];
@@ -6443,6 +6960,10 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
       .setDesc("В окне графа Delete удаляет выделенный узел, Backspace — то же (на macOS клавиши Delete нет). В полях ввода клавиша работает как обычно.")
       .addToggle((t) => t.setValue(s.deleteKey !== false).onChange((v) => ((s.deleteKey = v), save())));
     new obsidian.Setting(el)
+      .setName("Автослияние дубликатов после создания узла")
+      .setDesc("После команды Create node плагин сравнивает новую заметку с уже существующими вершинами того же уровня: одинаковое название, совпадающий перевод и близкое содержимое считаются сильным сигналом дубликата. В этом случае связи, дети и ключевые фразы переносятся в одну заметку, а дубль уходит в корзину.")
+      .addToggle((t) => t.setValue(s.autoMergeDuplicates !== false).onChange((v) => ((s.autoMergeDuplicates = v), save())));
+    new obsidian.Setting(el)
       .setName("Изгиб рёбер (дуги)")
       .setDesc("0 — прямые линии. По умолчанию 0.24: структурные рёбра идут «веером» внутри своего сектора и не пересекаются.")
       .addSlider((t) => t.setLimits(0, 0.6, 0.02).setValue(num(s.curvature, 0.24)).onChange((v) => ((s.curvature = v), save(), this.plugin.forEachView((vw) => vw.redraw()))));
@@ -6626,6 +7147,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     // Пути, которые прямо сейчас пишет сам плагин. Их modify-события не должны
     // запускать сотни одинаковых refresh/layout во время пакетных команд.
     this.internalWrites = {};
+    this.lastMerge = null;
 
     this.addRibbonIcon("git-fork", "Lecture graph (полный экран — Shift+клик)", (ev) => this.activateView(!!(ev && (ev.shiftKey || ev.ctrlKey))));
     this.addCommand({
@@ -6752,6 +7274,27 @@ class LectureGraphPlugin extends obsidian.Plugin {
       callback: () => new CreateNodeModal(this.app, this, {}).open(),
     });
     this.addCommand({
+      id: "merge-duplicates",
+      name: "Merge duplicate vertices (same title / same content)",
+      callback: () => this.mergeDuplicateNodes(),
+    });
+    this.addCommand({
+      id: "merge-current-note-duplicates",
+      name: "Merge duplicates of the current note",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.mergeDuplicateNodes({ ids: [node.id] });
+      },
+    });
+    this.addCommand({
+      id: "undo-merge-duplicates",
+      name: "Undo last duplicate merge",
+      callback: () => this.undoDuplicateMerge(),
+    });
+    this.addCommand({
       id: "delete-node",
       name: "Delete selected vertex (Delete/Backspace key)",
       callback: () => {
@@ -6804,6 +7347,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
             var node = g.nodes.find((n) => n.path === file.path);
             if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
             else this.editLabel(node);
+          })
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Merge duplicates of this vertex")
+          .setIcon("git-merge")
+          .onClick(async () => {
+            var g = await this.getGraph(false);
+            var node = g.nodes.find((n) => n.path === file.path);
+            if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+            else this.mergeDuplicateNodes({ ids: [node.id] });
           })
       );
     }));
@@ -7223,23 +7777,27 @@ class LectureGraphPlugin extends obsidian.Plugin {
    * Свойства и тело вне региона не трогаются, второй прогон байт-в-байт
    * идемпотентен; заметки без списка фраз остаются как есть.
    */
-  async recomputeKeywords() {
+  async recomputeKeywords(runOpts) {
+    runOpts = runOpts || {};
     var opts = buildOptions(this.settings);
     // Плану keyword-ссылок нужны свежие frontmatter/body, но не координаты. Читаем
     // модель напрямую, чтобы не делать полную раскладку и до, и после batch-записи.
     var g = await this.buildGraphModel(opts);
     var abs = await this.keywordCorpusNotes();
     if (!abs.length) {
-      new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — ключевые фразы искать негде");
+      if (!runOpts.silent) new obsidian.Notice("Папка корпуса «" + opts.keywordFolder + "» пуста — ключевые фразы искать негде");
       return null;
     }
     var corpus = core.buildKeywordCorpus(abs, g, opts);
     var weightKey = opts.weightKey || "weight";
     var touched = 0, planned = 0, sumWeight = 0, flipped = 0, cleaned = 0;
     var marks = core.keywordMarkers();
+    var only = {};
+    (runOpts.only || []).forEach(function (p) { if (p) only[String(p)] = true; });
     for (var i = 0; i < g.nodes.length; i++) {
       var n = g.nodes[i];
       if (n.inline || !n.path) continue;
+      if (Object.keys(only).length && !only[n.path]) continue;
       var file = this.app.vault.getAbstractFileByPath(n.path);
       if (!(file instanceof obsidian.TFile)) continue;
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
@@ -7277,10 +7835,290 @@ class LectureGraphPlugin extends obsidian.Plugin {
       " · записей обновлено " + touched + (cleaned ? " · снято " + cleaned : "") +
       (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
-    new obsidian.Notice(msg);
+    if (!runOpts.silent) new obsidian.Notice(msg);
     // getGraph(true) выше уже обновил cache и все View; повторный changed() только
     // запустил бы ещё одну полную пересборку через debounce.
     return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
+  }
+
+  /* -------------------------------------------------- дубликаты: слияние узлов */
+
+  async mergeDuplicateCaptions(keep, drops, snapshot) {
+    var keepCap = this.findCaptionFile(keep);
+    var pool = [];
+    if (keepCap) pool.push({ node: keep, file: keepCap });
+    (drops || []).forEach((n) => {
+      var f = this.findCaptionFile(n);
+      if (f) pool.push({ node: n, file: f });
+    });
+    if (!pool.length) return { captionPatch: keep.caption ? "[[" + String(keep.caption).replace(/^.*\//, "").replace(/\.md$/i, "") + "]]" : "", touched: 0, deleted: 0 };
+    var chosen = keepCap ? pool[0] : pool[0];
+    var chosenFile = chosen.file;
+    var chosenRaw = await this.app.vault.cachedRead(chosenFile);
+    var changed = 0;
+    var deleted = 0;
+    var mergedBody = core.parseFrontmatter(chosenRaw).body.trim();
+    var mergedRaw = chosenRaw;
+    for (var i = 0; i < pool.length; i++) {
+      var item = pool[i];
+      if (!item.file || item.file.path === chosenFile.path) continue;
+      var raw = await this.app.vault.cachedRead(item.file);
+      snapshot(item.file.path, raw);
+      mergedBody = mergeLooseBodies(mergedBody, core.parseFrontmatter(raw).body.trim(),
+        "Merged duplicate caption from " + ((item.node && item.node.id) || item.file.basename));
+    }
+    mergedRaw = replaceNoteBody(mergedRaw, mergedBody);
+    mergedRaw = core.setFrontmatterValues(mergedRaw, { node: keep.id, level: keep.type, color: keep.color || "" });
+    if (mergedRaw !== chosenRaw) {
+      snapshot(chosenFile.path, chosenRaw);
+      await this.processInternal(chosenFile, function () { return mergedRaw; });
+      changed++;
+    }
+    for (var j = 0; j < pool.length; j++) {
+      var extra = pool[j];
+      if (!extra.file || extra.file.path === chosenFile.path) continue;
+      await this.withInternalWrite(extra.file.path, () => this.trashFile(extra.file));
+      deleted++;
+    }
+    return { captionPatch: "[[" + chosenFile.basename + "]]", touched: changed, deleted: deleted, path: chosenFile.path };
+  }
+
+  async mergeDuplicateGroup(graph, group, bag) {
+    var opts = buildOptions(this.settings);
+    var plan = core.planNodeMerge(graph, group, opts);
+    if (!plan || !plan.keep || !plan.drop.length) return null;
+    var keep = plan.keep;
+    var keepFile = this.app.vault.getAbstractFileByPath(keep.path);
+    if (!(keepFile instanceof obsidian.TFile)) return null;
+    var snapshot = bag && bag.snapshot ? bag.snapshot : function () {};
+    var keepRaw = await this.app.vault.cachedRead(keepFile);
+    var keepParsed = core.parseFrontmatter(keepRaw);
+    var keepNode = Object.assign({}, keep, { body: keepParsed.body, data: keepParsed.data });
+    var mergedRaw = keepRaw;
+    var replacements = [];
+    var appended = 0;
+    var inlineByPath = {};
+    (plan.targets || []).forEach(function (t) {
+      if (!t || !t.inline) return;
+      (inlineByPath[t.path] || (inlineByPath[t.path] = [])).push(t);
+    });
+    for (var i = 0; i < plan.drop.length; i++) {
+      var drop = plan.drop[i];
+      var dropFile = this.app.vault.getAbstractFileByPath(drop.path);
+      var dropRaw = dropFile instanceof obsidian.TFile ? await this.app.vault.cachedRead(dropFile) : null;
+      if (dropRaw !== null) snapshot(drop.path, dropRaw);
+      var dropParsed = dropRaw === null ? { body: drop.body || "", data: drop.data || {} } : core.parseFrontmatter(dropRaw);
+      var dropNode = Object.assign({}, drop, { body: dropParsed.body, data: dropParsed.data });
+      var merged = core.mergeNodeBodies(keepNode, dropNode, opts);
+      keepNode.body = merged.body;
+      mergedRaw = replaceNoteBody(mergedRaw, merged.body);
+      if (merged.appended) appended++;
+      replacements.push({ from: dropNode, to: keepNode, anchorMap: merged.anchorMap || {} });
+      var inlineTargets = (inlineByPath[drop.path] || []).slice();
+      if (!inlineTargets.length) {
+        inlineTargets = core.extractAnchors(dropNode.body || "").map(function (a) {
+          return {
+            id: dropNode.stem + "#^" + a.id,
+            inline: true,
+            anchorName: a.id,
+            parent: dropNode.id,
+            stem: dropNode.stem,
+            path: dropNode.path,
+          };
+        });
+      }
+      inlineTargets.forEach(function (x) {
+        replacements.push({ from: x, to: keepNode, anchorMap: merged.anchorMap || {} });
+      });
+    }
+    var patch = core.mergedNodePatch(keepNode, plan.drop, opts);
+    var cap = await this.mergeDuplicateCaptions(keepNode, plan.drop, snapshot);
+    if (cap && cap.captionPatch) patch[this.settings.captionKey || "caption"] = cap.captionPatch;
+    var keepRewrite = core.retargetLinks(mergedRaw, replacements, { currentNode: keepNode, graph: graph });
+    mergedRaw = keepRewrite.text;
+    mergedRaw = core.setFrontmatterValues(mergedRaw, patch);
+
+    var dropIds = {};
+    plan.drop.forEach(function (n) { dropIds[n.id] = true; });
+    var chapterTarget = keepNode.type === "chapter" ? keepNode.id : (keepNode.chapter || "");
+    var ops = {};
+    var opFor = function (path, node) {
+      return ops[path] || (ops[path] = { path: path, node: node || null, rewrite: false, patch: {}, merged: null });
+    };
+    opFor(keep.path, keepNode).merged = mergedRaw;
+    var rewriteByPath = {};
+    (plan.refs || []).forEach(function (r) {
+      if (!r || !r.path || r.path === keep.path) return;
+      rewriteByPath[r.path] = (graph._byId && graph._byId[r.id]) || null;
+    });
+    (graph.nodes || []).forEach(function (n) {
+      if (!n || n.inline || !n.path || n.path === keep.path) return;
+      if ((n.links || []).some(function (l) {
+        return replacements.some(function (rep) { return core.linkTargetsNode(l, rep.from, graph); });
+      })) rewriteByPath[n.path] = n;
+    });
+    Object.keys(rewriteByPath).forEach(function (p) {
+      opFor(p, rewriteByPath[p]).rewrite = true;
+    });
+    (plan.children || []).forEach(function (c) {
+      var op = opFor(c.path, (graph._byId && graph._byId[c.id]) || null);
+      if (c.parent !== keepNode.id) op.patch[this.settings.parentKey || "parent"] = keepNode.id;
+      if (c.chapter !== chapterTarget) op.patch[this.settings.chapterKey || "chapter"] = chapterTarget || "";
+    }, this);
+
+    var touched = 0;
+    var retargeted = keepRewrite.replaced + keepRewrite.removed;
+    var reparented = 0;
+    var paths = Object.keys(ops);
+    for (var p = 0; p < paths.length; p++) {
+      var op = ops[paths[p]];
+      var file = this.app.vault.getAbstractFileByPath(op.path);
+      if (!(file instanceof obsidian.TFile)) continue;
+      var before = op.path === keep.path ? keepRaw : await this.app.vault.cachedRead(file);
+      var after = op.merged !== null ? op.merged : before;
+      if (op.rewrite && op.path !== keep.path) {
+        var rr = core.retargetLinks(after, replacements, { currentNode: op.node, graph: graph });
+        after = rr.text;
+        retargeted += rr.replaced + rr.removed;
+      }
+      if (Object.keys(op.patch).length) {
+        after = core.setFrontmatterValues(after, op.patch);
+        if (op.patch[this.settings.parentKey || "parent"] !== undefined || op.patch[this.settings.chapterKey || "chapter"] !== undefined) reparented++;
+      }
+      if (after === before) continue;
+      snapshot(op.path, before);
+      await this.processInternal(file, function () { return after; });
+      touched++;
+    }
+
+    for (var d = 0; d < plan.drop.length; d++) {
+      var dup = plan.drop[d];
+      var target = this.app.vault.getAbstractFileByPath(dup.path);
+      if (!(target instanceof obsidian.TFile)) continue;
+      await this.withInternalWrite(dup.path, () => this.trashFile(target));
+    }
+
+    return {
+      keepId: keepNode.id,
+      keepPath: keepNode.path,
+      keepName: keepNode.name || keepNode.id,
+      dropIds: plan.drop.map(function (n) { return n.id; }),
+      dropPaths: plan.drop.map(function (n) { return n.path; }),
+      touched: touched,
+      appended: appended,
+      retargeted: retargeted,
+      reparented: reparented,
+      captionTouched: cap ? cap.touched : 0,
+      captionDeleted: cap ? cap.deleted : 0,
+    };
+  }
+
+  async mergeDuplicateNodes(runOpts) {
+    runOpts = runOpts || {};
+    var target = {};
+    (runOpts.ids || []).forEach(function (id) {
+      var key = id && id.id ? id.id : id;
+      if (key) target[String(key)] = true;
+    });
+    var targeted = Object.keys(target).length > 0;
+    var snapshotMap = {};
+    var snapshot = function (path, text) {
+      if (snapshotMap[path] === undefined) snapshotMap[path] = text;
+    };
+    var merged = [];
+    var keepPaths = {};
+    var groups = 0;
+    var guard = 0;
+    while (guard++ < 40) {
+      var mergeOpts = buildOptions(this.settings);
+      var g = await this.buildGraphModel(mergeOpts);
+      var dup = core.findDuplicateGroups(g, mergeOpts);
+      if (Object.keys(target).length) {
+        dup = dup.filter(function (gr) { return gr.nodes.some(function (n) { return target[n.id]; }); }).map(function (gr) {
+          var keepIds = {};
+          gr.nodes.forEach(function (seed) {
+            if (!target[seed.id]) return;
+            keepIds[seed.id] = true;
+            gr.nodes.forEach(function (other) {
+              if (!other || other.id === seed.id) return;
+              if (core.duplicateScore(seed, other, mergeOpts).match) keepIds[other.id] = true;
+            });
+          });
+          var nodes = gr.nodes.filter(function (n) { return keepIds[n.id]; });
+          if (nodes.length < 2) return null;
+          var keep = core.pickDuplicateKeeper(nodes);
+          return { keep: keep, nodes: nodes, drop: nodes.filter(function (n) { return !keep || n.id !== keep.id; }) };
+        }).filter(Boolean);
+      }
+      if (!dup.length) break;
+      var res = await this.mergeDuplicateGroup(g, dup[0], { snapshot: snapshot });
+      if (!res) break;
+      merged.push(res);
+      keepPaths[res.keepPath] = true;
+      groups++;
+      if (Object.keys(target).length) {
+        dup[0].nodes.forEach(function (n) { delete target[n.id]; });
+        if (targeted && !Object.keys(target).length) break;
+      }
+    }
+    if (!merged.length) {
+      if (!runOpts.silent) new obsidian.Notice(Object.keys(target).length ? "Для выбранной вершины дубликаты не найдены" : "Дубликаты не найдены");
+      return { groups: 0, merged: 0, results: [] };
+    }
+    this.lastMerge = {
+      at: Date.now(),
+      files: Object.keys(snapshotMap).map(function (p) { return { path: p, text: snapshotMap[p] }; }),
+      results: merged.slice(),
+    };
+    await this.recomputeKeywords({ only: Object.keys(keepPaths), silent: true });
+    this.markGraphDirty();
+    var fresh = await this.getGraph(true);
+    var focus = merged[merged.length - 1].keepId;
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (focus && fresh._byId[focus]) v.select(focus, true);
+    });
+    var mergedNodes = merged.reduce(function (sum, r) { return sum + r.dropIds.length; }, 0);
+    var rewired = merged.reduce(function (sum, r) { return sum + r.retargeted; }, 0);
+    var reparented = merged.reduce(function (sum, r) { return sum + r.reparented; }, 0);
+    var msg = "Дубликаты объединены: групп " + groups + " · слито вершин " + mergedNodes +
+      (rewired ? " · перенаправлено ссылок " + rewired : "") +
+      (reparented ? " · детей перевешено " + reparented : "") +
+      " · отмена: команда ‘Undo last duplicate merge’";
+    if (!runOpts.silent) {
+      new obsidian.Notice(msg);
+      this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    }
+    return { groups: groups, merged: mergedNodes, results: merged, focusId: focus, files: Object.keys(snapshotMap).length };
+  }
+
+  async undoDuplicateMerge() {
+    var last = this.lastMerge;
+    if (!last || !last.files || !last.files.length) {
+      new obsidian.Notice("Отменять нечего: в этой сессии слияния дубликатов не было");
+      return null;
+    }
+    var n = 0;
+    for (var i = 0; i < last.files.length; i++) {
+      try {
+        await this.writeFile(last.files[i].path, last.files[i].text);
+        n++;
+      } catch (e) {
+        new obsidian.Notice("Не удалось вернуть " + last.files[i].path + ": " + (e && e.message ? e.message : e));
+      }
+    }
+    this.lastMerge = null;
+    this.markGraphDirty();
+    var g = await this.getGraph(true);
+    var focus = last.results && last.results.length ? last.results[last.results.length - 1].keepId : null;
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (focus && g._byId[focus]) v.select(focus, true);
+    });
+    var msg = "Слияние дубликатов отменено: восстановлено заметок — " + n;
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    return { files: n };
   }
 
   /* -------------------------------------------------- создание узла из графа */
@@ -7446,9 +8284,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
       new obsidian.Notice("Не удалось создать заметку: " + (e && e.message ? e.message : e));
       return null;
     }
-    // 7. Пересборка графа и выбор новой вершины: пользователь сразу видит её связи.
+    // 7. Если новая заметка оказалась дублем, сразу схлопываем её с существующей:
+    // переносим связи/ключевые фразы в одну заметку и не оставляем в графе «две одинаковые вершины».
+    var autoMerge = null;
+    if (this.settings.autoMergeDuplicates !== false) autoMerge = await this.mergeDuplicateNodes({ ids: [id], silent: true });
+    var finalId = autoMerge && autoMerge.focusId ? autoMerge.focusId : id;
+    // 8. Пересборка графа и выбор итоговой вершины: пользователь сразу видит её связи.
     var fresh = await this.getGraph(true);
-    var node = (fresh._byId && fresh._byId[id]) || this.nodeByPath(file.path);
+    var node = (fresh._byId && fresh._byId[finalId]) || this.nodeByPath(file.path);
+    if (node) file = this.app.vault.getAbstractFileByPath(node.path) || file;
     this.forEachView(function (v) {
       if (!node) return;
       if (!v.visible[node.id]) v.clearIsolation(); // фильтр главы прятал бы только что созданное
@@ -7456,14 +8300,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
     });
     var kwLinks = plan ? plan.targets.length : 0;
     var msg =
-      "Узел создан: " + file.path +
+      "Узел создан: " + (node ? node.path : file.path) +
       (nameZh ? " · " + nameEn + " / " + nameZh : "") +
       (chapter ? " · глава " + chapter : "") +
       (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
       (related.length ? " · по названиям: " + related.length : "") +
+      (autoMerge && autoMerge.merged ? " · автослияние дубликата: сохранена вершина " + finalId : "") +
       (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
     new obsidian.Notice(msg);
-    return { file: file, path: file.path, node: node, id: id, plan: plan, related: related, chapter: chapter };
+    return { file: file, path: node ? node.path : file.path, node: node, id: finalId, createdId: id, plan: plan, related: related, chapter: chapter, merged: autoMerge };
   }
 
   /**

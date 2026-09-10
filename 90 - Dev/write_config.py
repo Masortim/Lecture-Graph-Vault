@@ -215,6 +215,8 @@ jwrite(".obsidian/plugins/lecture-graph/data.json", {
     # удаление вершины: подтверждение с разбором последствий и клавиша Delete/Backspace
     # (Backspace — потому что на macOS клавиши Delete нет; в полях ввода клавиша работает как обычно)
     "confirmDelete": True, "deleteKey": True,
+    # после Create node: сразу схлопывать дубликаты по названию/переводу/содержимому
+    "autoMergeDuplicates": True,
     # оглавление курса — в корне хранилища: вне папок сканирования, поэтому в граф не попадает
     "indexNote": "Course Index.md",
     "indexGraphDoc": "02 Graph \u2014 как читать и править",
