@@ -130,11 +130,6 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
   stroke-width: 2.2; stroke-dasharray: none;
   filter: drop-shadow(0 0 3px var(--interactive-accent, var(--text-accent)));
 }
-/* рёбра вручную установленных связей между двумя выделенными вершинами */
-.lg-edges--manual {
-  stroke: var(--interactive-accent, #ffce56); stroke-opacity: 1;
-  stroke-width: 2.5;
-}
 .lg-node { cursor: grab; }
 .lg-node circle { stroke: var(--background-primary); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .lg-node:hover circle { stroke: var(--text-normal); stroke-width: 1.6; }
