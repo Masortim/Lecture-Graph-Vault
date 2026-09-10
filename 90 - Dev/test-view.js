@@ -973,6 +973,21 @@ const plugin = new PluginClass(app, manifest);
         "в полном экране width() не взял окно: " + view.width() + " (бокс сцены " + view.stageBox().w + ")");
       await centeredAt(960, "в полном экране при листе 1584 и окне 1920");
       assert.ok(view.fitFrame().toScreen, "fitFrame() не признался, что опора — окно");
+
+      // --- 6. Fullscreen API меняет left SVG позже, не меняя размер fitFrame() ---
+      // До перекладки лист начинается после левой панели. fitFrame уже равен окну,
+      // поэтому проверка только w/h не замечала последующий переезд left: 336 -> 0.
+      // Граф оставался в x=624 (слева) до ручного Fit.
+      let svgLeft = 336;
+      const oldRect = view.svg.getBoundingClientRect;
+      view.svg.getBoundingClientRect = () => ({ left: svgLeft, top: 0, width: 1584, height: 1080,
+        right: svgLeft + 1584, bottom: 1080 });
+      view.fit();
+      await centeredAt(624, "до завершения перекладки fullscreen");
+      view.scheduleRefit(100);
+      svgLeft = 0; // размер окна тот же — поменялось только положение холста
+      await centeredAt(960, "после переезда fullscreen-холста к левому краю");
+      view.svg.getBoundingClientRect = oldRect;
     } finally {
       // убираем за собой: дальше тесты живут с прежним (нулевым) размером сцены.
       // Осторожно и без собственных исключений: иначе ошибка finally перекроет
