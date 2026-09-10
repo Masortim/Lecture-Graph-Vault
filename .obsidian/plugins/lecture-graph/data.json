@@ -13,6 +13,7 @@
   "labelFontMin": 9,
   "labelFontMax": 19,
   "labelFontBySize": true,
+  "labelScale": 1,
   "countStructural": false,
   "includeInlineAnchors": false,
   "indexNote": "Course Index.md",

@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Lecture Graph — предпросмотр</title>
+<link rel="stylesheet" href="styles.css">
+<style>
+  html, body { height: 100%; margin: 0; }
+  body { font-family: -apple-system, "Segoe UI", system-ui, "PingFang SC", "Microsoft YaHei", "Noto Sans CJK SC", sans-serif; }
+  /* тёмная тема, как в Obsidian по умолчанию: CSS-переменные плагина рассчитаны на неё */
+  body {
+    --background-primary: #1e1e1e;
+    --background-secondary: #262626;
+    --background-modifier-border: #3a3a3a;
+    --background-modifier-hover: #303030;
+    --text-normal: #dadada;
+    --text-muted: #999;
+    --text-faint: #6b6b6b;
+    --text-accent: #7f6df2;
+    --interactive-accent: #7f6df2;
+    --interactive-accent-hover: #8f7ff5;
+    --text-on-accent: #fff;
+    --font-ui-small: 13px;
+    --font-ui-smaller: 12px;
+    --font-monospace: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace;
+    background: var(--background-primary); color: var(--text-normal);
+  }
+  #app { position: absolute; inset: 0; }
+  #boot { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+          color: var(--text-muted); font-size: 13px; white-space: pre-wrap; padding: 24px; text-align: center; }
+  #hint { position: absolute; left: 10px; bottom: 10px; z-index: 8; max-width: 46%;
+          font-size: 11px; line-height: 1.5; color: var(--text-muted); opacity: .85;
+          background: color-mix(in srgb, var(--background-secondary) 82%, transparent);
+          border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 6px 9px; }
+  #hint b { color: var(--text-normal); }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="hint">
+  <b>Что нового:</b> «+»/«−» в правом нижнем углу — масштаб графа (колесо мыши, клавиши +/−);
+  кнопки <b>A−/A+</b> в панели — размер подписей (сейчас он в пикселях на экране и от масштаба не зависит);
+  клик по вершине подсвечивает <b>все её связи акцентным цветом</b>; чем сильнее приближение, тем больше подписей.
+</div>
+<div id="boot">собираю граф…</div>
+<script>
+  // XHR, а не fetch: страница должна открываться и в старых webview (Obsidian mobile)
+  var xhr = new XMLHttpRequest();
+  xhr.open("GET", "vault.json", true);
+  xhr.onload = function () {
+    try {
+      window.__LG_PREVIEW__ = JSON.parse(xhr.responseText);
+    } catch (e) {
+      document.getElementById("boot").textContent = "vault.json не распарсился: " + e;
+      return;
+    }
+    var s = document.createElement("script");
+    s.src = "bundle.js";
+    s.onload = function () { window.__LG_BOOT__(); };
+    document.body.appendChild(s);
+  };
+  xhr.onerror = function () {
+    document.getElementById("boot").textContent = "не удалось получить vault.json";
+  };
+  xhr.send();
+</script>
+</body>
+</html>

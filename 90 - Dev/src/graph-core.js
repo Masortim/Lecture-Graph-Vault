@@ -34,6 +34,12 @@
     labelFontMin: 9,
     labelFontMax: 19,
     labelFontBySize: true, // кегль подписи растёт вместе с вершиной
+    // Множитель кегля подписи: им работают кнопки A−/A+ на панели (шаг ×1.15), он
+    // же — «сделать подписи крупнее» в настройках. Множитель входит в n.font, то есть
+    // в модельные координаты: упаковка меток и экспорт SVG остаются честными, метки
+    // не начинают наезжать друг на друга. На ЭКРАНЕ кегль от зума не зависит (см.
+    // view.updateLabels), поэтому множитель виден сразу, а не «на сотую пикселя».
+    labelScale: 1,
     labelMaxLines: 2,
     // сколько символов влезает в подпись по уровням: «длиннее» = шире метка =
     // больше нужного радиуса кольца; для блоков и заголовков режем сильнее
@@ -1039,9 +1045,13 @@
       n.relDegree = frac;
       n.refMax = md;
       n.r = cfg.minRadius + (cfg.maxRadius - cfg.minRadius) * frac;
-      n.baseFont = cfg.labelFontBySize
+      // labelScale — множитель A−/A+; он же задаёт «насколько крупны подписи» по
+      // умолчанию. Входит в baseFont, а не домножается потом: от него зависит и
+      // labelChars (сколько символов влезает), и габарит метки для упаковки.
+      var lscale = Math.max(0.1, Number(cfg.labelScale) || 1);
+      n.baseFont = (cfg.labelFontBySize
         ? cfg.labelFontMin + (cfg.labelFontMax - cfg.labelFontMin) * frac
-        : cfg.labelFontSize;
+        : cfg.labelFontSize) * lscale;
       n.font = n.baseFont;
       // 1) «пол» по типу: глава/секция не могут стать точкой без подписи,
       //    даже если на них никто не сослался текстом (типично для реальных конспектов)

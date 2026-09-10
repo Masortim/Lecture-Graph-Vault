@@ -38,6 +38,12 @@ var __LG_CORE__ = (function () {
     labelFontMin: 9,
     labelFontMax: 19,
     labelFontBySize: true, // кегль подписи растёт вместе с вершиной
+    // Множитель кегля подписи: им работают кнопки A−/A+ на панели (шаг ×1.15), он
+    // же — «сделать подписи крупнее» в настройках. Множитель входит в n.font, то есть
+    // в модельные координаты: упаковка меток и экспорт SVG остаются честными, метки
+    // не начинают наезжать друг на друга. На ЭКРАНЕ кегль от зума не зависит (см.
+    // view.updateLabels), поэтому множитель виден сразу, а не «на сотую пикселя».
+    labelScale: 1,
     labelMaxLines: 2,
     // сколько символов влезает в подпись по уровням: «длиннее» = шире метка =
     // больше нужного радиуса кольца; для блоков и заголовков режем сильнее
@@ -1043,9 +1049,13 @@ var __LG_CORE__ = (function () {
       n.relDegree = frac;
       n.refMax = md;
       n.r = cfg.minRadius + (cfg.maxRadius - cfg.minRadius) * frac;
-      n.baseFont = cfg.labelFontBySize
+      // labelScale — множитель A−/A+; он же задаёт «насколько крупны подписи» по
+      // умолчанию. Входит в baseFont, а не домножается потом: от него зависит и
+      // labelChars (сколько символов влезает), и габарит метки для упаковки.
+      var lscale = Math.max(0.1, Number(cfg.labelScale) || 1);
+      n.baseFont = (cfg.labelFontBySize
         ? cfg.labelFontMin + (cfg.labelFontMax - cfg.labelFontMin) * frac
-        : cfg.labelFontSize;
+        : cfg.labelFontSize) * lscale;
       n.font = n.baseFont;
       // 1) «пол» по типу: глава/секция не могут стать точкой без подписи,
       //    даже если на них никто не сослался текстом (типично для реальных конспектов)
@@ -3649,6 +3659,26 @@ const TYPE_LABEL = {
   block: "Block", // без этого чекбокс Block в панели типов оставался без подписи
 };
 
+/* ── «читаемость при любом зуме» ────────────────────────────────────────────────
+   Граф из тысячи вершин после Fit уезжает на k≈0.07, и модельные 13 px радиуса
+   превращаются в 0.9 px, а кегль 11 px — в 0.8 px: ни вершин, ни подписей не
+   разобрать. Кегль подписи на экране поэтому держат постоянным (labelComp), круг
+   растёт мягко (NODE_GROW_POW < 1 — крупные вершины остаются крупнее), а подписи,
+   которым не хватило места на экране, не рисуются вовсе (planLabels) — наездов нет
+   ни на одном зуме. Всё это только про отрисовку: модель (n.r, n.font, n.lw) и
+   экспорт SVG остаются в модельных координатах. */
+const MIN_NODE_PX = 2.2; // вершина не мельче этого радиуса на экране
+const NODE_GROW_POW = 0.55; // 0 = круг модельный, 1 = круг постоянного размера на экране
+const LABEL_PAD_PX = 3; // зазор между соседними метками на экране
+const LABEL_GRID_CELL = 96; // ячейка сетки для проверки наездов (экранные px)
+const LABEL_OFF_MARGIN = 24; // метку за пределами экрана на таком расстоянии не считаем
+// на сколько кеглей можно опустить подпись, если под вершиной место уже занято
+const LABEL_SHIFTS = [0, 0.85, 1.8, 3.1];
+const ZOOM_MIN = 0.02;
+const ZOOM_MAX = 24;
+const ZOOM_STEP = 1.3; // шаг кнопок «+» и «−»
+const FONT_STEP = 1.15; // шаг кнопок A−/A+ (множитель кегля)
+
 const DEFAULT_SETTINGS = {
   folders: "",
   excludeFolders: "40 - Templates,90 - Exports",
@@ -3664,6 +3694,9 @@ const DEFAULT_SETTINGS = {
   labelFontMin: 9,
   labelFontMax: 19,
   labelFontBySize: true,
+  // множитель кегля: им работают кнопки A−/A+ на панели (шаг ×1.15). Кегль на экране
+  // от зума не зависит, поэтому множитель виден сразу, а не «на сотую пикселя»
+  labelScale: 1,
   countStructural: false,
   includeInlineAnchors: true,
   // Оглавление курса лежит в КОРНЕ хранилища: папки из `folders` его не видят, поэтому в граф
@@ -3798,6 +3831,7 @@ function buildOptions(settings) {
     labelFontMin: num(settings.labelFontMin, core.DEFAULTS.labelFontMin),
     labelFontMax: num(settings.labelFontMax, core.DEFAULTS.labelFontMax),
     labelFontBySize: settings.labelFontBySize !== false,
+    labelScale: num(settings.labelScale, 1) > 0 ? num(settings.labelScale, 1) : 1,
     countStructural: !!settings.countStructural,
     includeInlineAnchors: !!settings.includeInlineAnchors,
     // выключено — и материализованные ссылки корпуса не идут в граф, и размер снова по ссылкам
@@ -3807,7 +3841,7 @@ function buildOptions(settings) {
     layout: Object.assign({}, DEFAULT_SETTINGS.layout, settings.layout || {}),
   };
   // ключи, которые ядро читает напрямую; добавляем только то, что реально настроено
-  ["labelMode", "labelRadiusThreshold", "sizeFloor", "labelAlwaysFor", "labelCharsFor", "labelWidthFor", "labelForTypes",
+  ["labelMode", "labelRadiusThreshold", "labelScale", "sizeFloor", "labelAlwaysFor", "labelCharsFor", "labelWidthFor", "labelForTypes",
     "sizeKey", "colorKey", "captionKey", "curvature", "chapterColors", "chapterPalette",
     "keywordsKey", "weightKey", "sectionKey"].forEach(function (k) {
     if (settings[k] !== undefined && settings[k] !== null) opts[k] = settings[k];
@@ -3852,6 +3886,8 @@ class LectureGraphView extends obsidian.ItemView {
     // Полный путь из тысяч рёбер во время drag обновляем с ограничением частоты;
     // выделенные рёбра остаются живыми в отдельном лёгком слое.
     this.dragEdgesTimer = null;
+    this._nn = null; // расстояние до ближайшей вершины: потолок «экранного» радиуса
+    this._nnDirty = true;
   }
 
   /** Плагин: привязывается в registerView, иначе ищем в реестре плагинов. */
@@ -3899,6 +3935,13 @@ class LectureGraphView extends obsidian.ItemView {
       if (on !== this.fullscreen) this.toggleFullscreen(on);
     });
     this.registerDomEvent(window, "keydown", (ev) => {
+      // «+»/«−» и Ctrl+колесо — тот же зум, что у кнопок на холсте
+      if (ev.key === "+" || ev.key === "=" || ev.key === "-") {
+        if (ev.target && /^(INPUT|TEXTAREA|SELECT)$/.test(ev.target.tagName || "")) return;
+        ev.preventDefault();
+        this.zoomBy(ev.key === "-" ? 1 / ZOOM_STEP : ZOOM_STEP);
+        return;
+      }
       if (ev.key !== "Escape") return;
       if (this.fullscreen) {
         ev.preventDefault();
@@ -4022,9 +4065,12 @@ class LectureGraphView extends obsidian.ItemView {
       this.updateLabels();
     });
     var gFont = group("Label size");
-    this.mkButton(gFont, "A−", () => this.bumpFont(-1));
-    this.mkButton(gFont, "A+", () => this.bumpFont(1));
+    this.mkButton(gFont, "A−", () => this.bumpFont(-1), { cls: "lg-btn lg-btn--font", title: "Уменьшить подписи вершин" });
+    this.mkButton(gFont, "A+", () => this.bumpFont(1), { cls: "lg-btn lg-btn--font", title: "Увеличить подписи вершин" });
+    // рядом с кнопками — чем кончилось: множитель и реальный кегль в пикселях на экране
     this.fontPxEl = gFont.createEl("span", { cls: "lg-fs", text: "" });
+    this.fontRangeEl = gFont.createEl("span", { cls: "lg-fs lg-fs--px", text: "" });
+    this.updateFontReadout();
     var labAuto = gFont.createEl("label", { cls: "lg-chip" });
     this.fontAutoEl = labAuto.createEl("input", { type: "checkbox" });
     this.fontAutoEl.checked = this.plugin.settings.labelFontBySize !== false;
@@ -4077,6 +4123,22 @@ class LectureGraphView extends obsidian.ItemView {
     stage.appendChild(this.svg);
     // «пузырёк» с информационным сообщением: появляется РЯДОМ с вершиной (не перекрывая
     // её и её подпись), текст берётся из заметки, указанной свойством caption:.
+    // Кнопки зума живут НА ХОЛСТЕ, а не в панели: в полноэкранном режиме панель
+    // спрятана (lg-root--full .lg-bar { display: none }), а масштаб нужен и там.
+    var zoomBar = stage.createDiv({ cls: "lg-zoom" });
+    this.zoomOutBtn = this.mkButton(zoomBar, "\u2212", () => this.zoomBy(1 / ZOOM_STEP), {
+      cls: "lg-btn lg-zoom__btn",
+      title: "Уменьшить граф (колесо вниз, Ctrl+\u2212)",
+    });
+    this.zoomValEl = zoomBar.createEl("span", { cls: "lg-zoom__val", text: "100%" });
+    this.zoomInBtn = this.mkButton(zoomBar, "+", () => this.zoomBy(ZOOM_STEP), {
+      cls: "lg-btn lg-zoom__btn",
+      title: "Увеличить граф (колесо вверх, Ctrl++)",
+    });
+    this.zoomFitBtn = this.mkButton(zoomBar, "\u2922", () => this.fit(), {
+      cls: "lg-btn lg-zoom__btn",
+      title: "Показать весь граф (двойной клик по фону)",
+    });
     this.bubbleEl = stage.createDiv({ cls: "lg-bubble", attr: { "aria-live": "polite" } });
     // временные сообщения (загрузка, счётчики, ошибки) — тостом сверху, чтобы не занимать
     // место у графа и не превращаться в постоянную строку состояния
@@ -4162,10 +4224,71 @@ class LectureGraphView extends obsidian.ItemView {
     }
   }
 
-  mkButton(parent, text, cb) {
-    var b = parent.createEl("button", { cls: "lg-btn", text: text, attr: { type: "button" } });
+  mkButton(parent, text, cb, opts) {
+    opts = opts || {};
+    var b = parent.createEl("button", {
+      cls: opts.cls || "lg-btn",
+      text: text,
+      attr: Object.assign({ type: "button" }, opts.attr || {}, opts.title ? { title: opts.title, "aria-label": opts.title } : {}),
+    });
     b.addEventListener("click", cb);
     return b;
+  }
+
+  /* -------------------------------------------------- camera */
+
+  /** Показать масштаб в «процентах» рядом с кнопками «+»/«−». */
+  updateZoomReadout() {
+    if (!this.zoomValEl) return;
+    var pct = Math.round((this.view.k || 1) * 100);
+    var txt = (pct < 10 ? (this.view.k || 1).toFixed(2).replace(/0+$/, "") : String(pct)) + "%";
+    if (this.zoomValEl.textContent !== txt) this.zoomValEl.textContent = txt;
+  }
+
+  /**
+   * Изменить масштаб вокруг точки холста (по умолчанию — центр сцены, то есть
+   * «увеличить то, что посередине»). Камера — один SVG transform, геометрию не трогаем.
+   */
+  zoomBy(factor, cx, cy) {
+    if (!this.svg) return;
+    var v = this.view;
+    if (cx === undefined || cy === undefined || cx === null || cy === null) {
+      cx = this.width() / 2;
+      cy = this.height() / 2;
+    }
+    var k = clamp((v.k || 1) * (factor || 1), ZOOM_MIN, ZOOM_MAX);
+    if (Math.abs(k - v.k) < 1e-9) return;
+    v.x = cx - ((cx - v.x) / v.k) * k;
+    v.y = cy - ((cy - v.y) / v.k) * k;
+    v.k = k;
+    this.applyViewTransform();
+    // кегль и радиус на экране считаются от k, поэтому круги и метки пересобираем
+    this.updateNodeSizes();
+    this.updateLabels();
+    this.placeBubble();
+    this.updateZoomReadout();
+  }
+
+  /**
+   * Радиусы кругов в модельных координатах зависят от зума (вершина не должна стать
+   * точкой), поэтому их пересчитываем отдельно от геометрии. Меняем только те, у
+   * кого значение действительно другое.
+   */
+  updateNodeSizes() {
+    var k = this.view.k || 1;
+    this.ensureNearest();
+    for (var id in this.nodeEls) {
+      var n = this.byId[id];
+      if (!n) continue;
+      var el = this.nodeEls[id];
+      var c = el.__c || (el.__c = el.querySelector("circle"));
+      if (!c) continue;
+      var r = this.radiusModel(n, k).toFixed(1);
+      if (c.__lgR !== r) {
+        c.setAttribute("r", r);
+        c.__lgR = r;
+      }
+    }
   }
 
   width() {
@@ -4243,7 +4366,11 @@ class LectureGraphView extends obsidian.ItemView {
     var frag = document.createDocumentFragment();
     this.graph.nodes.forEach((n) => {
       var g = svgEl("g", { class: "lg-node lg-node--" + n.type, "data-id": n.id });
-      var c = svgEl("circle", { r: n.r, fill: n.color });
+      // радиус круга на экране зависит от зума (вершина не должна стать точкой),
+      // поэтому его ставит updateNodeSizes(); здесь — первое значение
+      var c = svgEl("circle", { r: this.radiusModel(n, this.view.k).toFixed(1), fill: n.color });
+      c.__lgR = c.getAttribute("r");
+      g.__c = c;
       g.appendChild(c);
       var t = svgEl("text", { class: "lg-label", "text-anchor": "middle", y: n.r + 11 });
       var l1 = svgEl("tspan", { x: 0, class: "lg-label-en" });
@@ -4306,31 +4433,207 @@ class LectureGraphView extends obsidian.ItemView {
     );
   }
 
-  updateLabels() {
-    var mode = this.plugin.settings.labelMode || "size";
+  /* -------------------------------------------------- labels */
+
+  /**
+   * Радиус круга в МОДЕЛЬНЫХ координатах. На экране вершина не должна вырождаться в
+   * точку: при k=0.07 (весь граф из 1200 вершин в окне) модельный радиус 13 даёт 0.9 px.
+   * Поэтому круг растёт обратно пропорционально зуму — но мягко (степень NODE_GROW_POW),
+   * чтобы крупные вершины оставались заметно крупнее, и никогда не мельче MIN_NODE_PX.
+   */
+  radiusModel(n, k) {
+    k = k || this.view.k || 1;
+    var grow = Math.pow(Math.max(1, 1 / k), NODE_GROW_POW);
+    var floor = MIN_NODE_PX / k;
+    var r = Math.max((n.r || 6) * grow, floor);
+    // потолок — половина расстояния до ближайшей видимой вершины: иначе при отдалении
+    // все мелкие вершины поднимаются до минимума и в плотных местах слипаются в пятно.
+    // Замер на 1017 вершинах (весь граф в окне): без потолка 1343 пересекающиеся
+    // пары кругов, с ним — 61.
+    var nn = this._nn ? this._nn[n.id] : undefined;
+    if (nn && isFinite(nn)) r = Math.min(r, nn * 0.5);
+    return Math.max(r, floor * 0.6); // но и «точкой» вершина остаться не должна
+  }
+
+  /**
+   * Расстояние до ближайшей видимой вершины — потолок для «экранного» радиуса.
+   * Сетка даёт O(n); пересчитываем только когда менялась геометрия (зум расстояний
+   * не меняет), поэтому колесо мыши не заставляет считать это на каждом событии.
+   */
+  ensureNearest() {
+    if (this._nn && !this._nnDirty) return this._nn;
+    var nn = (this._nn = {});
+    this._nnDirty = false;
     var g = this.graph;
-    if (!g) return;
+    if (!g) return nn;
+    var nodes = [];
+    for (var i = 0; i < g.nodes.length; i++) {
+      var n = g.nodes[i];
+      if (n && isFinite(n.x) && isFinite(n.y) && this.visible[n.id]) nodes.push(n);
+    }
+    if (nodes.length < 2) return nn;
+    var b = core.bounds(nodes);
+    // ячейка ≈ удвоенное среднее расстояние между соседями: тогда почти у каждой
+    // вершины сосед находится в соседней ячейке и хватает первого кольца
+    var cell = Math.max(8, Math.sqrt(Math.max(1, (b.maxX - b.minX) * (b.maxY - b.minY)) / nodes.length) * 2);
+    var grid = {};
+    for (var i2 = 0; i2 < nodes.length; i2++) {
+      var key = Math.floor(nodes[i2].x / cell) + ":" + Math.floor(nodes[i2].y / cell);
+      (grid[key] || (grid[key] = [])).push(nodes[i2]);
+    }
+    for (var a = 0; a < nodes.length; a++) {
+      var p = nodes[a];
+      var best = Infinity;
+      var cx = Math.floor(p.x / cell), cy = Math.floor(p.y / cell);
+      for (var ring = 0; ring <= 3 && best === Infinity; ring++) {
+        for (var dx = -ring; dx <= ring; dx++) {
+          for (var dy = -ring; dy <= ring; dy++) {
+            if (ring && Math.abs(dx) !== ring && Math.abs(dy) !== ring) continue;
+            var lst = grid[(cx + dx) + ":" + (cy + dy)];
+            if (!lst) continue;
+            for (var q = 0; q < lst.length; q++) {
+              var o = lst[q];
+              if (o === p) continue;
+              var d = Math.hypot(p.x - o.x, p.y - o.y);
+              if (d < best) best = d;
+            }
+          }
+        }
+      }
+      nn[p.id] = best;
+    }
+    return nn;
+  }
+
+  /**
+   * Множитель кегля в модельных координатах. Идея: кегль ПОДПИСИ на экране постоянен.
+   * Иначе отдаление превращает текст в серую пыль (было: 0.8 px на весь граф), а
+   * приближение — в плакат. При k ≥ 1 множитель = 1: это ровно модельный кегль, тот
+   * самый, под который ядро паковало метки (наездов нет по построению).
+   */
+  labelComp(k) {
+    return Math.max(1, 1 / (k || 1));
+  }
+
+  /**
+   * Какие подписи реально рисовать. Кегль на экране фиксирован, значит при отдалении
+   * влезет меньше меток — место на экране не резиновое. Поэтому метки расставляются
+   * жадно в ЭКРАННЫХ координатах: кто не влез, тот не рисуется вовсе (а не наезжает).
+   * Порядок: выбранная и наведённая вершина, потом главы → секции → заголовки → блоки,
+   * внутри уровня — крупные раньше мелких. Поэтому за место в первую очередь спорят
+   * главы и секции, а не случайные блоки.
+   */
+  planLabels(k, comp) {
+    var shown = {};
+    var mode = this.plugin.settings.labelMode || "size";
+    if (mode === "none" || !this.graph) return shown;
+    this.ensureNearest();
+    var v = this.view;
+    var W = this.width(), H = this.height();
+    var sel = this.selected, hov = this.hoverId;
+    var rank = { chapter: 0, section: 1, heading: 2, block: 3 };
+    var cands = [];
+    for (var id in this.nodeEls) {
+      if (!this.visible[id]) continue;
+      var n = this.byId[id];
+      if (!n || !isFinite(n.x) || !isFinite(n.y)) continue;
+      // базовое правило «показывать ли подпись» живёт в ядре — то же, по которому
+      // вершины расталкивались при упаковке; поверх него наведение, выделение, изоляция
+      var on = core.labelShown(n, this.plugin.settings);
+      if (mode === "hover") on = id === hov || id === sel;
+      if (id === sel || id === hov) on = true;
+      if (this.neigh && !this.neigh[id]) on = false;
+      if (!on) continue;
+      cands.push(n);
+    }
+    cands.sort(function (a, b) {
+      var pa = a.id === sel ? -2 : a.id === hov ? -1 : 0;
+      var pb = b.id === sel ? -2 : b.id === hov ? -1 : 0;
+      if (pa !== pb) return pa - pb;
+      var ra = rank[a.type] === undefined ? 9 : rank[a.type];
+      var rb = rank[b.type] === undefined ? 9 : rank[b.type];
+      if (ra !== rb) return ra - rb;
+      return (b.r || 0) - (a.r || 0);
+    });
+    // сетка по экрану: проверка «не наехали» за O(1) на кандидата
+    var cell = LABEL_GRID_CELL;
+    var grid = {};
+    for (var i = 0; i < cands.length; i++) {
+      var n2 = cands[i];
+      var font = n2.font || this.plugin.settings.labelFontSize || 10;
+      var fsA = font * comp;
+      var wM = (Math.max(0, (n2.lw || 0) - 8)) * comp + 8; // lw считан на font -> масштабируем
+      var rM = this.radiusModel(n2, k);
+      var cx = n2.x * k + v.x, cy = n2.y * k + v.y;
+      var rS = rM * k;              // радиус круга на экране
+      var fsS = fsA * k;            // кегль на экране
+      var halfW = (wM * k) / 2 + LABEL_PAD_PX;
+      var x0 = cx - halfW, x1 = cx + halfW;
+      if (x1 < -LABEL_OFF_MARGIN || x0 > W + LABEL_OFF_MARGIN) continue; // метка за экраном
+      // метку можно чуть опустить, а в крайнем случае — поставить НАД вершиной: две
+      // главы на экране могут оказаться в 20 px друг от друга, и обе подписи снизу не
+      // влезут никак. Сдвиг — в долях кегля, поэтому при любом зуме метка остаётся
+      // «привязанной» к своей вершине (и на экспорт это не влияет).
+      var shifts = LABEL_SHIFTS.slice();
+      var up = (-2 * rS - 2) / fsS - 2.32; // блок текста целиком над кругом
+      shifts.push(up, up - 1.1, up - 2.4);
+      var box = null, shift = 0;
+      for (var si = 0; si < shifts.length && !box; si++) {
+        shift = shifts[si];
+        // габарит метки: чуть шире и выше настоящего текста — этот же прямоугольник
+        // проверяет живой рендер (test-view.js), поэтому запас здесь = гарантия «0 наездов»
+        var y0 = cy + rS + (shift - 0.6) * fsS - LABEL_PAD_PX;
+        var y1 = cy + rS + (shift + 2.4) * fsS + LABEL_PAD_PX;
+        if (y1 < -LABEL_OFF_MARGIN || y0 > H + LABEL_OFF_MARGIN) continue;
+        var i0 = Math.floor(x0 / cell), i1 = Math.floor(x1 / cell);
+        var j0 = Math.floor(y0 / cell), j1 = Math.floor(y1 / cell);
+        var busy = false;
+        for (var gi = i0; gi <= i1 && !busy; gi++) {
+          for (var gj = j0; gj <= j1 && !busy; gj++) {
+            var bucket = grid[gi + ":" + gj];
+            if (!bucket) continue;
+            for (var bi = 0; bi < bucket.length; bi++) {
+              var o = bucket[bi];
+              if (x0 < o[2] && o[0] < x1 && y0 < o[3] && o[1] < y1) { busy = true; break; }
+            }
+          }
+        }
+        if (!busy) box = [x0, y0, x1, y1];
+      }
+      if (!box) continue;
+      for (var gi2 = Math.floor(box[0] / cell); gi2 <= Math.floor(box[2] / cell); gi2++) {
+        for (var gj2 = Math.floor(box[1] / cell); gj2 <= Math.floor(box[3] / cell); gj2++) {
+          var key = gi2 + ":" + gj2;
+          (grid[key] || (grid[key] = [])).push(box);
+        }
+      }
+      shown[n2.id] = { fsA: fsA, wM: wM, rM: rM, shift: shift };
+    }
+    return shown;
+  }
+
+  updateLabels() {
+    if (!this.graph) return;
+    var k = this.view.k || 1;
+    var comp = this.labelComp(k);
+    var plan = this.planLabels(k, comp);
     for (var id in this.nodeEls) {
       var n = this.byId[id];
       var el = this.nodeEls[id];
       var t = el.__t;
       if (!n || !t) continue;
-      // базовое правило «показывать ли подпись» живёт в ядре — то же, по которому вершины
-      // расталкивались при упаковке; поверх него: наведение, выделение и изоляция соседей
-      var on = core.labelShown(n, this.plugin.settings);
-      if (mode === "hover") on = this.hoverId === id || this.selected === id;
-      if (this.selected === id || this.hoverId === id) on = mode !== "none";
-      if (this.neigh && !this.neigh[id]) on = false;
-      if (!this.visible[id]) on = false;
+      var on = !!plan[id];
       // для наведённой/выбранной вершины показываем название целиком; для остальных —
       // обрезанную подпись, для которой уже оставлено место при упаковке.
       var focus = this.hoverId === id || this.selected === id;
       var en = focus ? n.name : (n.labelEn === undefined ? n.name : n.labelEn);
       var zh = focus ? n.nameZh : (n.labelZh === undefined ? n.nameZh : n.labelZh);
-      var fs = n.font || this.plugin.settings.labelFontSize || 10;
-      var y = (n.r || 6) + fs * 0.95;
+      var p = plan[id];
+      var fs = p ? p.fsA : (n.font || this.plugin.settings.labelFontSize || 10) * comp;
+      var rM = p ? p.rM : this.radiusModel(n, k);
+      var y = rM + fs * (0.95 + (p ? p.shift : 0));
       var dy = fs * 1.12;
-      var lw = n.lw || 0;
+      var lw = p ? p.wM : (Math.max(0, (n.lw || 0) - 8)) * comp + 8;
       var state = (on ? "1" : "0") + "|" + fs.toFixed(1) + "|" + y.toFixed(1) + "|" + dy.toFixed(1) +
         "|" + lw.toFixed(1) + "|" + en + "\u0000" + (zh || "");
       // Hover / zoom генерируют много событий. Не трогаем SVG-атрибуты, если результат
@@ -4340,6 +4643,9 @@ class LectureGraphView extends obsidian.ItemView {
       t.setAttribute("font-size", fs.toFixed(1));
       t.setAttribute("y", y.toFixed(1));
       t.setAttribute("data-lw", lw.toFixed(1));
+      // обводка-«гало» держит текст читаемым поверх рёбер и соседних кругов; её толщина
+      // задана в модельных единицах, поэтому следует за кеглем
+      t.setAttribute("stroke-width", (fs * 0.2).toFixed(2));
       t.setAttribute("style", on ? "display:block" : "display:none");
       if (t.childNodes[0].textContent !== (en || "")) t.childNodes[0].textContent = en || "";
       if (t.childNodes[1].textContent !== (zh || "")) t.childNodes[1].textContent = zh || "";
@@ -4412,6 +4718,7 @@ class LectureGraphView extends obsidian.ItemView {
     var geometry = opts.geometry !== false;
     var classes = opts.classes !== false;
     var selection = opts.selection !== false;
+    var labels = opts.labels !== false;
     this.applyViewTransform();
     var g = this.drawn || this.graph;
     if (!g) return;
@@ -4420,6 +4727,13 @@ class LectureGraphView extends obsidian.ItemView {
     var ctr = this.graph && this.graph._center ? { x: this.graph._center.cx, y: this.graph._center.cy } : null;
     if (geometry) this.redrawBaseEdges(g, bow, ctr);
     if (geometry || selection) this.redrawSelectedEdges(g, bow, ctr);
+    if (geometry) this._nnDirty = true; // вершины переехали — потолки радиусов устарели
+    if (geometry || this._lastK !== this.view.k) {
+      // радиус круга на экране зависит от зума, поэтому при сдвиге камеры круги
+      // перерисовываем тоже (геометрия графа при этом не меняется)
+      this.updateNodeSizes();
+      this._lastK = this.view.k;
+    }
     if (geometry) {
       for (var id in this.nodeEls) {
         var n = this.byId[id];
@@ -4448,6 +4762,9 @@ class LectureGraphView extends obsidian.ItemView {
         }
       }
     }
+    // подписи занимают место на ЭКРАНЕ, значит при панорамировании и зуме их набор
+    // меняется; кегль тоже считается от k
+    if (labels) this.updateLabels();
     this.placeBubble();
   }
 
@@ -4466,7 +4783,7 @@ class LectureGraphView extends obsidian.ItemView {
     var rw = this.rootEl ? this.rootEl.clientWidth : this.width();
     var rh = this.rootEl ? this.rootEl.clientHeight : this.height();
     var bw = el.offsetWidth || 260, bh = el.offsetHeight || 90;
-    var rad = (n.r || 8) * v.k;
+    var rad = this.radiusModel(n, v.k) * v.k;
     var left = sx + rad + 14;
     if (left + bw > rw - 10) left = sx - rad - 14 - bw; // не влезает справа — ставим слева
     left = clamp(left, 8, Math.max(8, rw - bw - 8));
@@ -4539,8 +4856,13 @@ class LectureGraphView extends obsidian.ItemView {
     var h = this.height();
     var gw = Math.max(1, b.maxX - b.minX);
     var gh = Math.max(1, b.maxY - b.minY);
-    var k = clamp(Math.min((w - 40) / gw, (h - 40) / gh), 0.05, 4);
+    var k = clamp(Math.min((w - 40) / gw, (h - 40) / gh), ZOOM_MIN, ZOOM_MAX);
     this.view = { k: k, x: (w - (b.minX + b.maxX) * k) / 2, y: (h - (b.minY + b.maxY) * k) / 2 };
+    // после смены камеры круги и подписи пересобираются: их размер на экране от k зависит
+    this.updateNodeSizes();
+    this.updateLabels();
+    this.placeBubble();
+    this.updateZoomReadout();
     this.redraw({ geometry: false, classes: false, selection: false });
   }
 
@@ -4789,17 +5111,36 @@ class LectureGraphView extends obsidian.ItemView {
     return this.fullscreen;
   }
 
-  /* ---- кегль подписей ---- */
+  /* ---- кегль подписей ----
+     Раньше A−/A+ двигали границы labelFontMin/labelFontMax на 1 px, а весь граф после
+     Fit живёт на k≈0.07 — то есть сдвиг был 0.07 px на экране: кнопки ничего не делали
+     «на глаз». Теперь кегль на экране от зума не зависит (labelComp), поэтому множитель
+     labelScale виден сразу; шаг ×1.15 — заметный, но не грубый. */
   bumpFont(delta) {
     var s = this.plugin.settings;
-    if (s.labelFontBySize === false) {
-      s.labelFontSize = clamp(num(s.labelFontSize, 10) + delta, 6, 40);
-    } else {
-      s.labelFontMin = clamp(num(s.labelFontMin, 9) + delta, 5, 30);
-      s.labelFontMax = clamp(Math.max(s.labelFontMin, num(s.labelFontMax, 19) + delta), s.labelFontMin, 48);
-    }
+    var step = delta >= 0 ? FONT_STEP : 1 / FONT_STEP;
+    var cur = num(s.labelScale, 1) > 0 ? num(s.labelScale, 1) : 1;
+    s.labelScale = clamp(Math.round(cur * step * 1000) / 1000, 0.5, 4);
     this.plugin.saveSettings();
     this.applySizesNow();
+    this.updateFontReadout();
+    this.setStatus(
+      "кегль подписей ×" + s.labelScale.toFixed(2) + " (" + this.fontRangeText() + ")", 1600
+    );
+  }
+
+  /** Диапазон кегля в экранных пикселях — то, что пользователь и видит. */
+  fontRangeText() {
+    var s = this.plugin.settings;
+    var sc = num(s.labelScale, 1) > 0 ? num(s.labelScale, 1) : 1;
+    var lo = Math.round((s.labelFontBySize === false ? num(s.labelFontSize, 10) : num(s.labelFontMin, 9)) * sc);
+    var hi = Math.round((s.labelFontBySize === false ? num(s.labelFontSize, 10) : num(s.labelFontMax, 19)) * sc);
+    return lo === hi ? lo + " px" : lo + "\u2013" + hi + " px";
+  }
+
+  updateFontReadout() {
+    if (this.fontPxEl) this.fontPxEl.textContent = "×" + num(this.plugin.settings.labelScale, 1).toFixed(2);
+    if (this.fontRangeEl) this.fontRangeEl.textContent = this.fontRangeText();
   }
 
   applySizesNow() {
@@ -4822,14 +5163,7 @@ class LectureGraphView extends obsidian.ItemView {
       });
       core.packAroundAnchors(this.graph, { layout: this.plugin.settings.layout, passes: 24, pull: 0.6 });
     }
-    for (var id in this.nodeEls) {
-      var n = this.byId[id];
-      var el = this.nodeEls[id];
-      if (n && el) {
-        var c = el.querySelector("circle");
-        if (c) c.setAttribute("r", (n.r || 6).toFixed(1));
-      }
-    }
+    this.updateNodeSizes();
     this.updateLabels();
     this.redraw();
     this.renderBubble();
@@ -4941,12 +5275,8 @@ class LectureGraphView extends obsidian.ItemView {
     var rect = this.svg.getBoundingClientRect();
     var mx = ev.clientX - rect.left;
     var my = ev.clientY - rect.top;
-    var factor = Math.pow(1.0015, -ev.deltaY);
-    var k = clamp(this.view.k * factor, 0.05, 8);
-    this.view.x = mx - ((mx - this.view.x) / this.view.k) * k;
-    this.view.y = my - ((my - this.view.y) / this.view.k) * k;
-    this.view.k = k;
-    this.redraw({ geometry: false, classes: false, selection: false });
+    // то же преобразование, что у кнопок «+»/«−»: зум вокруг курсора
+    this.zoomBy(Math.pow(1.0015, -ev.deltaY), mx, my);
   }
 
   onHover(ev) {
@@ -5227,6 +5557,13 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
     new obsidian.Setting(el)
       .setName("Кегль максимальной вершины")
       .addSlider((t) => t.setLimits(6, 48, 0.5).setValue(s.labelFontMax).onChange((v) => ((s.labelFontMax = v), save(), this.plugin.refreshSizes())));
+    new obsidian.Setting(el)
+      .setName("Масштаб подписей (кнопки A−/A+ на панели)")
+      .setDesc("Множитель кегля. Кегль на экране не зависит от масштаба графа, поэтому множитель виден сразу; шаг кнопки — ×" + FONT_STEP + ".")
+      .addSlider((t) => t.setLimits(0.5, 4, 0.05)
+        .setValue(num(s.labelScale, 1))
+        .setDynamicTooltip()
+        .onChange((v) => ((s.labelScale = v), save(), this.plugin.refreshSizes())));
     new obsidian.Setting(el).setName("Автообновление при сохранении файлов").addToggle((t) => t.setValue(s.autoRefresh).onChange((v) => ((s.autoRefresh = v), save())));
     new obsidian.Setting(el).setName("Лимит узлов").addText((t) => t.setValue(String(s.maxNodes)).onChange((v) => ((s.maxNodes = num(v, 4000)), save())));
     new obsidian.Setting(el)
@@ -5384,6 +5721,21 @@ class LectureGraphPlugin extends obsidian.Plugin {
       id: "open-view-fullscreen",
       name: "Open graph in full screen",
       callback: () => this.activateView(true),
+    });
+    this.addCommand({
+      id: "zoom-in",
+      name: "Zoom graph in",
+      callback: () => { var v = this.view(); if (v) v.zoomBy(ZOOM_STEP); },
+    });
+    this.addCommand({
+      id: "zoom-out",
+      name: "Zoom graph out",
+      callback: () => { var v = this.view(); if (v) v.zoomBy(1 / ZOOM_STEP); },
+    });
+    this.addCommand({
+      id: "zoom-fit",
+      name: "Fit graph to view",
+      callback: () => { var v = this.view(); if (v) v.fit(); },
     });
     this.addCommand({
       id: "bump-font-up",
