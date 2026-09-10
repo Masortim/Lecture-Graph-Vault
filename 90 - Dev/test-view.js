@@ -874,6 +874,121 @@ const plugin = new PluginClass(app, manifest);
     await new Promise((r) => setTimeout(r, 60));
   });
 
+  await ok("полный экран: граф по центру экрана, а не по центру прежней сцены", async () => {
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    // jsdom не считает layout: размер сцены задаём сами, как это делает Obsidian
+    const setSize = (w, h) => {
+      Object.defineProperty(view.svg, "clientWidth", { value: w, configurable: true });
+      Object.defineProperty(view.svg, "clientHeight", { value: h, configurable: true });
+    };
+    const clearSize = () => {
+      delete view.svg.clientWidth;
+      delete view.svg.clientHeight;
+      if (view.stageEl) {
+        delete view.stageEl.clientWidth;
+        delete view.stageEl.clientHeight;
+      }
+    };
+    // центр НАРИСОВАННОГО графа по X: реальные r из DOM и камера слоя
+    const centerX = () => {
+      const v = view.view;
+      let minX = Infinity, maxX = -Infinity;
+      for (const id in view.nodeEls) {
+        if (!view.visible[id]) continue;
+        const n = view.byId[id];
+        if (!n || !isFinite(n.x)) continue;
+        const c = view.nodeEls[id].querySelector("circle");
+        const r = (c ? parseFloat(c.getAttribute("r")) : n.r || 6) * v.k;
+        const cx = n.x * v.k + v.x;
+        minX = Math.min(minX, cx - r);
+        maxX = Math.max(maxX, cx + r);
+      }
+      return (minX + maxX) / 2;
+    };
+    // камера досчитывается rAF-цепочкой: ждём результата, а не «на глаз» миллисекунд
+    const centeredAt = async (x, what) => {
+      for (let i = 0; i < 120 && Math.abs(centerX() - x) >= 1.5; i++) await wait(25);
+      assert.ok(Math.abs(centerX() - x) < 1.5,
+        what + ": центр " + centerX().toFixed(1) + " вместо " + x +
+        " (сдвиг " + (centerX() - x).toFixed(1) + " px)");
+    };
+    const savedRO = global.ResizeObserver;
+    try {
+      // --- 1. вход в полный экран: сцена принимает новый размер ПОЗЖЕ ----------
+      setSize(1180, 860);
+      view.fit();
+      await centeredAt(590, "в листе 1180");
+      view.toggleFullscreen(true);
+      await wait(80); // одинокий fit() «через 30 мс» к этому моменту уже отработал
+      assert.ok(Math.abs(centerX() - 590) < 1.5, "камера пересчиталась до смены размера сцены");
+      setSize(1920, 1080); // переход полноэкранного режима/перекладка закончились позже
+      await centeredAt(960, "в полном экране 1920");
+      const box = view.stageBox();
+      assert.strictEqual(box.w + "x" + box.h, "1920x1080", "stageBox() врёт про размер: " + JSON.stringify(box));
+      assert.strictEqual(view._fitBox.w, 1920, "камера не запомнила размер, под который посчитана");
+
+      // --- 2. выход из полного экрана центрирует обратно по листу -------------
+      setSize(1180, 860);
+      view.toggleFullscreen(false);
+      await centeredAt(590, "после выхода из полного экрана");
+
+      // --- 3. смена размера сцены без изменения окна: onResize + ResizeObserver
+      assert.strictEqual(typeof view.onResize, "function", "у представления нет хука onResize()");
+      let fired = null;
+      global.ResizeObserver = function (fn) {
+        fired = fn;
+        this.observe = function () {};
+        this.disconnect = function () {};
+      };
+      view._stageRO = null;
+      view.observeStage();
+      assert.ok(view._stageRO, "ResizeObserver не подключён к сцене");
+      setSize(1600, 900);
+      fired(); // сцена сменила размер — окно Obsidian при этом не менялось
+      await centeredAt(800, "после смены размера сцены");
+      setSize(1400, 800);
+      view.onResize();
+      await centeredAt(700, "после onResize()");
+
+      // --- 4. размер сцены берётся из DOM, а не из фантомных 1000×700 ---------
+      // svg ещё не переложен (clientWidth = 0) — размер обязан прийти из контейнера,
+      // иначе fit() центрирует граф в несуществующем окне и тот уезжает влево
+      clearSize();
+      Object.defineProperty(view.stageEl, "clientWidth", { value: 1400, configurable: true });
+      Object.defineProperty(view.stageEl, "clientHeight", { value: 900, configurable: true });
+      assert.strictEqual(view.width(), 1400, "width() не взял размер сцены: " + view.width());
+      assert.strictEqual(view.height(), 900, "height() не взял размер сцены: " + view.height());
+      view.fit();
+      await centeredAt(700, "при непереложенном svg (сцена 1400)");
+
+      // --- 5. холст измерен УЖЕ окна: в полном экране опора — окно -------------
+      // сценарий из .obsidian/workspace.json: лист 1584 px (лента + левая панель 300),
+      // окно 1920 px. По боксу листа центр графа лег бы в 792 — на 168 px левее
+      // центра экрана; с опорой на окно он обязан быть в 960
+      Object.defineProperty(dom.window, "innerWidth", { value: 1920, configurable: true });
+      Object.defineProperty(dom.window, "innerHeight", { value: 1080, configurable: true });
+      setSize(1584, 860);
+      view.toggleFullscreen(true);
+      assert.strictEqual(view.width(), 1920,
+        "в полном экране width() не взял окно: " + view.width() + " (бокс сцены " + view.stageBox().w + ")");
+      await centeredAt(960, "в полном экране при листе 1584 и окне 1920");
+      assert.ok(view.fitFrame().toScreen, "fitFrame() не признался, что опора — окно");
+    } finally {
+      // убираем за собой: дальше тесты живут с прежним (нулевым) размером сцены.
+      // Осторожно и без собственных исключений: иначе ошибка finally перекроет
+      // настоящую причину провала (так регрессия пряталась за TypeError)
+      global.ResizeObserver = savedRO;
+      delete dom.window.innerWidth;
+      delete dom.window.innerHeight;
+      if (view.fullscreen) view.toggleFullscreen(false);
+      if (view._stageRO && view._stageRO.disconnect) view._stageRO.disconnect();
+      view._stageRO = null;
+      if (typeof view.stopRefit === "function") view.stopRefit();
+      clearSize();
+      view.fit();
+    }
+  });
+
   await ok("кегль подписей: A−/A+, авто-масштаб и фиксированный (п.3)", async () => {
     const s = plugin.settings;
     s.labelFontBySize = true;
