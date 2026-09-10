@@ -1587,6 +1587,17 @@ class LectureGraphView extends obsidian.ItemView {
   onPointerDown(ev) {
     if (ev.button !== 0) return;
     var n = this.nodeFromEvent(ev);
+    // Ctrl+ЛКМ (на macOS и Cmd+ЛКМ) — ручная связь: источник — уже выделенная
+    // вершина, цель — вершина под курсором. Дуга рисуется сама: плагин дописывает
+    // ссылку в заметку источника и пересобирает граф. Перетаскивание тут не нужно.
+    if (ev.ctrlKey || ev.metaKey) {
+      if (n) {
+        ev.preventDefault();
+        this.linkSelectedTo(n);
+        return;
+      }
+      // Ctrl+клик по пустому месту — как обычный клик: панорама/снятие выделения
+    }
     var p = this.toGraph(ev);
     if (n) {
       this.drag = { node: n, dx: n.x - p.x, dy: n.y - p.y, moved: false };
@@ -1691,6 +1702,25 @@ class LectureGraphView extends obsidian.ItemView {
     menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
     menu.addSeparator();
     menu.addItem((it) => it.setTitle("Copy wiki link").setIcon("link").onClick(() => this.plugin.copyLink(n)));
+    // ручная связь без Ctrl: если вершина уже выделена, меню предлагает оба направления
+    if (this.selected && this.selected !== n.id && this.byId[this.selected]) {
+      var srcSel = this.byId[this.selected];
+      var self = this;
+      var label = function (x) { return x.name || x.id; };
+      menu.addSeparator();
+      menu.addItem((it) =>
+        it
+          .setTitle("Link: «" + label(srcSel) + "» → эта вершина")
+          .setIcon("arrow-right")
+          .onClick(() => self.linkSelectedTo(n, srcSel))
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Link: эта вершина → «" + label(srcSel) + "»")
+          .setIcon("arrow-left")
+          .onClick(() => self.linkSelectedTo(srcSel, n))
+      );
+    }
     menu.showAtPosition({ x: ev.pageX, y: ev.pageY });
   }
 
@@ -1704,8 +1734,8 @@ class LectureGraphView extends obsidian.ItemView {
     this.applyFilters();
   }
 
-  select(id) {
-    if (id && this.selected === id) {
+  select(id, force) {
+    if (id && this.selected === id && !force) {
       // второй клик по той же вершине — снять выделение и спрятать сообщение
       this.selected = null;
       this.neigh = null;
@@ -1723,6 +1753,36 @@ class LectureGraphView extends obsidian.ItemView {
     this.showBubble(n ? n.id : null);
     this.redraw({ geometry: false });
     this.updateLabels();
+    if (this.selected) {
+      // подсказка про второй шаг ручной связи: источник уже выделен
+      this.setStatus("Связь: «" + (n.name || n.id) + "» — источник. Ctrl+клик по другому узлу — провести дугу", 5000);
+    }
+  }
+
+  /**
+   * Ручная связь из графа: источник — выделенная вершина (или явно переданный),
+   * цель — та, по которой Ctrl+кликнули. Порядок выделения задаёт направление дуги:
+   * первый выделенный узел ссылается на второй. Если источник ещё не выбран,
+   * клик просто делает цель первым узлом будущей связи.
+   */
+  async linkSelectedTo(target, source) {
+    if (!target) return;
+    var src = source || (this.selected ? this.byId[this.selected] : null);
+    if (!src) {
+      new obsidian.Notice("Связь: сначала выделите первый узел (ЛКМ), затем Ctrl+клик по второму");
+      this.select(target.id);
+      return;
+    }
+    if (src.id === target.id) {
+      new obsidian.Notice("Связь вершины с собой создать нельзя: Ctrl+кликните другой узел");
+      return;
+    }
+    var ok = await this.plugin.createManualLink(src, target, this.graph);
+    if (ok) {
+      // граф пересобран: обновить соседей и пузырёк источника, не снимая выделения
+      this.select(src.id, true);
+      this.setStatus("Связь создана: «" + (src.name || src.id) + "» → «" + (target.name || target.id) + "». Ctrl+клик — ещё одна дуга", 6000);
+    }
   }
 
   isolate(id) {
@@ -3031,6 +3091,79 @@ class LectureGraphPlugin extends obsidian.Plugin {
       (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
     new obsidian.Notice(msg);
     return { file: file, path: file.path, node: node, id: id, plan: plan, related: related, chapter: chapter };
+  }
+
+  /**
+   * Ручная связь между двумя вершинами (ЛКМ по первой, затем Ctrl+ЛКМ по второй).
+   * У графа нет «своих» рёбер: дуга появляется, когда в заметке источника появляется
+   * ссылка. Поэтому здесь — проверка, что дуги ещё нет, дописка `[[цель|имя]]` в тело
+   * заметки-источника (раздел «Related topics», см. core.appendManualLink) и
+   * пересборка графа. Позиции вершин переносятся из прежнего снимка, чтобы дуга
+   * возникла ровно между теми кругами, по которым кликнули, а не после перекладки.
+   */
+  async createManualLink(srcNode, tgtNode, currentGraph) {
+    if (!srcNode || !tgtNode) return false;
+    var label = function (n) { return (n && (n.name || n.id)) || "?"; };
+    if (srcNode.inline) {
+      new obsidian.Notice("Инлайн-блок не может быть источником связи: у него нет своей заметки (" + srcNode.id + ")");
+      return false;
+    }
+    if (tgtNode.inline) {
+      new obsidian.Notice("Инлайн-блок не может быть целью связи (" + tgtNode.id + ")");
+      return false;
+    }
+    var g = currentGraph || this.cache;
+    if (g && (g.edges || []).some(function (e) { return e.source === srcNode.id && e.target === tgtNode.id; })) {
+      new obsidian.Notice("Связь уже есть: «" + label(srcNode) + "» → «" + label(tgtNode) + "»");
+      return false;
+    }
+    var file = this.app.vault.getAbstractFileByPath(srcNode.path);
+    if (!(file instanceof obsidian.TFile)) {
+      new obsidian.Notice("Заметка источника не найдена: " + srcNode.path);
+      return false;
+    }
+    // запоминаем координаты до пересборки: после записи вернём их на место
+    var oldPos = {};
+    if (this.cache) {
+      this.cache.nodes.forEach(function (n) {
+        if (isFinite(n.x) && isFinite(n.y)) oldPos[n.id] = { x: n.x, y: n.y };
+      });
+    }
+    var opts = buildOptions(this.settings);
+    var wrote = false;
+    try {
+      await this.processInternal(file, function (data) {
+        var next = core.appendManualLink(data, { stem: tgtNode.stem, name: tgtNode.name }, opts);
+        if (next === data) return data; // ссылка уже была в тексте — не дублируем
+        wrote = true;
+        return next;
+      });
+    } catch (e) {
+      new obsidian.Notice("Не удалось записать связь: " + (e && e.message ? e.message : e));
+      return false;
+    }
+    if (!wrote) {
+      new obsidian.Notice("Ссылка на «" + label(tgtNode) + "» уже есть в тексте заметки " + srcNode.path);
+      return false;
+    }
+    var fresh = await this.getGraph(true);
+    var made = (fresh.edges || []).some(function (e) { return e.source === srcNode.id && e.target === tgtNode.id; });
+    var carried = 0;
+    fresh.nodes.forEach(function (n) {
+      var p = oldPos[n.id];
+      if (p) { n.x = p.x; n.y = p.y; n.tx = p.x; n.ty = p.y; carried++; }
+    });
+    if (carried) {
+      this.forEachView(function (v) {
+        if (v.graph === fresh) v.adoptGraph(fresh, true);
+      });
+    }
+    if (!made) {
+      new obsidian.Notice("Ссылка записана (" + srcNode.path + "), но ребро в графе не появилось — проверьте текст заметки");
+      return false;
+    }
+    new obsidian.Notice("Связь создана: «" + label(srcNode) + "» → «" + label(tgtNode) + "» (" + srcNode.path + ")");
+    return true;
   }
 
   async copyLink(node) {
