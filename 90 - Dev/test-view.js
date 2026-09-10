@@ -1565,6 +1565,117 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(n1.kwWeight, n.kwWeight, "вес изменился после пересчёта");
   });
 
+  console.log("\n== раунд 20: ручная связь — ЛКМ по первому узлу, затем Ctrl+ЛКМ по второму ==");
+
+  // пара без дуги между ними: блок из Ch01 и глава другой главы
+  const gLink0 = await plugin.getGraph(false);
+  const hasEdge = (s, t) => gLink0.edges.some((e) => e.source === s && e.target === t);
+  const linkA = gLink0.nodes.find((n) => n.type === "block" && !n.inline && n.id === "Ch01-S01-H01-B01");
+  const linkB = gLink0.nodes.find((n) => n.type === "chapter" && n.id !== linkA.chapter && !hasEdge(linkA.id, n.id));
+
+  await ok("Ctrl+ЛКМ по второму узлу: ссылка в заметке, дуга в графе, позиции не прыгают", async () => {
+    assert.ok(linkA && linkB, "фикстуры не найдены");
+    assert.ok(!hasEdge(linkA.id, linkB.id), "дуга была ещё до теста");
+    view.select(null);
+    view.select(linkA.id);
+    assert.strictEqual(view.selected, linkA.id, "первый узел не выделился");
+    const ax = view.byId[linkA.id].x, ay = view.byId[linkA.id].y;
+    assert.ok(isFinite(ax) && isFinite(ay), "у вершины нет координат");
+    const edgesBefore = (await plugin.getGraph(false)).edges.length;
+    view.nodeEls[linkB.id].dispatchEvent(
+      new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, ctrlKey: true })
+    );
+    // linkSelectedTo асинхронный: ждём, пока дуга появится в кэше
+    const deadline = Date.now() + 30000;
+    let made = false;
+    while (Date.now() < deadline) {
+      const gg = await plugin.getGraph(false);
+      if ((made = gg.edges.some((e) => e.source === linkA.id && e.target === linkB.id))) break;
+      await new Promise((r) => setTimeout(r, 120));
+    }
+    assert.ok(made, "дуга не появилась после Ctrl+клика");
+    const gg = await plugin.getGraph(false);
+    const e = gg.edges.find((x) => x.source === linkA.id && x.target === linkB.id);
+    assert.strictEqual(e.kind, "reference", "ручная связь — не ребро reference");
+    assert.strictEqual(gg.edges.length, edgesBefore + 1, "лишние рёбра");
+    // ссылка записана в заметку источника, в раздел «вне региона»
+    const textAfter = fs.readFileSync(path.join(TMP, linkA.path), "utf8");
+    assert.ok(textAfter.indexOf("[[" + linkB.stem + "|" + linkB.name + "]] — added via graph") > 0, "ссылка не записана в заметку");
+    assert.ok(textAfter.indexOf("## Related topics") >= 0, "нет раздела Related topics");
+    // выделение осталось на первом узле (можно тянуть дальше), координаты перенесены
+    assert.strictEqual(view.selected, linkA.id, "выделение слетело с источника");
+    assert.strictEqual(view.byId[linkA.id].x, ax, "x источника прыгнул после пересборки");
+    assert.strictEqual(view.byId[linkA.id].y, ay, "y источника прыгнул после пересборки");
+    // соседи подсветки обновлены: цель теперь в окрестности источника
+    assert.ok(view.neigh && view.neigh[linkB.id], "новая цель не вошла в подсветку соседей");
+  });
+
+  await ok("повторный Ctrl+клик по той же паре — дубль не создаётся", async () => {
+    const before = fs.readFileSync(path.join(TMP, linkA.path), "utf8");
+    const edgesBefore = (await plugin.getGraph(false)).edges.length;
+    view.nodeEls[linkB.id].dispatchEvent(
+      new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, ctrlKey: true })
+    );
+    await new Promise((r) => setTimeout(r, 300));
+    assert.strictEqual(fs.readFileSync(path.join(TMP, linkA.path), "utf8"), before, "заметка изменилась от дубля");
+    assert.strictEqual((await plugin.getGraph(false)).edges.length, edgesBefore, "дубль ребра");
+    assert.strictEqual(view.selected, linkA.id, "выделение слетело");
+  });
+
+  await ok("Ctrl+клик по тому же узлу и без выделения: связь с собой нельзя, пустое выделение делает клик первым шагом", async () => {
+    const before = fs.readFileSync(path.join(TMP, linkA.path), "utf8");
+    view.nodeEls[linkA.id].dispatchEvent(
+      new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, ctrlKey: true })
+    );
+    await new Promise((r) => setTimeout(r, 200));
+    assert.strictEqual(fs.readFileSync(path.join(TMP, linkA.path), "utf8"), before, "создана связь с собой");
+    assert.strictEqual(view.selected, linkA.id, "выделение источника потеряно");
+    // без выделения: узел становится первым шагом, а не целью
+    view.select(null);
+    view.nodeEls[linkB.id].dispatchEvent(
+      new dom.window.MouseEvent("pointerdown", { bubbles: true, cancelable: true, button: 0, ctrlKey: true })
+    );
+    await new Promise((r) => setTimeout(r, 120));
+    assert.strictEqual(view.selected, linkB.id, "Ctrl+клик без выделения не выбрал узел как источник");
+  });
+
+  await ok("контекстное меню при выделенной вершине: оба направления связи без Ctrl", async () => {
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.select(null);
+      view.select(linkB.id); // источник — глава
+      // цель — другой блок, на который у главы ещё нет ссылки
+      const gg = await plugin.getGraph(false);
+      const has = (s, t) => gg.edges.some((e) => e.source === s && e.target === t);
+      const tgt = gg.nodes.find((n) => n.type === "block" && !n.inline && n.chapter === "Ch02" && !has(linkB.id, n.id));
+      assert.ok(tgt, "не нашлось цели для меню");
+      view.nodeEls[tgt.id].dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 30, clientY: 30 })
+      );
+      assert.ok(captured, "меню не создано");
+      const titles = captured.items.filter((i) => !i.sep).map((i) => i._t);
+      const fwd = captured.items.find((i) => i._t && i._t.indexOf("эта вершина") >= 0 && i._t.indexOf("→ эта") >= 0);
+      assert.ok(fwd, "нет пункта «выбранная → эта»: " + titles.join(" | "));
+      await fwd._cb();
+      const deadline = Date.now() + 30000;
+      let made = false;
+      while (Date.now() < deadline) {
+        const g2 = await plugin.getGraph(false);
+        if ((made = g2.edges.some((e) => e.source === linkB.id && e.target === tgt.id))) break;
+        await new Promise((r) => setTimeout(r, 120));
+      }
+      assert.ok(made, "дуга из меню не создана");
+      const raw = fs.readFileSync(path.join(TMP, linkB.path), "utf8");
+      assert.ok(raw.indexOf("[[" + tgt.stem + "|" + tgt.name + "]] — added via graph") > 0, "ссылка из меню не записана");
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+  });
+
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));
   console.log("временное хранилище: " + TMP);
   try { fs.rmSync(TMP, { recursive: true, force: true }); } catch (e) {}

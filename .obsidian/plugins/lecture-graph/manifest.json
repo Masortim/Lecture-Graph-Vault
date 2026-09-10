@@ -1,9 +1,9 @@
 {
   "id": "lecture-graph",
   "name": "Lecture Graph",
-  "version": "1.7.0",
+  "version": "1.8.0",
   "minAppVersion": "1.5.0",
-  "description": "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus.",
+  "description": "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus. Manual edges: select the first node with a left click, then Ctrl+left-click the second — the link arc is drawn automatically.",
   "author": "Arena agent",
   "authorUrl": "",
   "isDesktopOnly": false

@@ -734,6 +734,74 @@
     return { outside: [before, after].filter(function (x) { return x !== ""; }).join("\n\n") + "\n", region: region, at: i, end: tail };
   }
 
+  var RELATED_HEADING = "## Related topics";
+
+  /**
+   * Дописывает пункт-ссылку в раздел с данным заголовком; раздела нет — создаёт его
+   * в конце текста. Пункт вставляется после последнего непустого абзаца раздела,
+   * то есть перед следующим заголовком, ничего не разрывая.
+   */
+  function appendBulletToSection(outside, heading, bullet) {
+    var lines = String(outside == null ? "" : outside).split("\n");
+    var start = -1;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() === heading.toLowerCase()) { start = i; break; }
+    }
+    if (start < 0) {
+      var base = lines.join("\n").replace(/\s+$/g, "");
+      return (base ? base + "\n\n" : "") + heading + "\n\n" + bullet + "\n";
+    }
+    var end = lines.length;
+    for (var j = start + 1; j < lines.length; j++) {
+      if (/^#{1,6}\s/.test(lines[j])) { end = j; break; }
+    }
+    var at = end;
+    while (at > start + 1 && lines[at - 1].trim() === "") at--;
+    lines.splice(at, 0, bullet);
+    return lines.join("\n");
+  }
+
+  /**
+   * Ручная связь между вершинами, созданная прямо в графе (ЛКМ по первому узлу,
+   * затем Ctrl+ЛКМ по второму). У графа нет «своих» рёбер — дуга рисуется, когда
+   * в тексте источника появляется wiki-ссылка; эта функция и дописывает её в тело
+   * заметки-источника: в раздел «Related topics» (создаётся, если его нет), всегда
+   * ВНЕ региона keywords:begin/end — регион пишет только материализатор фраз, и он
+   * обязан оставаться последним блоком тела. Возвращает новый текст заметки или
+   * исходный, если ссылку добавлять некуда/незачем (повтор — идемпотентно,
+   * фронтматтер и `$$формулы$$` не трогаются).
+   */
+  function appendManualLink(text, target, opts) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var stem = String((target && target.stem) || "").trim();
+    if (!stem) return src;
+    var parsed = parseFrontmatter(src);
+    var body = parsed.body;
+    var name = String((target && target.name) || "").replace(/[\[\]#|]/g, "").trim();
+    var link = "[[" + stem + (name && name !== stem ? "|" + name : "") + "]]";
+    var cut = splitKeywordRegion(body);
+    // ссылка на эту заметку в теле уже есть (вне региона фраз) — не дублируем
+    var lower = stem.toLowerCase();
+    var exists = extractLinks(cut.outside).some(function (l) {
+      var p = String(l.path || "").trim().toLowerCase().replace(/\\/g, "/");
+      if (!p) return false;
+      var last = p.split("/").pop();
+      return p === lower || p === lower + ".md" || last === lower || last === lower + ".md";
+    });
+    if (exists) return src;
+    var bullet = "- " + link + " — added via graph";
+    var newBody;
+    if (cut.region === null) {
+      newBody = appendBulletToSection(body, RELATED_HEADING, bullet);
+    } else {
+      // регион фраз (и всё после него) остаётся байт-в-байт: ссылка пишется ДО него
+      var before = body.slice(0, cut.at);
+      var rest = body.slice(cut.at);
+      newBody = appendBulletToSection(before, RELATED_HEADING, bullet).replace(/\s+$/g, "") + "\n\n" + rest.replace(/^\n+/, "");
+    }
+    return (parsed.hasFrontmatter ? parsed.raw : "") + newBody;
+  }
+
   /** Вставить/заменить/удалить блок между маркерами; всё остальное — байт-в-байт. */
   function applyKeywordRegion(body, text) {
     var src = String(body == null ? "" : body);
@@ -3687,7 +3755,7 @@
     );
     var related = s.related || [];
     if (related.length) {
-      body.push("", "## Related topics", "");
+      body.push("", RELATED_HEADING, "");
       related.forEach(function (r) {
         var label = RELATED_TYPE_LABEL[r.type] || "вершина";
         body.push("- [[" + r.stem + "|" + r.phrase + "]] — " + label + (r.name && r.name !== r.phrase ? " «" + r.name + "»" : ""));
@@ -3722,6 +3790,9 @@
     keywordRegionText: keywordRegionText,
     splitKeywordRegion: splitKeywordRegion,
     applyKeywordRegion: applyKeywordRegion,
+    appendManualLink: appendManualLink,
+    appendBulletToSection: appendBulletToSection,
+    RELATED_HEADING: RELATED_HEADING,
     radiusFor: radiusFor,
     initPositions: initPositions,
     buildTree: buildTree,

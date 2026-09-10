@@ -1407,4 +1407,60 @@ ok("заметка из composeNote — сразу вершина графа: р
   assert.strictEqual(e.weight, 3, "вес ребра keyword не из «×3»");
 });
 
+/* -------------------------------------------------- ручная связь (ЛКМ + Ctrl+ЛКМ) */
+
+ok("appendManualLink: ссылка дописывается в существующий Related topics", () => {
+  const note =
+    "---\ntype: block\nid: Ch01-S01-H01-B99\nname: \"Source\"\n---\n\n# Source\n\nТекст.\n\n" +
+    "## Related topics\n\n- [[Ch02-S02-H03-B03 - Proposition 2.2.3c|Proposition 2.2.3c]] — block\n\n" +
+    "## Something else\n\ntail\n";
+  const out = core.appendManualLink(note, { stem: "Ch03 - Inner Products and Orthogonality", name: "Inner Products and Orthogonality" });
+  assert.ok(out.indexOf("[[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — added via graph") > 0, "ссылка не дописана");
+  // пункт лёг ВНУТРЬ раздела: после прежнего пункта, до следующего заголовка
+  assert.ok(out.indexOf("Proposition 2.2.3c]] — block\n- [[Ch03") > 0, "пункт не в конце раздела Related topics");
+  assert.ok(out.indexOf("## Something else") > out.indexOf("[[Ch03"), "пункт вылез за пределы раздела");
+  // фронтматтер — байт-в-байт
+  assert.strictEqual(out.slice(0, note.indexOf("---", 3) + 4), note.slice(0, note.indexOf("---", 3) + 4), "frontmatter изменён");
+});
+
+ok("appendManualLink: нет раздела — создаётся в конце тела; идемпотентность", () => {
+  const note = "---\ntype: chapter\nid: Ch01\nname: \"Metric Spaces and Completion\"\n---\n\n# Metric Spaces and Completion\n\nТекст главы.\n";
+  const out = core.appendManualLink(note, { stem: "Ch05 - Hilbert Space Geometry", name: "Hilbert Space Geometry" });
+  assert.ok(/## Related topics\n\n- \[\[Ch05 - Hilbert Space Geometry\|Hilbert Space Geometry\]\] — added via graph\n$/.test(out), "раздел не создан в конце: " + JSON.stringify(out));
+  const again = core.appendManualLink(out, { stem: "Ch05 - Hilbert Space Geometry", name: "Hilbert Space Geometry" });
+  assert.strictEqual(again, out, "повторное добавление плодит дубли");
+  // тот же файл, но ссылка в тексте без псевдонима — тоже считается существующей
+  const bare = core.appendManualLink(out, { stem: "Ch05 - Hilbert Space Geometry" });
+  assert.strictEqual(bare, out, "ссылка без |имя не распознана как дубль");
+});
+
+ok("appendManualLink: регион ключевых фраз остаётся последним блоком и байт-в-байт", () => {
+  const marks = core.keywordMarkers();
+  const region = marks.begin + "\n\nСвязи по `keywords_en`.\n\n- [[Ch02-S01 - Setup and Notation|norm]] — секция `Ch02-S01`, 2 вхождения\n\n" + marks.end;
+  const note = "---\ntype: block\nid: Ch01-S01-H01-B98\nname: \"With Region\"\n---\n\n# With Region\n\nТекст.\n\n" + region + "\n";
+  const out = core.appendManualLink(note, { stem: "Ch04 - Banach Space Theorems", name: "Banach Space Theorems" });
+  assert.ok(out.endsWith(region + "\n"), "регион переписан или сдвинут");
+  assert.ok(out.indexOf("## Related topics") > 0 && out.indexOf("## Related topics") < out.indexOf(marks.begin), "ссылка не перед регионом");
+  // ссылки из региона не мешают и не дублируются
+  const out2 = core.appendManualLink(out, { stem: "Ch02-S01 - Setup and Notation", name: "Setup and Notation" });
+  assert.notStrictEqual(out2, out, "ссылка из региона фраз мешает добавить такую же вручную");
+});
+
+ok("appendManualLink: граф видит новую дугу как ребро reference", () => {
+  const srcNote = allNotes.find((n) => n.path.indexOf("Ch01-S01-H01-B01") >= 0);
+  const tgt = allNotes.find((n) => /^10 - Chapters\/Ch05/.test(n.path));
+  assert.ok(srcNote && tgt, "фикстуры не найдены");
+  const tgtFm = core.parseFrontmatter(tgt.text).data;
+  const before = core.buildGraph(allNotes, shippedCfg);
+  const srcId = before.nodes.find((n) => n.path === srcNote.path).id;
+  const tgtId = before.nodes.find((n) => n.path === tgt.path).id;
+  assert.ok(!before.edges.some((e) => e.source === srcId && e.target === tgtId), "дуга была ещё до теста");
+  const stemTgt = tgt.path.replace(/\.md$/, "").split("/").pop();
+  const text = core.appendManualLink(srcNote.text, { stem: stemTgt, name: tgtFm.name });
+  const after = core.buildGraph(allNotes.map((n) => (n === srcNote ? { path: n.path, text } : n)), shippedCfg);
+  const e = after.edges.find((x) => x.source === srcId && x.target === tgtId);
+  assert.ok(e, "дуга не появилась после дописки ссылки");
+  assert.strictEqual(e.kind, "reference", "ручная связь обязана быть ребром reference, не keyword");
+});
+
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));
