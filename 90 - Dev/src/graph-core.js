@@ -360,8 +360,10 @@
    * Ссылки внутри `code`/фenced-блоков и внутри callout-маркеров не игнорируются
    * намеренно: Obsidian индексирует их так же (в inline code — нет, см. stripCode).
    */
-  function extractLinks(text) {
-    var src = stripCode(String(text == null ? "" : text));
+  function extractLinks(text, opts) {
+    // opts.stripCode === false оставляет «сырые» позиции ссылок (нужны там, где текст
+    // переписывается по кускам — при удалении вершины ссылку надо заменить, а не найти).
+    var src = (opts && opts.stripCode === false) ? String(text == null ? "" : text) : stripCode(String(text == null ? "" : text));
     var out = [];
     WIKILINK.lastIndex = 0;
     var m;
@@ -3768,6 +3770,307 @@
     return out + "\n" + body.join("\n").replace(/\s+$/g, "") + "\n";
   }
 
+  /* ------------------------------------------------- удаление вершин */
+
+  /**
+   * Совпадает ли имя цели ссылки с вершиной: по stem (имя файла без .md), по id или
+   * по пути — те же четыре варианта, что перебирает resolve() в buildGraph.
+   */
+  function noteKeyMatch(path, node) {
+    if (!node) return false;
+    var s = String(path == null ? "" : path).replace(/\\/g, "/").replace(/^\.\//, "").trim().toLowerCase();
+    if (!s) return false;
+    var noExt = s.replace(/\.md$/i, "");
+    var base = String(node.path == null ? "" : node.path).split("/").pop();
+    var cands = [node.stem, node.id, node.path, String(node.path == null ? "" : node.path).replace(/\.md$/i, ""),
+      base, String(base).replace(/\.md$/i, "")];
+    for (var i = 0; i < cands.length; i++) {
+      var c = String(cands[i] == null ? "" : cands[i]).trim().toLowerCase();
+      if (!c) continue;
+      if (noExt === c || noExt === c.replace(/\.md$/i, "")) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Ведёт ли ссылка ровно на эту вершину. Ссылка с блочным якорем (`[[Заметка#^id]]`)
+   * ведёт на инлайн-вершину, а не на саму заметку, поэтому для обычной вершины такие
+   * ссылки не считаются её ссылками, а для инлайн-блока — наоборот, только они.
+   */
+  function linkTargetsNode(link, node, graph) {
+    if (!link || !node) return false;
+    var p = String(link.path == null ? "" : link.path).replace(/\\/g, "/").trim();
+    if (node.inline) {
+      if (!link.blockId) return false;
+      if (String(node.anchorName) !== String(link.blockId)) return false;
+      var owner = (graph && graph._byId && graph._byId[node.parent]) ||
+        { stem: node.stem, path: node.path, id: node.parent };
+      return noteKeyMatch(p, owner);
+    }
+    if (link.blockId) return false; // это ссылка на блок внутри заметки, а не на заметку
+    return noteKeyMatch(p, node);
+  }
+
+  /** Свойство caption: указывает на удаляемую вершину (на неё ссылается сообщение). */
+  function captionPointsTo(node, target) {
+    if (!node || !target) return false;
+    var t = String(node.caption == null ? "" : node.caption).trim();
+    if (!t) return false;
+    return noteKeyMatch(t.replace(/^\[\[/, "").replace(/\]\]$/, ""), target);
+  }
+
+  /**
+   * Убирает из текста ссылки на удаляемые вершины (targets — сама вершина и её
+   * инлайн-блоки, если заметка удаляется целиком):
+   *   * пункт списка, который НАЧИНАЕТСЯ со ссылки на удаляемую вершину, уходит
+   *     целиком: так устроены машинные пункты — регион ключевых фраз и раздел
+   *     «Related topics» — они существуют только ради ссылки;
+   *   * ссылка внутри фразы превращается в свой видимый текст (псевдоним, иначе имя
+   *     вершины) — мысль в тексте остаётся, битой ссылки не остаётся;
+   *   * врезка `![[…]]` исчезает (вставлять больше нечего).
+   * Ссылки внутри `инлайн-кода` не трогаются: для Obsidian это не ссылка.
+   */
+  function stripTargetRefs(text, targets, res, graph) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var out = [];
+    var isTarget = function (l) {
+      return targets.some(function (t) {
+        return linkTargetsNode(l, t, graph);
+      });
+    };
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.indexOf("[[") < 0) {
+        out.push(line);
+        continue;
+      }
+      var links = extractLinks(line, { stripCode: false }).filter(function (l) {
+        var ticks = (line.slice(0, l.index).match(/`/g) || []).length;
+        return ticks % 2 === 0;
+      });
+      var hits = links.filter(isTarget);
+      if (!hits.length) {
+        out.push(line);
+        continue;
+      }
+      var bm = /^(\s*(?:[-*+]|\d+\.)\s+)(.*)$/.exec(line);
+      if (bm && isTarget(links[0]) && bm[2].replace(/^[\s*_>]+/, "").indexOf(links[0].raw) === 0) {
+        res.removed += hits.length;
+        continue; // пункт-обёртка ссылки исчезает целиком
+      }
+      var pieces = [];
+      var pos = 0;
+      links.forEach(function (l) {
+        pieces.push(line.slice(pos, l.index));
+        pos = l.index + l.raw.length;
+        if (!isTarget(l)) {
+          pieces.push(l.raw);
+          return;
+        }
+        res.removed++;
+        if (l.linkType === "embed") return;
+        var t = targets.filter(function (x) {
+          return linkTargetsNode(l, x, graph);
+        })[0];
+        pieces.push(l.hasAlias && l.alias ? l.alias : sanitizeLabel((t && t.name) || l.path));
+      });
+      pieces.push(line.slice(pos));
+      out.push(pieces.join("").replace(/[ \t]{2,}/g, " ").replace(/[ \t]+$/, ""));
+    }
+    return out.join("\n");
+  }
+
+  /**
+   * Удаляет раздел целиком, если в нём не осталось ничего, кроме пустых строк
+   * (и служебных `---`/`^якорей`). Так уходит «## Related topics» после снятия
+   * последней ссылки — пустой заголовок в заметке не нужен.
+   */
+  function dropEmptySection(text, heading) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var low = String(heading || "").toLowerCase();
+    var dropped = 0;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() !== low) continue;
+      var end = lines.length;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (/^#{1,6}\s/.test(lines[j])) {
+          end = j;
+          break;
+        }
+      }
+      var empty = true;
+      for (var k = i + 1; k < end; k++) {
+        var t = lines[k].trim();
+        if (t && t !== "---" && t !== "^" && !/^\^[A-Za-z0-9][\w-]*$/.test(t)) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) continue;
+      lines.splice(i, end - i);
+      while (i > 0 && i < lines.length && lines[i - 1].trim() === "" && lines[i].trim() === "") lines.splice(i, 1);
+      while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+      dropped++;
+      i--;
+    }
+    return { text: dropped ? lines.join("\n") + "\n" : String(text == null ? "" : text), dropped: dropped };
+  }
+
+  /**
+   * Убирает из текста заметки всё, что указывает на удаляемые вершины, и возвращает
+   * готовый новый текст: ссылки (см. stripTargetRefs), пустой раздел «Related topics»,
+   * пересчитанный `weight:` — по оставшимся ссылкам региона ключевых фраз, — а если
+   * ссылок в регионе не осталось, то и сам регион вместе со свойством.
+   * Если упоминаний не было, текст возвращается БАЙТ-В-БАЙТ: удаление идемпотентно.
+   * Возвращает {text, removed, weight, regionGone, dropped, changed}.
+   */
+  function stripDeletedRefs(text, targets, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var list = (Object.prototype.toString.call(targets) === "[object Array]" ? targets : [targets]).filter(Boolean);
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var res = { text: src, removed: 0, weight: null, regionGone: false, dropped: 0, changed: false };
+    if (!list.length) return res;
+    var parsed = parseFrontmatter(src);
+    var cut = splitKeywordRegion(parsed.body);
+    // Регион обрабатывается ДО раннего выхода: ссылка может жить только в нём (частый
+    // случай — блок связан с вершиной исключительно по ключевым фразам).
+    var outside = stripTargetRefs(cut.outside, list, res);
+    var region = cut.region === null ? null : stripTargetRefs(cut.region, list, res);
+    var drop = dropEmptySection(outside, RELATED_HEADING);
+    outside = drop.text;
+    res.dropped += drop.dropped;
+    if (!res.removed) return res; // ни одной ссылки не сняли — заметка не меняется
+    var body;
+    if (region === null) {
+      body = outside;
+    } else {
+      var left = extractLinks(region);
+      res.weight = left.reduce(function (sum, l) {
+        var m = /\u00d7(\d+)\s*$/.exec(String(l.alias == null ? "" : l.alias));
+        return sum + (m ? Math.max(1, Number(m[1])) : 1);
+      }, 0);
+      res.regionGone = !left.length;
+      // итоговая строка региона — тоже текст вида «**Вес по ключевым фразам: 20**»:
+      // число в ней обязано совпасть с пересчитанным weight: (иначе цифры расходятся)
+      if (!res.regionGone) region = region.replace(/(\*\*\u0412\u0435\u0441 \u043f\u043e \u043a\u043b\u044e\u0447\u0435\u0432\u044b\u043c \u0444\u0440\u0430\u0437\u0430\u043c: )\d+/, "$1" + res.weight);
+      // Маркеры возвращаем в том же обрамлении, в каком они были в заметке: applyKeywordRegion
+      // работает с текстом, который уже включает keywords:begin/end.
+      var endAt = parsed.body.indexOf(KW_END, cut.at);
+      var inner = endAt < 0 ? "" : parsed.body.slice(cut.at + KW_BEGIN.length, endAt);
+      var wrapped = res.regionGone ? "" : KW_BEGIN + (/^\s*/.exec(inner) || [""])[0] + region + (/\s*$/.exec(inner) || [""])[0] + KW_END;
+      body = applyKeywordRegion(outside, wrapped);
+    }
+    var out = (parsed.hasFrontmatter ? parsed.raw : "") + body;
+    if (cut.region !== null) {
+      var patch = {};
+      patch[cfg.weightKey || "weight"] = res.regionGone ? "" : res.weight;
+      out = setFrontmatterValues(out, patch);
+    }
+    res.text = out;
+    res.changed = out !== src;
+    if (!res.changed) res.text = src;
+    return res;
+  }
+
+  /**
+   * Убирает блочный якорь `^id` — инлайн-вершина исчезает из графа, а текст абзаца
+   * остаётся на месте: это удаление вершины, а не удаление фрагмента лекции.
+   */
+  function stripInlineAnchor(text, anchorId) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var id = String(anchorId == null ? "" : anchorId).replace(/^\^/, "").trim();
+    if (!id || src.indexOf("^" + id) < 0) return src;
+    var re = new RegExp("(^|[^A-Za-z0-9_\\-^])\\^" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[ \\t]*$");
+    var lines = src.split("\n");
+    var removed = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var m = re.exec(lines[i]);
+      if (!m) continue;
+      lines[i] = lines[i].slice(0, m.index + m[1].length).replace(/[ \t]+$/, "");
+      removed++;
+      if (!lines[i].trim()) lines.splice(i, 1);
+    }
+    if (!removed) return src;
+    while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+    return lines.join("\n") + "\n";
+  }
+
+  /**
+   * Что именно затронет удаление вершины — план для окна подтверждения и для самой
+   * операции. Чистая функция: считает по свежей модели графа, ничего не пишет.
+   *   inline   — инлайн-блоки внутри удаляемой заметки (исчезнут вместе с текстом);
+   *   children — заметки с `parent:` = id: их перевесим на родителя удаляемой вершины;
+   *   refs     — заметки, ссылающиеся на удаляемую вершину (или её инлайн-блоки):
+   *              ссылки будут сняты, а `weight:` пересчитан;
+   *   targets  — список вершин, которые исчезают (сама вершина + её инлайн-блоки).
+   */
+  function planNodeDelete(graph, id, opts) {
+    var byId = (graph && graph._byId) || {};
+    var node = byId[id] || null;
+    var plan = {
+      id: id,
+      node: node,
+      parent: node ? node.parent || null : null,
+      newParent: node ? node.parent || null : null,
+      newChapter: node && node.type === "chapter" ? null : (node ? node.chapter || null : null),
+      inline: [],
+      children: [],
+      refs: [],
+      targets: [],
+      inEdges: node ? (node.in || []).length : 0,
+      outEdges: node ? (node.out || []).length : 0,
+      edges: { keyword: 0, reference: 0, embed: 0, structure: 0 },
+      files: 0,
+    };
+    if (!node) return plan;
+    var nodes = (graph && graph.nodes) || [];
+    plan.inline = nodes.filter(function (n) {
+      return n.inline && n.path === node.path && n.id !== node.id;
+    });
+    plan.children = node.inline
+      ? []
+      : nodes.filter(function (n) {
+          return !n.inline && n.id !== node.id && n.parent === node.id;
+        });
+    plan.targets = [node].concat(plan.inline);
+    plan.refs = [];
+    nodes.forEach(function (n) {
+      if (n.inline || n.id === node.id) return;
+      var links = (n.links || []).filter(function (l) {
+        return plan.targets.some(function (t) {
+          return linkTargetsNode(l, t, graph);
+        });
+      });
+      var caption = plan.targets.some(function (t) {
+        return captionPointsTo(n, t);
+      });
+      if (!links.length && !caption) return;
+      var kinds = { keyword: 0, reference: 0, embed: 0 };
+      links.forEach(function (l) {
+        if (l.keyword) kinds.keyword++;
+        else if (l.linkType === "embed") kinds.embed++;
+        else kinds.reference++;
+      });
+      plan.refs.push({
+        id: n.id,
+        name: n.name,
+        type: n.type,
+        path: n.path,
+        links: links.length,
+        keyword: kinds.keyword,
+        reference: kinds.reference,
+        embed: kinds.embed,
+        caption: caption,
+      });
+    });
+    (node.in || []).forEach(function (e) {
+      if (plan.edges[e.kind] !== undefined) plan.edges[e.kind] += e.weight || 1;
+    });
+    plan.refsTotal = plan.refs.reduce(function (s, r) { return s + r.links; }, 0);
+    plan.files = plan.refs.length + plan.children.length + (node.inline ? 0 : 1);
+    return plan;
+  }
+
   return {
     TYPES: TYPES,
     DEFAULTS: DEFAULTS,
@@ -3839,6 +4142,13 @@
     relatedByName: relatedByName,
     nextNodeId: nextNodeId,
     composeNote: composeNote,
+    noteKeyMatch: noteKeyMatch,
+    linkTargetsNode: linkTargetsNode,
+    captionPointsTo: captionPointsTo,
+    stripDeletedRefs: stripDeletedRefs,
+    stripInlineAnchor: stripInlineAnchor,
+    dropEmptySection: dropEmptySection,
+    planNodeDelete: planNodeDelete,
     esc: esc,
   };
 });

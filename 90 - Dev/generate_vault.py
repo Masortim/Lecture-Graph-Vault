@@ -14,8 +14,9 @@ import os
 import json
 import random
 
-ROOT = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "Lecture-Graph-Vault")
-ROOT = os.path.abspath(ROOT)
+from vault_root import vault_root  # корень хранилища: <dev>/.. или <dev>/../Lecture-Graph-Vault
+
+ROOT = vault_root(os.path.dirname(os.path.abspath(__file__)))
 
 F_CHapters = "10 - Chapters"
 F_Sections = "20 - Sections"

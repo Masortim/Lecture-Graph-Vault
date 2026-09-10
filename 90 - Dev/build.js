@@ -14,7 +14,11 @@ const ui = fs.readFileSync(path.join(SRC, "src", "ui.js"), "utf8");
 if (!ui.includes('require("graph-core")')) throw new Error("ui.js: не найден require(\"graph-core\")");
 const uiPatched = ui.replace('const core = require("graph-core");', "const core = __LG_CORE__;");
 
-const banner = `/* lecture-graph v${"1.0.0"} — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */\n`;
+// Версия плагина — одно место на весь репозиторий: баннер сборки, manifest.json и
+// документация (write_docs.py читает её отсюда же).
+const VERSION = "1.9.0";
+
+const banner = `/* lecture-graph v${VERSION} — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */\n`;
 const bundle =
   banner +
   `var __LG_CORE__ = (function () {\n  var module = { exports: {} };\n  var exports = module.exports;\n` +
@@ -35,9 +39,9 @@ execFileSync(process.execPath, ["--check", mainPath]);
 const manifest = {
   id: "lecture-graph",
   name: "Lecture Graph",
-  version: "1.8.0",
+  version: VERSION,
   minAppVersion: "1.5.0",
-  description: "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus. Manual edges: select the first node with a left click, then Ctrl+left-click the second — the link arc is drawn automatically.",
+  description: "Interactive graph of lecture structure: chapters, sections, headings and referable text blocks. Layout engines (fdp / neato / twopi / chapter clusters), two-line labels (EN + 中文) that never overlap, vertex size = inbound references, per-chapter colors, course index note generated from the graph. New nodes are created by right-clicking the canvas (EN + 中文 name, keyword tags) and are auto-linked to related topics found in the abstract corpus. Manual edges: select the first node with a left click, then Ctrl+left-click the second — the link arc is drawn automatically. Nodes are deleted from the graph too: select a vertex and press Delete (or use the toolbar button / context menu) — incoming links are stripped from other notes, children are re-parented, the note goes to the Obsidian trash, and Undo last vertex deletion restores everything byte-for-byte.",
   author: "Arena agent",
   authorUrl: "",
   isDesktopOnly: false,

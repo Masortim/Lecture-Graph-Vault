@@ -34,10 +34,9 @@ window.__LG_BOOT__ = function () {
   app.workspace = new O.Workspace(app);
   app.keymap = { pushScope() {}, popScope() {} };
   app.scope = new O.Scope();
-  app.fileManager = {
-    getMarkdownLink: (f) => "[[" + f.basename + "]]",
-    generateMarkdownLink: (f) => "[[" + f.basename + "]]",
-  };
+  // app.fileManager — как в Obsidian: удаление вершины идёт через trashFile,
+  // то есть файл не пропадает бесследно (в предпросмотре — перемещается в .trash)
+  app.fileManager = new O.FileManager(app);
   app.configDir = ".obsidian";
   const files = (window.__LG_PREVIEW__ && window.__LG_PREVIEW__.files) || {};
   const manifest = JSON.parse(files[".obsidian/plugins/lecture-graph/manifest.json"] || "{}");

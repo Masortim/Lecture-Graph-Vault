@@ -1,4 +1,4 @@
-/* lecture-graph v1.0.0 — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */
+/* lecture-graph v1.9.0 — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */
 var __LG_CORE__ = (function () {
   var module = { exports: {} };
   var exports = module.exports;
@@ -364,8 +364,10 @@ var __LG_CORE__ = (function () {
    * Ссылки внутри `code`/фenced-блоков и внутри callout-маркеров не игнорируются
    * намеренно: Obsidian индексирует их так же (в inline code — нет, см. stripCode).
    */
-  function extractLinks(text) {
-    var src = stripCode(String(text == null ? "" : text));
+  function extractLinks(text, opts) {
+    // opts.stripCode === false оставляет «сырые» позиции ссылок (нужны там, где текст
+    // переписывается по кускам — при удалении вершины ссылку надо заменить, а не найти).
+    var src = (opts && opts.stripCode === false) ? String(text == null ? "" : text) : stripCode(String(text == null ? "" : text));
     var out = [];
     WIKILINK.lastIndex = 0;
     var m;
@@ -3772,6 +3774,307 @@ var __LG_CORE__ = (function () {
     return out + "\n" + body.join("\n").replace(/\s+$/g, "") + "\n";
   }
 
+  /* ------------------------------------------------- удаление вершин */
+
+  /**
+   * Совпадает ли имя цели ссылки с вершиной: по stem (имя файла без .md), по id или
+   * по пути — те же четыре варианта, что перебирает resolve() в buildGraph.
+   */
+  function noteKeyMatch(path, node) {
+    if (!node) return false;
+    var s = String(path == null ? "" : path).replace(/\\/g, "/").replace(/^\.\//, "").trim().toLowerCase();
+    if (!s) return false;
+    var noExt = s.replace(/\.md$/i, "");
+    var base = String(node.path == null ? "" : node.path).split("/").pop();
+    var cands = [node.stem, node.id, node.path, String(node.path == null ? "" : node.path).replace(/\.md$/i, ""),
+      base, String(base).replace(/\.md$/i, "")];
+    for (var i = 0; i < cands.length; i++) {
+      var c = String(cands[i] == null ? "" : cands[i]).trim().toLowerCase();
+      if (!c) continue;
+      if (noExt === c || noExt === c.replace(/\.md$/i, "")) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Ведёт ли ссылка ровно на эту вершину. Ссылка с блочным якорем (`[[Заметка#^id]]`)
+   * ведёт на инлайн-вершину, а не на саму заметку, поэтому для обычной вершины такие
+   * ссылки не считаются её ссылками, а для инлайн-блока — наоборот, только они.
+   */
+  function linkTargetsNode(link, node, graph) {
+    if (!link || !node) return false;
+    var p = String(link.path == null ? "" : link.path).replace(/\\/g, "/").trim();
+    if (node.inline) {
+      if (!link.blockId) return false;
+      if (String(node.anchorName) !== String(link.blockId)) return false;
+      var owner = (graph && graph._byId && graph._byId[node.parent]) ||
+        { stem: node.stem, path: node.path, id: node.parent };
+      return noteKeyMatch(p, owner);
+    }
+    if (link.blockId) return false; // это ссылка на блок внутри заметки, а не на заметку
+    return noteKeyMatch(p, node);
+  }
+
+  /** Свойство caption: указывает на удаляемую вершину (на неё ссылается сообщение). */
+  function captionPointsTo(node, target) {
+    if (!node || !target) return false;
+    var t = String(node.caption == null ? "" : node.caption).trim();
+    if (!t) return false;
+    return noteKeyMatch(t.replace(/^\[\[/, "").replace(/\]\]$/, ""), target);
+  }
+
+  /**
+   * Убирает из текста ссылки на удаляемые вершины (targets — сама вершина и её
+   * инлайн-блоки, если заметка удаляется целиком):
+   *   * пункт списка, который НАЧИНАЕТСЯ со ссылки на удаляемую вершину, уходит
+   *     целиком: так устроены машинные пункты — регион ключевых фраз и раздел
+   *     «Related topics» — они существуют только ради ссылки;
+   *   * ссылка внутри фразы превращается в свой видимый текст (псевдоним, иначе имя
+   *     вершины) — мысль в тексте остаётся, битой ссылки не остаётся;
+   *   * врезка `![[…]]` исчезает (вставлять больше нечего).
+   * Ссылки внутри `инлайн-кода` не трогаются: для Obsidian это не ссылка.
+   */
+  function stripTargetRefs(text, targets, res, graph) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var out = [];
+    var isTarget = function (l) {
+      return targets.some(function (t) {
+        return linkTargetsNode(l, t, graph);
+      });
+    };
+    for (var i = 0; i < lines.length; i++) {
+      var line = lines[i];
+      if (line.indexOf("[[") < 0) {
+        out.push(line);
+        continue;
+      }
+      var links = extractLinks(line, { stripCode: false }).filter(function (l) {
+        var ticks = (line.slice(0, l.index).match(/`/g) || []).length;
+        return ticks % 2 === 0;
+      });
+      var hits = links.filter(isTarget);
+      if (!hits.length) {
+        out.push(line);
+        continue;
+      }
+      var bm = /^(\s*(?:[-*+]|\d+\.)\s+)(.*)$/.exec(line);
+      if (bm && isTarget(links[0]) && bm[2].replace(/^[\s*_>]+/, "").indexOf(links[0].raw) === 0) {
+        res.removed += hits.length;
+        continue; // пункт-обёртка ссылки исчезает целиком
+      }
+      var pieces = [];
+      var pos = 0;
+      links.forEach(function (l) {
+        pieces.push(line.slice(pos, l.index));
+        pos = l.index + l.raw.length;
+        if (!isTarget(l)) {
+          pieces.push(l.raw);
+          return;
+        }
+        res.removed++;
+        if (l.linkType === "embed") return;
+        var t = targets.filter(function (x) {
+          return linkTargetsNode(l, x, graph);
+        })[0];
+        pieces.push(l.hasAlias && l.alias ? l.alias : sanitizeLabel((t && t.name) || l.path));
+      });
+      pieces.push(line.slice(pos));
+      out.push(pieces.join("").replace(/[ \t]{2,}/g, " ").replace(/[ \t]+$/, ""));
+    }
+    return out.join("\n");
+  }
+
+  /**
+   * Удаляет раздел целиком, если в нём не осталось ничего, кроме пустых строк
+   * (и служебных `---`/`^якорей`). Так уходит «## Related topics» после снятия
+   * последней ссылки — пустой заголовок в заметке не нужен.
+   */
+  function dropEmptySection(text, heading) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var low = String(heading || "").toLowerCase();
+    var dropped = 0;
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() !== low) continue;
+      var end = lines.length;
+      for (var j = i + 1; j < lines.length; j++) {
+        if (/^#{1,6}\s/.test(lines[j])) {
+          end = j;
+          break;
+        }
+      }
+      var empty = true;
+      for (var k = i + 1; k < end; k++) {
+        var t = lines[k].trim();
+        if (t && t !== "---" && t !== "^" && !/^\^[A-Za-z0-9][\w-]*$/.test(t)) {
+          empty = false;
+          break;
+        }
+      }
+      if (!empty) continue;
+      lines.splice(i, end - i);
+      while (i > 0 && i < lines.length && lines[i - 1].trim() === "" && lines[i].trim() === "") lines.splice(i, 1);
+      while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+      dropped++;
+      i--;
+    }
+    return { text: dropped ? lines.join("\n") + "\n" : String(text == null ? "" : text), dropped: dropped };
+  }
+
+  /**
+   * Убирает из текста заметки всё, что указывает на удаляемые вершины, и возвращает
+   * готовый новый текст: ссылки (см. stripTargetRefs), пустой раздел «Related topics»,
+   * пересчитанный `weight:` — по оставшимся ссылкам региона ключевых фраз, — а если
+   * ссылок в регионе не осталось, то и сам регион вместе со свойством.
+   * Если упоминаний не было, текст возвращается БАЙТ-В-БАЙТ: удаление идемпотентно.
+   * Возвращает {text, removed, weight, regionGone, dropped, changed}.
+   */
+  function stripDeletedRefs(text, targets, opts) {
+    var cfg = merge(DEFAULTS, opts || {});
+    var list = (Object.prototype.toString.call(targets) === "[object Array]" ? targets : [targets]).filter(Boolean);
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var res = { text: src, removed: 0, weight: null, regionGone: false, dropped: 0, changed: false };
+    if (!list.length) return res;
+    var parsed = parseFrontmatter(src);
+    var cut = splitKeywordRegion(parsed.body);
+    // Регион обрабатывается ДО раннего выхода: ссылка может жить только в нём (частый
+    // случай — блок связан с вершиной исключительно по ключевым фразам).
+    var outside = stripTargetRefs(cut.outside, list, res);
+    var region = cut.region === null ? null : stripTargetRefs(cut.region, list, res);
+    var drop = dropEmptySection(outside, RELATED_HEADING);
+    outside = drop.text;
+    res.dropped += drop.dropped;
+    if (!res.removed) return res; // ни одной ссылки не сняли — заметка не меняется
+    var body;
+    if (region === null) {
+      body = outside;
+    } else {
+      var left = extractLinks(region);
+      res.weight = left.reduce(function (sum, l) {
+        var m = /\u00d7(\d+)\s*$/.exec(String(l.alias == null ? "" : l.alias));
+        return sum + (m ? Math.max(1, Number(m[1])) : 1);
+      }, 0);
+      res.regionGone = !left.length;
+      // итоговая строка региона — тоже текст вида «**Вес по ключевым фразам: 20**»:
+      // число в ней обязано совпасть с пересчитанным weight: (иначе цифры расходятся)
+      if (!res.regionGone) region = region.replace(/(\*\*\u0412\u0435\u0441 \u043f\u043e \u043a\u043b\u044e\u0447\u0435\u0432\u044b\u043c \u0444\u0440\u0430\u0437\u0430\u043c: )\d+/, "$1" + res.weight);
+      // Маркеры возвращаем в том же обрамлении, в каком они были в заметке: applyKeywordRegion
+      // работает с текстом, который уже включает keywords:begin/end.
+      var endAt = parsed.body.indexOf(KW_END, cut.at);
+      var inner = endAt < 0 ? "" : parsed.body.slice(cut.at + KW_BEGIN.length, endAt);
+      var wrapped = res.regionGone ? "" : KW_BEGIN + (/^\s*/.exec(inner) || [""])[0] + region + (/\s*$/.exec(inner) || [""])[0] + KW_END;
+      body = applyKeywordRegion(outside, wrapped);
+    }
+    var out = (parsed.hasFrontmatter ? parsed.raw : "") + body;
+    if (cut.region !== null) {
+      var patch = {};
+      patch[cfg.weightKey || "weight"] = res.regionGone ? "" : res.weight;
+      out = setFrontmatterValues(out, patch);
+    }
+    res.text = out;
+    res.changed = out !== src;
+    if (!res.changed) res.text = src;
+    return res;
+  }
+
+  /**
+   * Убирает блочный якорь `^id` — инлайн-вершина исчезает из графа, а текст абзаца
+   * остаётся на месте: это удаление вершины, а не удаление фрагмента лекции.
+   */
+  function stripInlineAnchor(text, anchorId) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var id = String(anchorId == null ? "" : anchorId).replace(/^\^/, "").trim();
+    if (!id || src.indexOf("^" + id) < 0) return src;
+    var re = new RegExp("(^|[^A-Za-z0-9_\\-^])\\^" + id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "[ \\t]*$");
+    var lines = src.split("\n");
+    var removed = 0;
+    for (var i = 0; i < lines.length; i++) {
+      var m = re.exec(lines[i]);
+      if (!m) continue;
+      lines[i] = lines[i].slice(0, m.index + m[1].length).replace(/[ \t]+$/, "");
+      removed++;
+      if (!lines[i].trim()) lines.splice(i, 1);
+    }
+    if (!removed) return src;
+    while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+    return lines.join("\n") + "\n";
+  }
+
+  /**
+   * Что именно затронет удаление вершины — план для окна подтверждения и для самой
+   * операции. Чистая функция: считает по свежей модели графа, ничего не пишет.
+   *   inline   — инлайн-блоки внутри удаляемой заметки (исчезнут вместе с текстом);
+   *   children — заметки с `parent:` = id: их перевесим на родителя удаляемой вершины;
+   *   refs     — заметки, ссылающиеся на удаляемую вершину (или её инлайн-блоки):
+   *              ссылки будут сняты, а `weight:` пересчитан;
+   *   targets  — список вершин, которые исчезают (сама вершина + её инлайн-блоки).
+   */
+  function planNodeDelete(graph, id, opts) {
+    var byId = (graph && graph._byId) || {};
+    var node = byId[id] || null;
+    var plan = {
+      id: id,
+      node: node,
+      parent: node ? node.parent || null : null,
+      newParent: node ? node.parent || null : null,
+      newChapter: node && node.type === "chapter" ? null : (node ? node.chapter || null : null),
+      inline: [],
+      children: [],
+      refs: [],
+      targets: [],
+      inEdges: node ? (node.in || []).length : 0,
+      outEdges: node ? (node.out || []).length : 0,
+      edges: { keyword: 0, reference: 0, embed: 0, structure: 0 },
+      files: 0,
+    };
+    if (!node) return plan;
+    var nodes = (graph && graph.nodes) || [];
+    plan.inline = nodes.filter(function (n) {
+      return n.inline && n.path === node.path && n.id !== node.id;
+    });
+    plan.children = node.inline
+      ? []
+      : nodes.filter(function (n) {
+          return !n.inline && n.id !== node.id && n.parent === node.id;
+        });
+    plan.targets = [node].concat(plan.inline);
+    plan.refs = [];
+    nodes.forEach(function (n) {
+      if (n.inline || n.id === node.id) return;
+      var links = (n.links || []).filter(function (l) {
+        return plan.targets.some(function (t) {
+          return linkTargetsNode(l, t, graph);
+        });
+      });
+      var caption = plan.targets.some(function (t) {
+        return captionPointsTo(n, t);
+      });
+      if (!links.length && !caption) return;
+      var kinds = { keyword: 0, reference: 0, embed: 0 };
+      links.forEach(function (l) {
+        if (l.keyword) kinds.keyword++;
+        else if (l.linkType === "embed") kinds.embed++;
+        else kinds.reference++;
+      });
+      plan.refs.push({
+        id: n.id,
+        name: n.name,
+        type: n.type,
+        path: n.path,
+        links: links.length,
+        keyword: kinds.keyword,
+        reference: kinds.reference,
+        embed: kinds.embed,
+        caption: caption,
+      });
+    });
+    (node.in || []).forEach(function (e) {
+      if (plan.edges[e.kind] !== undefined) plan.edges[e.kind] += e.weight || 1;
+    });
+    plan.refsTotal = plan.refs.reduce(function (s, r) { return s + r.links; }, 0);
+    plan.files = plan.refs.length + plan.children.length + (node.inline ? 0 : 1);
+    return plan;
+  }
+
   return {
     TYPES: TYPES,
     DEFAULTS: DEFAULTS,
@@ -3843,6 +4146,13 @@ var __LG_CORE__ = (function () {
     relatedByName: relatedByName,
     nextNodeId: nextNodeId,
     composeNote: composeNote,
+    noteKeyMatch: noteKeyMatch,
+    linkTargetsNode: linkTargetsNode,
+    captionPointsTo: captionPointsTo,
+    stripDeletedRefs: stripDeletedRefs,
+    stripInlineAnchor: stripInlineAnchor,
+    dropEmptySection: dropEmptySection,
+    planNodeDelete: planNodeDelete,
     esc: esc,
   };
 });
@@ -3910,6 +4220,10 @@ const DEFAULT_SETTINGS = {
   labelScale: 1,
   countStructural: false,
   includeInlineAnchors: true,
+  // удаление вершины: подтверждение с разбором последствий и клавиша Delete/Backspace
+  // (Backspace — потому что на macOS клавиши Delete нет, там удаление идёт по ним)
+  confirmDelete: true,
+  deleteKey: true,
   // Оглавление курса лежит в КОРНЕ хранилища: папки из `folders` его не видят, поэтому в граф
   // оно не попадает ни при каких настройках сканирования (см. команду write-index и меню «Проводника»)
   indexNote: "Course Index.md",
@@ -4153,6 +4467,17 @@ class LectureGraphView extends obsidian.ItemView {
         this.zoomBy(ev.key === "-" ? 1 / ZOOM_STEP : ZOOM_STEP);
         return;
       }
+      // Delete (а на macOS это Backspace: там клавиши Delete нет) удаляет выделенную
+      // вершину. В полях ввода и при открытом окне клавиша остаётся своей обычной ролью.
+      if (this.plugin.settings.deleteKey !== false && (ev.key === "Delete" || ev.key === "Backspace")) {
+        if (ev.ctrlKey || ev.metaKey || ev.altKey) return;
+        var t = ev.target;
+        if (t && (t.isContentEditable || /^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName || ""))) return;
+        if (!this.selected || this.plugin.deleting || (this.plugin.deleteModal && this.plugin.deleteModal.isOpen)) return;
+        ev.preventDefault();
+        this.deleteSelected();
+        return;
+      }
       if (ev.key !== "Escape") return;
       if (this.fullscreen) {
         ev.preventDefault();
@@ -4202,6 +4527,13 @@ class LectureGraphView extends obsidian.ItemView {
       }
     });
     this.mkButton(gView, "✎ Layout", () => this.relayoutNow(true));
+    // удаление выделенной вершины: кнопка живёт в панели и активна ровно тогда, когда
+    // есть что удалять (та же операция — Delete/Backspace и пункт контекстного меню)
+    this.delBtn = this.mkButton(gView, "🗑 Удалить", () => this.deleteSelected(), {
+      cls: "lg-btn lg-btn--danger",
+      title: "Удалить выделенную вершину (Delete или Backspace): снять ссылки, перевесить детей, заметку — в корзину",
+    });
+    this.delBtn.disabled = true;
 
     var gLayout = group("Раскладка");
     this.layoutSel = gLayout.createEl("select", { cls: "lg-select", attr: { title: "чем раскладываем граф" } });
@@ -4549,6 +4881,10 @@ class LectureGraphView extends obsidian.ItemView {
     this.buildDom();
     this.applyFilters();
     this.updateStatus();
+    // выделения может уже не быть в новой модели (вершину удалили) — кнопка не должна
+    // обещать удаление того, чего нет
+    if (this.selected && !this.byId[this.selected]) this.selected = null;
+    this.updateDeleteBtn();
     // Engine modes уже вернули завершённый снимок. Не запускаем на следующем RAF
     // лишний force-шаг, который мог испортить только что выполненную полировку.
     if (!this.frozen && !this.engineMode() && this.alpha > 0.02) this.startLoop();
@@ -5565,13 +5901,21 @@ class LectureGraphView extends obsidian.ItemView {
           .setIcon("arrow-right")
           .onClick(() => self.linkSelectedTo(n, srcSel))
       );
-      menu.addItem((it) =>
-        it
-          .setTitle("Link: эта вершина → «" + label(srcSel) + "»")
-          .setIcon("arrow-left")
-          .onClick(() => self.linkSelectedTo(srcSel, n))
-      );
+    menu.addItem((it) =>
+      it
+        .setTitle("Link: эта вершина → «" + label(srcSel) + "»")
+        .setIcon("arrow-left")
+        .onClick(() => self.linkSelectedTo(srcSel, n))
+    );
     }
+    menu.addSeparator();
+    menu.addItem((it) =>
+      it
+        .setTitle("Delete vertex (Delete)")
+        .setIcon("trash")
+        .setWarning()
+        .onClick(() => this.plugin.confirmDeleteNode(n))
+    );
     menu.showAtPosition({ x: ev.pageX, y: ev.pageY });
   }
 
@@ -5591,6 +5935,7 @@ class LectureGraphView extends obsidian.ItemView {
       this.selected = null;
       this.neigh = null;
       this.showBubble(null);
+      this.updateDeleteBtn();
       this.redraw({ geometry: false });
       this.updateLabels();
       return;
@@ -5602,12 +5947,33 @@ class LectureGraphView extends obsidian.ItemView {
     // сообщение положено любой вершине: у своего типа свой шаблон, а если заметки
     // сообщения ещё нет — пузырёк сам предложит её создать
     this.showBubble(n ? n.id : null);
+    this.updateDeleteBtn();
     this.redraw({ geometry: false });
     this.updateLabels();
     if (this.selected) {
       // подсказка про второй шаг ручной связи: источник уже выделен
       this.setStatus("Связь: «" + (n.name || n.id) + "» — источник. Ctrl+клик по другому узлу — провести дугу", 5000);
     }
+  }
+
+  /** Кнопка «🗑 Удалить» активна только тогда, когда есть что удалять. */
+  updateDeleteBtn() {
+    if (this.delBtn) this.delBtn.disabled = !this.selected;
+  }
+
+  /**
+   * Удаление выделенной вершины: из клавиши Delete/Backspace, кнопки панели и команды
+   * палитры. Сначала показывается окно подтверждения (его можно отключить в настройках)
+   * со списком последствий — сколько ссылок снимется, кто из детей перевесится.
+   */
+  async deleteSelected() {
+    var id = this.selected;
+    if (!id) {
+      new obsidian.Notice("Удаление: сначала выделите вершину (ЛКМ по кругу)");
+      return null;
+    }
+    var node = this.byId[id] || id;
+    return this.plugin.confirmDeleteNode(node);
   }
 
   /**
@@ -5885,6 +6251,129 @@ class CreateNodeModal extends obsidian.Modal {
   }
 }
 
+/* ------------------------------------------------------------------ modal: удаление вершины */
+
+/**
+ * Окно подтверждения удаления. Показывает не «вы уверены?», а что именно случится:
+ * куда уйдёт заметка, сколько ссылок придётся снять и в скольких заметках, кто из
+ * детей перевесится на родителя удаляемой вершины, что будет с инлайн-блоками.
+ * Числа берутся из core.planNodeDelete — плана, посчитанного по свежей модели графа.
+ */
+class DeleteNodeModal extends obsidian.Modal {
+  constructor(app, plugin, plan) {
+    super(app);
+    this.plugin = plugin;
+    this.plan = plan;
+    this.busy = false;
+  }
+
+  onOpen() {
+    var plan = this.plan;
+    var node = plan.node;
+    var content = this.contentEl;
+    content.addClass("lg-modal");
+    content.addClass("lg-delete");
+    content.createEl("h2", { text: node.inline ? "Удалить инлайн-блок?" : "Удалить вершину?" });
+
+    var prev = content.createDiv({ cls: "lg-modal-preview" });
+    prev.createDiv({ cls: "lg-line lg-line--en", text: (node.name || node.id) + (TYPE_LABEL[node.type] ? " · " + TYPE_LABEL[node.type] : "") });
+    if (node.nameZh) prev.createDiv({ cls: "lg-line lg-line--zh", text: node.nameZh });
+    prev.createDiv({ cls: "lg-modal-path", text: node.path + " · id " + node.id });
+
+    var list = content.createEl("ul", { cls: "lg-delete__list" });
+    var li = function (text, cls) {
+      return list.createEl("li", { cls: cls || "", text: text });
+    };
+    var names = function (arr) {
+      return arr
+        .slice(0, 3)
+        .map(function (n) { return n.name || n.id; })
+        .join(", ") + (arr.length > 3 ? " …" : "");
+    };
+    if (node.inline) {
+      li("Из заметки уйдёт только якорь ^" + node.anchorName + " — текст абзаца останется на месте.");
+    } else {
+      li(
+        "Заметка уйдёт " +
+          (this.plugin.trashAvailable() ? "в корзину Obsidian (штатным способом её можно вернуть)" : "безвозвратно: корзины у этого хранилища нет") +
+          "."
+      );
+      if (plan.inline.length) li("Вместе с ней исчезнут инлайн-блоки (" + plan.inline.length + "): " + names(plan.inline));
+    }
+    if (plan.refs.length) {
+      var kinds = [];
+      kinds.push("ссылок из текста: " + plan.refs.reduce(function (s, r) { return s + r.reference; }, 0));
+      if (plan.edges.keyword) kinds.push("по ключевым фразам: " + plan.edges.keyword);
+      if (plan.edges.embed) kinds.push("врезок: " + plan.edges.embed);
+      li(
+        "Ссылки снимутся в " + plan.refs.length + " " + (plan.refs.length === 1 ? "заметке" : "заметках") + " (всего " +
+          plan.refsTotal + " — " + kinds.join(", ") + "): машинные пункты уйдут целиком, в прозе останется видимый текст, " +
+          "weight: и раздел «Related topics» пересчитаются."
+      );
+    } else {
+      li("Входящих ссылок нет — править чужие заметки не придётся.");
+    }
+    if (plan.children.length) {
+      li(
+        "Дочерних вершин: " + plan.children.length + " (" + names(plan.children) + ") — их parent:/chapter: будут перевешены на " +
+          (plan.newParent ? "«" + plan.newParent + "»" : "родителя (поля очистятся)")
+      );
+    }
+    if (plan.outEdges) li("Исходящие связи (" + plan.outEdges + ") уйдут вместе с заметкой.");
+    li(
+      "Удаление обратимо до перезагрузки Obsidian: команда «Lecture Graph: Undo last vertex deletion» вернёт заметку и все правки байт-в-байт.",
+      "lg-delete__undo"
+    );
+
+    var noAsk = content.createEl("label", { cls: "lg-chip lg-delete__noask" });
+    var noAskCb = noAsk.createEl("input", { type: "checkbox" });
+    noAsk.createEl("span", { text: "больше не спрашивать" });
+    this.noAskEl = noAskCb;
+
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Ctrl+Enter — удалить. Клавиша Delete удаляет выделенную вершину, Backspace — то же (на macOS клавиши Delete нет).",
+    });
+
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    this.delBtn = btns.createEl("button", { cls: "mod-warning", text: "Удалить", attr: { type: "button" } });
+    this.delBtn.addEventListener("click", () => this.submit());
+    btns.createEl("button", { text: "Открыть заметку", attr: { type: "button" } }).addEventListener("click", () => this.openNote());
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    setTimeout(() => this.delBtn.focus(), 30);
+    this.registerDomEvent(document, "keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) this.submit();
+    });
+  }
+
+  openNote() {
+    var f = this.app.vault.getAbstractFileByPath(this.plan.node.path);
+    if (f) this.app.workspace.getLeaf(false).openFile(f);
+  }
+
+  async submit() {
+    if (this.busy) return;
+    this.busy = true;
+    if (this.noAskEl && this.noAskEl.checked) {
+      this.plugin.settings.confirmDelete = false;
+      this.plugin.saveSettings();
+    }
+    this.delBtn.disabled = true;
+    this.delBtn.setText("Удаляем…");
+    try {
+      await this.plugin.deleteNode(this.plan);
+    } finally {
+      this.busy = false;
+    }
+    this.close();
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+    if (this.plugin.deleteModal === this) this.plugin.deleteModal = null;
+  }
+}
+
 /* ------------------------------------------------------------------ settings */
 
 class LectureGraphSettingTab extends obsidian.PluginSettingTab {
@@ -5945,6 +6434,14 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
           this.plugin.forEachView((vw) => vw.updateLabels());
         });
       });
+    new obsidian.Setting(el)
+      .setName("Спрашивать подтверждение перед удалением вершины")
+      .setDesc("Окно показывает последствия: куда уйдёт заметка, сколько ссылок снимется и в каких заметках, кто из детей перевесится на родителя. Выключено — Delete удаляет сразу.")
+      .addToggle((t) => t.setValue(s.confirmDelete !== false).onChange((v) => ((s.confirmDelete = v), save())));
+    new obsidian.Setting(el)
+      .setName("Клавиша Delete удаляет выделенную вершину")
+      .setDesc("В окне графа Delete удаляет выделенный узел, Backspace — то же (на macOS клавиши Delete нет). В полях ввода клавиша работает как обычно.")
+      .addToggle((t) => t.setValue(s.deleteKey !== false).onChange((v) => ((s.deleteKey = v), save())));
     new obsidian.Setting(el)
       .setName("Изгиб рёбер (дуги)")
       .setDesc("0 — прямые линии. По умолчанию 0.24: структурные рёбра идут «веером» внутри своего сектора и не пересекаются.")
@@ -6253,6 +6750,31 @@ class LectureGraphPlugin extends obsidian.Plugin {
       id: "create-node",
       name: "Create new node (EN / 中文 / keywords) with auto-search of related topics",
       callback: () => new CreateNodeModal(this.app, this, {}).open(),
+    });
+    this.addCommand({
+      id: "delete-node",
+      name: "Delete selected vertex (Delete/Backspace key)",
+      callback: () => {
+        var v = this.view();
+        if (!v) return new obsidian.Notice("Откройте представление графа (Lecture graph)");
+        return v.deleteSelected();
+      },
+    });
+    this.addCommand({
+      id: "undo-delete",
+      name: "Undo last vertex deletion (restore note and links)",
+      callback: () => this.undoDelete(),
+    });
+    this.addCommand({
+      id: "delete-current-note",
+      name: "Delete the vertex of the current note (with confirm)",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.confirmDeleteNode(node);
+      },
     });
 
     this.registerView(VIEW_TYPE, (leaf) => {
@@ -7017,6 +7539,229 @@ class LectureGraphPlugin extends obsidian.Plugin {
     return true;
   }
 
+  /* -------------------------------------------------- удаление вершин */
+
+  /** Есть ли у приложения штатное «в корзину» (Obsidian 1.6+): от него зависит текст окна. */
+  trashAvailable() {
+    var fm = this.app && this.app.fileManager;
+    return !!(fm && typeof fm.trashFile === "function");
+  }
+
+  /**
+   * Удаление файла так, как это делает сам Obsidian: системная корзина, корзина
+   * хранилища (.trash) или безвозвратно — решает настройка «Files & Links →
+   * Deleted files». Старый API (vault.trash) оставлен на случай 1.5.x.
+   */
+  async trashFile(file) {
+    var fm = this.app.fileManager;
+    if (fm && typeof fm.trashFile === "function") return fm.trashFile(file);
+    if (this.app.vault && typeof this.app.vault.trash === "function") return this.app.vault.trash(file, true);
+    return this.app.vault.delete(file);
+  }
+
+  /** План удаления вершины по свежей модели графа (без раскладки — нужны только связи). */
+  async deletePlan(nodeOrId) {
+    var id = nodeOrId && nodeOrId.id ? nodeOrId.id : nodeOrId;
+    if (!id) return null;
+    var g = await this.buildGraphModel(buildOptions(this.settings));
+    if (!g._byId || !g._byId[id]) return null;
+    return core.planNodeDelete(g, id, buildOptions(this.settings));
+  }
+
+  /**
+   * Удаление выделенной вершины, шаг первый: окно подтверждения со списком последствий
+   * (его можно выключить настройкой «Спрашивать подтверждение»). Пока окно открыто,
+   * повторный Delete или клик по кнопке ничего не запускают — на плагине висит флаг.
+   */
+  async confirmDeleteNode(nodeOrId) {
+    if (this.deleting) {
+      new obsidian.Notice("Удаление уже идёт…");
+      return null;
+    }
+    if (this.deleteModal && this.deleteModal.isOpen) return null;
+    var plan = await this.deletePlan(nodeOrId);
+    if (!plan || !plan.node) {
+      new obsidian.Notice("Удаление: вершина не найдена в свежей модели графа — нажмите ⟳ Rebuild");
+      return null;
+    }
+    if (this.settings.confirmDelete === false) return this.deleteNode(plan);
+    var modal = new DeleteNodeModal(this.app, this, plan);
+    this.deleteModal = modal;
+    modal.open();
+    return { plan: plan, modal: modal };
+  }
+
+  /**
+   * Удаление вершины. У графа нет «своих» рёбер: дуга существует, пока в заметке есть
+   * ссылка. Поэтому одной операцией делается всё, чтобы после удаления не осталось
+   * битых ссылок и висящих родителей:
+   *   1. из заметок, ссылающихся на вершину (и на её инлайн-блоки), снимаются ссылки
+   *      (core.stripDeletedRefs): машинные пункты уходят целиком, в прозе остаётся
+   *      видимый текст, пустой «Related topics» исчезает, weight: пересчитывается по
+   *      оставшимся ссылкам региона, а опустевший регион убирается вместе со свойством;
+   *   2. детям вершины (parent:/chapter:) назначается её родитель — иерархия курса цела;
+   *   3. сама заметка уходит в корзину Obsidian (инлайн-блок — убирается только якорь,
+   *      текст абзаца остаётся);
+   *   4. граф пересобирается, выделение снимается, тост подводит итог.
+   * Каждый правленый файл запоминается до записи: undoDelete() возвращает всё байт-в-байт.
+   */
+  async deleteNode(planOrNode, opts) {
+    opts = opts || {};
+    var plan = planOrNode && planOrNode.node ? planOrNode : await this.deletePlan(planOrNode);
+    if (!plan || !plan.node) {
+      new obsidian.Notice("Удаление: вершина не найдена");
+      return null;
+    }
+    var self = this;
+    var node = plan.node;
+    var coreOpts = buildOptions(this.settings);
+    var captionKey = this.settings.captionKey || "caption";
+    var parentKey = this.settings.parentKey || "parent";
+    var chapterKey = this.settings.chapterKey || "chapter";
+
+    // Один проход на файл: снятие ссылок и правка свойств — одна запись, а не две
+    // (иначе второй проход читает уже изменённый текст и может затереть первый).
+    var ops = {};
+    var opFor = function (path) {
+      return ops[path] || (ops[path] = { path: path, strip: null, patch: {} });
+    };
+    plan.refs.forEach(function (r) {
+      var op = opFor(r.path);
+      op.strip = plan.targets;
+      if (r.caption) op.patch[captionKey] = "";
+    });
+    plan.children.forEach(function (child) {
+      var op = opFor(child.path);
+      if (child.parent === node.id) op.patch[parentKey] = plan.newParent || "";
+      if (child.chapter === node.id) op.patch[chapterKey] = plan.newChapter || "";
+    });
+
+    var snapshots = {};
+    var snapshot = function (path, text) {
+      if (snapshots[path] === undefined) snapshots[path] = text;
+    };
+    // Чистое преобразование текста заметки: одна и та же функция и для примерки
+    // («меняется ли файл вообще»), и для самой записи — расхождения быть не может.
+    var strip = function (text, op) {
+      var res = op.strip ? core.stripDeletedRefs(text, op.strip, coreOpts) : null;
+      var out = res ? res.text : text;
+      if (Object.keys(op.patch).length) out = core.setFrontmatterValues(out, op.patch);
+      return { text: out, removed: res ? res.removed : 0 };
+    };
+
+    this.deleting = true;
+    var stripped = 0;
+    var edited = 0;
+    var reparented = 0;
+    try {
+      var paths = Object.keys(ops);
+      for (var i = 0; i < paths.length; i++) {
+        var op = ops[paths[i]];
+        var file = this.app.vault.getAbstractFileByPath(op.path);
+        if (!(file instanceof obsidian.TFile)) continue;
+        var before = await this.app.vault.cachedRead(file);
+        var after = strip(before, op);
+        if (after.text === before) continue;
+        snapshot(op.path, before);
+        await this.processInternal(file, function (data) {
+          return strip(data, op).text;
+        });
+        edited++;
+        stripped += after.removed;
+        if (op.patch[parentKey] !== undefined || op.patch[chapterKey] !== undefined) reparented++;
+      }
+      // сама вершина
+      var target = this.app.vault.getAbstractFileByPath(node.path);
+      if (node.inline) {
+        if (target instanceof obsidian.TFile) {
+          var ownerBefore = await this.app.vault.cachedRead(target);
+          var ownerAfter = core.stripInlineAnchor(ownerBefore, node.anchorName);
+          if (ownerAfter !== ownerBefore) {
+            snapshot(node.path, ownerBefore);
+            await this.processInternal(target, function (data) {
+              return core.stripInlineAnchor(data, node.anchorName);
+            });
+            edited++;
+          }
+        }
+      } else if (target instanceof obsidian.TFile) {
+        snapshot(node.path, await this.app.vault.cachedRead(target));
+        await this.withInternalWrite(node.path, function () {
+          return self.trashFile(target);
+        });
+      }
+    } finally {
+      this.deleting = false;
+    }
+
+    this.lastDelete = {
+      at: Date.now(),
+      node: { id: node.id, name: node.name, type: node.type, path: node.path, inline: !!node.inline },
+      files: Object.keys(snapshots).map(function (p) {
+        return { path: p, text: snapshots[p] };
+      }),
+    };
+
+    // Граф: пересобрать и показать результат (выделения у удалённой вершины уже нет)
+    this.markGraphDirty();
+    await this.getGraph(true);
+    this.forEachView(function (v) {
+      if (v.selected && !v.byId[v.selected]) v.select(null);
+      v.refresh(false);
+    });
+    var bits = [];
+    bits.push("вершина «" + (node.name || node.id) + "» удалена");
+    if (edited) bits.push("правлено заметок: " + edited);
+    if (stripped) bits.push("снято ссылок: " + stripped);
+    if (reparented) bits.push("детей перевешено: " + reparented);
+    if (node.inline) bits.push("текст абзаца остался");
+    var msg = bits.join(" · ") + " · вернуть — команда «Undo last vertex deletion»";
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) {
+      v.setStatus(msg, 8000);
+    });
+    return { plan: plan, edited: edited, stripped: stripped, snapshot: this.lastDelete };
+  }
+
+  /**
+   * Отмена последнего удаления: заметка создаётся заново, а всем правленым файлам
+   * возвращается текст, снятый перед записью (ссылки, parent:/chapter:, weight:,
+   * caption:) — байт-в-байт. Помним только последнее удаление и только эту сессию:
+   * «отмена на все времена» требует журнала, а не памяти плагина.
+   */
+  async undoDelete() {
+    var last = this.lastDelete;
+    if (!last || !last.files || !last.files.length) {
+      new obsidian.Notice("Отменять нечего: в этой сессии Obsidian ничего не удалялось");
+      return null;
+    }
+    var files = last.files;
+    var n = 0;
+    for (var i = 0; i < files.length; i++) {
+      try {
+        await this.writeFile(files[i].path, files[i].text);
+        n++;
+      } catch (e) {
+        new obsidian.Notice("Не удалось вернуть " + files[i].path + ": " + (e && e.message ? e.message : e));
+      }
+    }
+    this.lastDelete = null;
+    this.markGraphDirty();
+    var g = await this.getGraph(true);
+    var want = last.node && last.node.id ? g._byId[last.node.id] : null;
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (want && v.byId[want.id]) v.select(want.id, true);
+    });
+    var msg = "Удаление отменено: восстановлено заметок — " + n +
+      (last.node ? " (включая «" + (last.node.name || last.node.id) + "»)" : "");
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) {
+      v.setStatus(msg, 8000);
+    });
+    return { files: n };
+  }
+
   async copyLink(node) {
     var link = "[[" + node.stem + "|" + node.name + "]]";
     try {
@@ -7214,6 +7959,7 @@ module.exports = LectureGraphPlugin;
 module.exports.LectureGraphView = LectureGraphView;
 module.exports.EditLabelModal = EditLabelModal;
 module.exports.CreateNodeModal = CreateNodeModal;
+module.exports.DeleteNodeModal = DeleteNodeModal;
 module.exports.VIEW_TYPE = VIEW_TYPE;
 module.exports.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
 module.exports.buildOptions = buildOptions;
