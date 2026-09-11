@@ -105,7 +105,7 @@ const plugin = new PluginClass(app, manifest);
     await plugin.onload();
     assert.ok(plugin.commands.length >= 6, "commands " + plugin.commands.length);
     const ids = plugin.commands.map((c) => c.id);
-    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts", "manual-merge-selected", "manual-merge-current-note", "merge-duplicates", "merge-current-note-duplicates", "undo-merge-duplicates", "undo-node-merge"].forEach((id) =>
+    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts", "manual-merge-selected", "manual-merge-current-note", "merge-duplicates", "merge-current-note-duplicates", "undo-merge-duplicates", "undo-node-merge", "set-node-color", "set-selected-node-color"].forEach((id) =>
       assert.ok(ids.includes(id), "missing command " + id)
     );
     assert.strictEqual(plugin.ribbon.length, 1);
@@ -2548,6 +2548,227 @@ See [[MN-92 - Manual Merge Target|the target node]].
     assert.strictEqual(fs.readFileSync(path.join(TMP, targetPath), "utf8"), targetRaw, "Undo не восстановил target байт-в-байт");
     assert.strictEqual(fs.readFileSync(path.join(TMP, childPath), "utf8"), childRaw, "Undo не восстановил child байт-в-байт");
     assert.strictEqual(fs.readFileSync(path.join(TMP, refPath), "utf8"), refRaw, "Undo не восстановил referrer байт-в-байт");
+  });
+
+  console.log("\n== раунд 25: цвет вершины (настройки · окно создания · контекстное меню) ==");
+
+  await ok("writeNodeColor: пишет и снимает color:, модель и круг перекрашиваются", async () => {
+    const g = await plugin.getGraph(false);
+    assert.strictEqual(g, plugin.cache, "кэш разошёлся с getGraph");
+    const n = g.nodes.find((x) => x.type === "heading" && !x.inline);
+    const rawBefore = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    const prevColor = n.color;
+    assert.ok(prevColor && !core.isHexColor(n.colorProp), "у фикстуры уже есть свой цвет");
+    // список «уже имеющихся цветов»: палитра глав + цвета типов, без дублей
+    const used = plugin.usedColors();
+    assert.ok(used.includes("#f2b33d") && used.includes("#4a9eda"), "палитра глав не попала в образцы: " + used.join(","));
+    assert.ok(used.includes("#c07ad8"), "цвет типа block (из data.json) не попал в образцы");
+    assert.strictEqual(new Set(used).size, used.length, "в образцах есть дубликаты");
+    // свой цвет: нормализуется, пишется в frontmatter, красит модель и круг на холсте
+    assert.strictEqual(await plugin.writeNodeColor(n, "#5FD3C4"), true, "запись цвета не удалась");
+    const raw1 = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    assert.strictEqual(obsidian_stub_parse(raw1).data.color, "#5fd3c4", "color: не записан (или не нормализован)");
+    assert.strictEqual(n.colorProp, "#5fd3c4", "colorProp не обновлён у живой вершины");
+    assert.strictEqual(n.color, "#5fd3c4", "вершина не перекрашена в модели");
+    assert.strictEqual(g.colors[n.id], "#5fd3c4", "карта цветов графа не обновлена");
+    const circle = view.nodeEls[n.id] && (view.nodeEls[n.id].__c || view.nodeEls[n.id].querySelector("circle"));
+    assert.ok(circle, "у вершины нет круга в DOM");
+    assert.strictEqual(circle.getAttribute("fill"), "#5fd3c4", "круг на холсте не перекрашен");
+    // после записи цвет появляется в списке «уже имеющихся»
+    assert.ok(plugin.usedColors().includes("#5fd3c4"), "новый цвет не попал в список образцов");
+    // снятие: пустая строка убирает свойство и возвращает прежний цвет
+    assert.strictEqual(await plugin.writeNodeColor(n, ""), true, "сброс не удался");
+    const raw2 = fs.readFileSync(path.join(TMP, n.path), "utf8");
+    assert.strictEqual(obsidian_stub_parse(raw2).data.color, undefined, "color: не снят");
+    assert.strictEqual(n.color, prevColor, "после сброса цвет не вернулся к главе/типу");
+    assert.strictEqual(view.nodeEls[n.id].__c.getAttribute("fill"), prevColor, "круг не вернул цвет после сброса");
+    // мусор отвергается, файл не трогается
+    assert.strictEqual(await plugin.writeNodeColor(n, "красный"), false, "мусорный цвет принят");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, n.path), "utf8"), rawBefore, "мусорная попытка изменила файл");
+    // инлайн-блок без своей заметки — вежливый отказ, окна нет
+    const notices = Notice.all.length;
+    plugin.editNodeColor({ inline: true, id: "fake", path: "x", name: "x" });
+    assert.ok(Notice.all.length > notices, "нет сообщения про инлайн-блок");
+    assert.ok(!document.querySelector(".modal .lg-node-color"), "для инлайн-блока открылось окно цвета");
+  });
+
+  await ok("окно цвета: образцы графа, свой hex, пипетка и «как у главы/типа»", async () => {
+    const g = await plugin.getGraph(false);
+    const n = g.nodes.find((x) => x.type === "block" && !x.inline);
+    plugin.editNodeColor(n);
+    let el = document.querySelector(".modal .lg-node-color");
+    assert.ok(el, "окно цвета не открылось");
+    assert.ok(el.textContent.includes(n.path), "в окне нет пути заметки");
+    const swatches = Array.from(el.querySelectorAll(".lg-swatch"));
+    assert.ok(swatches.length >= 10, "образцов меньше ожидаемого: " + swatches.length);
+    assert.ok(swatches.some((b) => b.classList.contains("lg-swatch--auto")), "нет пунктирного образца «как у главы/типа»");
+    ["#f2b33d", "#4a9eda", "#59c98a", "#c07ad8"].forEach((c) =>
+      assert.ok(swatches.some((b) => b.dataset.color === c), "нет образца " + c));
+    const auto = swatches.find((b) => b.classList.contains("lg-swatch--auto"));
+    assert.ok(auto.classList.contains("lg-swatch--on"), "при отсутствии color: должен быть подсвечен «как у главы/типа»");
+    assert.ok(/сейчас|глава|тип/.test(el.querySelector(".lg-node-color__note").textContent), "предпросмотр не объясняет текущий цвет");
+    // клик по образцу палитры
+    const pick = swatches.find((b) => b.dataset.color === "#ff7a6b");
+    pick.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    assert.ok(pick.classList.contains("lg-swatch--on"), "выбранный образец не подсвечен");
+    assert.strictEqual(el.querySelector("#lg-node-color-hex").value, "#ff7a6b", "hex-поле не получило выбранный цвет");
+    assert.strictEqual(el.querySelector("#lg-node-color-picker").value, "#ff7a6b", "пипетка не получила выбранный цвет");
+    // свой цвет: 3-значный hex нормализуется к 6-значному
+    const hex = el.querySelector("#lg-node-color-hex");
+    hex.value = "#0F7";
+    hex.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.strictEqual(hex.value, "#00ff77", "3-значный hex не нормализован");
+    // выбор пипеткой тоже меняет выбор
+    const picker = el.querySelector("#lg-node-color-picker");
+    picker.value = "#123456";
+    picker.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.strictEqual(hex.value, "#123456", "выбор пипеткой не попал в hex-поле");
+    // недописанный hex: сохранение заблокировано, подсветка образцов снята
+    const saveBtn = Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Сохранить");
+    hex.value = "#ff";
+    hex.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.strictEqual(saveBtn.disabled, true, "недописанный hex не заблокировал «Сохранить»");
+    assert.ok(!el.querySelector(".lg-swatch--on"), "недописанный hex не снял подсветку образцов");
+    // очистка поля возвращает «как у главы/типа» и разблокирует сохранение
+    hex.value = "";
+    hex.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.strictEqual(saveBtn.disabled, false, "очищенное поле не разблокировало «Сохранить»");
+    assert.ok(el.querySelector(".lg-swatch--auto").classList.contains("lg-swatch--on"), "очистка не вернула «как у главы/типа»");
+    // вернуть выбор пипеткой и сохранить
+    picker.value = "#123456";
+    picker.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    // сохранить: файл + модель, окно закрылось
+    saveBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+    assert.strictEqual(obsidian_stub_parse(fs.readFileSync(path.join(TMP, n.path), "utf8")).data.color, "#123456", "цвет из окна не записан");
+    assert.strictEqual(n.color, "#123456", "модель не перекрашена");
+    assert.ok(!document.querySelector(".modal .lg-node-color"), "окно не закрылось после сохранения");
+    // повторное открытие: своё значение подхвачено из colorProp
+    plugin.editNodeColor(n);
+    el = document.querySelector(".modal .lg-node-color");
+    assert.strictEqual(el.querySelector("#lg-node-color-hex").value, "#123456", "при повторном открытии не подхвачен текущий цвет");
+    // «как у главы/типа» снимает свойство
+    el.querySelector(".lg-swatch--auto").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Сохранить")
+      .dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+    assert.strictEqual(obsidian_stub_parse(fs.readFileSync(path.join(TMP, n.path), "utf8")).data.color, undefined, "«как у главы/типа» не сняло color:");
+    assert.notStrictEqual(n.color, "#123456", "вершина осталась со своим цветом");
+  });
+
+  await ok("ПКМ по вершине и меню «Проводника»: пункт цвета открывает то же окно", async () => {
+    const n = view.graph.nodes.find((x) => x.type === "section" && !x.inline);
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu { constructor(a) { super(a); captured = this; } };
+    try {
+      view.nodeEls[n.id].dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 12, clientY: 12 })
+      );
+      const item = captured.items.find((i) => i._t === "Цвет вершины…");
+      assert.ok(item, "в контекстном меню нет пункта цвета: " + captured.items.filter((i) => !i.sep).map((i) => i._t).join(" | "));
+      assert.strictEqual(item._i, "palette", "у пункта нет иконки");
+      item._cb();
+      assert.ok(document.querySelector(".modal .lg-node-color"), "окно цвета не открылось из контекстного меню");
+      Array.from(document.querySelectorAll(".modal .lg-node-color button"))
+        .find((b) => b.textContent === "Отмена").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+    // меню «Проводника» (правый клик по заметке-вершине)
+    const menu = new obsidian.Menu(app);
+    app.workspace.trigger("file-menu", menu, new TFile(n.path, path.join(TMP, n.path)), null, "file-editor");
+    const item2 = menu.items.find((i) => i._t === "Цвет вершины графа…");
+    assert.ok(item2, "нет пункта цвета в меню файла: " + menu.items.map((i) => i._t).join(" | "));
+    await item2._cb();
+    assert.ok(document.querySelector(".modal .lg-node-color"), "окно цвета не открылось из меню файла");
+    Array.from(document.querySelectorAll(".modal .lg-node-color button"))
+      .find((b) => b.textContent === "Отмена").dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    // команды палитры зарегистрированы (id-шники проверены в onload-тесте)
+    assert.ok(plugin.commands.some((c) => c.id === "set-node-color" && /color/i.test(c.name)), "нет команды цвета текущей заметки");
+    assert.ok(plugin.commands.some((c) => c.id === "set-selected-node-color"), "нет команды цвета выделенной вершины");
+  });
+
+  await ok("настройки: раздел «Цвет отдельной вершины» ищет вершину и красит её", async () => {
+    await plugin.getGraph(false); // свежий кэш — раздел отрисуется синхронно
+    const tab = plugin.settingTabs[0];
+    tab.display();
+    const box = tab.containerEl.querySelector(".lg-node-color-settings");
+    assert.ok(box, "в настройках нет раздела выбора вершины");
+    const search = box.querySelector("#lg-color-node-search");
+    const sel = box.querySelector("#lg-color-node-sel");
+    const pickBtn = Array.from(box.querySelectorAll("button")).find((b) => b.textContent === "Выбрать цвет…");
+    const info = box.querySelector(".lg-node-color-settings__info");
+    assert.ok(search && sel && pickBtn && info, "нет поиска, списка, кнопки или строки текущего цвета");
+    // полный список не-inline вершин графа
+    const total = plugin.cache.nodes.filter((x) => !x.inline).length;
+    assert.strictEqual(sel.options.length, Math.min(total, 400), "размер списка не совпал: " + sel.options.length + " из " + total);
+    // поиск сужает список до одной вершины
+    search.value = "Ch01-S01-H01-B01";
+    search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    assert.strictEqual(sel.options.length, 1, "поиск не нашёл ровно одну вершину: " + sel.options.length);
+    const n = plugin.cache._byId[sel.options[0].value];
+    assert.ok(n, "в списке вершина, которой нет в графе");
+    assert.ok(/цвет главы|цвет типа|свой цвет/.test(info.textContent), "строка не объясняет текущий цвет: " + info.textContent);
+    // кнопка открывает окно; выбор образца записывает color: в заметку
+    pickBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    const el = document.querySelector(".modal .lg-node-color");
+    assert.ok(el, "окно цвета не открылось из настроек");
+    Array.from(el.querySelectorAll(".lg-swatch")).find((b) => b.dataset.color === "#9a8cff")
+      .dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Сохранить")
+      .dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    await new Promise((r) => setTimeout(r, 30));
+    assert.strictEqual(obsidian_stub_parse(fs.readFileSync(path.join(TMP, n.path), "utf8")).data.color, "#9a8cff", "цвет из настроек не записан в заметку");
+    // после закрытия окна строка в настройках обновилась без перерисовки вкладки
+    assert.ok(info.textContent.includes("#9a8cff") && /свой цвет/.test(info.textContent), "строка настроек не обновилась: " + info.textContent);
+    // вернуть как было
+    assert.strictEqual(await plugin.writeNodeColor(n, ""), true, "откат цвета из теста не удался");
+  });
+
+  await ok("создание узла из модалки: свой цвет пишется в заметку, «как у главы/типа» — нет", async () => {
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      const modal = new PluginClass.CreateNodeModal(app, plugin, {});
+      modal.open();
+      const el = document.querySelector(".modal .lg-create");
+      assert.ok(el, "модалка создания не открылась");
+      const swatches = Array.from(el.querySelectorAll(".lg-swatch"));
+      assert.ok(swatches.length >= 10, "в окне создания нет ряда образцов: " + swatches.length);
+      assert.ok(el.querySelector("#lg-new-color-hex"), "нет поля своего цвета");
+      assert.ok(el.querySelector("#lg-new-color-picker"), "нет пипетки");
+      assert.ok(/унаследует/.test(el.querySelector(".lg-node-color__note").textContent), "предпросмотр не говорит, что цвет наследуется");
+      assert.ok(swatches[0].classList.contains("lg-swatch--auto") && swatches[0].classList.contains("lg-swatch--on"),
+        "изначально должен быть выбран «как у главы/типа»");
+      // свой цвет hex-строкой (с нормализацией регистра)
+      const hex = el.querySelector("#lg-new-color-hex");
+      hex.value = "#9a8CFF";
+      hex.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+      assert.strictEqual(hex.value, "#9a8cff", "hex не нормализован");
+      assert.ok(el.querySelector(".lg-node-color__dot").style.background, "предпросмотр не покрасился");
+      el.querySelector("#lg-new-name").value = "Colored Modal Node";
+      el.querySelector("#lg-new-name-zh").value = "着色节点";
+      Array.from(el.querySelectorAll("button")).find((b) => b.textContent === "Создать")
+        .dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+      await new Promise((r) => setTimeout(r, 80));
+      assert.strictEqual(modal.isOpen, false, "модалка не закрылась после создания");
+      const g = await plugin.getGraph(false);
+      const n = g.nodes.find((x) => x.name === "Colored Modal Node");
+      assert.ok(n, "заметка не создана");
+      assert.strictEqual(obsidian_stub_parse(fs.readFileSync(path.join(TMP, n.path), "utf8")).data.color, "#9a8cff",
+        "свой цвет не записан в новую заметку");
+      assert.strictEqual(n.color, "#9a8cff", "новая вершина не покрашена своим цветом");
+      // без выбора свойства color: нет вовсе — вершина красится цветом типа
+      const res2 = await plugin.createNewNode({ type: "block", nameEn: "Auto Color Node" });
+      assert.ok(res2 && res2.file, "вторая заметка не создана");
+      const data2 = obsidian_stub_parse(fs.readFileSync(path.join(TMP, res2.path), "utf8")).data;
+      assert.strictEqual(data2.color, undefined, "без выбора color: не должен писаться");
+      const n2 = plugin.cache._byId[res2.id];
+      assert.strictEqual(n2.color, plugin.settings.colors.block, "новая вершина без color: красится не цветом типа");
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
   });
 
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));

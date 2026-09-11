@@ -1393,6 +1393,35 @@ ok("composeNote: конвенции frontmatter + регион фраз + Relate
   assert.ok(text.indexOf("## Related topics") < text.indexOf(marks.begin), "регион должен быть последним блоком тела");
 });
 
+ok("цвет вершины: isHexColor/normalizeHexColor и запись color: в composeNote", () => {
+  // валидация: 3 и 6 hex-цифр, регистр и пробелы не важны; остальное — не цвет
+  assert.strictEqual(core.isHexColor("#abc"), true, "#abc должен быть цветом");
+  assert.strictEqual(core.isHexColor("#A1B2C3"), true, "#A1B2C3 должен быть цветом");
+  assert.strictEqual(core.isHexColor(" #ff7a6b "), true, "пробелы вокруг не должны мешать");
+  ["", "красный", "#ggg", "#12345", "#1234567", "ff7a6b", "rgb(1,2,3)", null, undefined].forEach((v) =>
+    assert.strictEqual(core.isHexColor(v), false, "это не цвет: " + JSON.stringify(v)));
+  // нормализация: к #rrggbb в нижнем регистре, 3-значные разворачиваются, мусор -> ""
+  assert.strictEqual(core.normalizeHexColor("#AbC"), "#aabbcc", "3-значный hex не развёрнут");
+  assert.strictEqual(core.normalizeHexColor(" #FF7A6B "), "#ff7a6b", "регистр/пробелы не нормализованы");
+  assert.strictEqual(core.normalizeHexColor("nope"), "", "мусор должен давать пустую строку");
+  // composeNote: валидный цвет пишется в color: (ключ настраивается), мусор и пусто — нет
+  const withColor = core.composeNote({ type: "block", id: "MN-77", name: "Colored", color: "#FF7A6B" }, shippedCfg);
+  assert.ok(/^color: "#ff7a6b"$/m.test(withColor), "color: не записан или не нормализован:\n" + withColor.split("---")[1]);
+  const customKey = core.composeNote({ type: "block", id: "MN-77", name: "Colored", color: "#ff7a6b" }, Object.assign({}, shippedCfg, { colorKey: "tint" }));
+  assert.ok(/^tint: "#ff7a6b"$/m.test(customKey), "настраиваемый ключ цвета (colorKey) не уважается");
+  ["", null, "красный", "#12345"].forEach((bad) => {
+    const t = core.composeNote({ type: "block", id: "MN-77", name: "Colored", color: bad }, shippedCfg);
+    assert.ok(!/^color:/m.test(t), "мусорный цвет записан в frontmatter: " + JSON.stringify(bad));
+  });
+  // и заметка с color: сразу красится им (свойство перебивает главу и тип)
+  const victim = graph.nodes.find((n) => n.type === "heading");
+  const recolored = core.buildGraph(
+    allNotes.map((x) => (x.path === victim.path ? { path: x.path, text: core.setFrontmatterValues(x.text, { color: "#5fd3c4" }) } : x)),
+    shippedCfg
+  );
+  assert.strictEqual(recolored.nodes.find((n) => n.id === victim.id).color, "#5fd3c4", "свой color: не применён");
+});
+
 ok("relatedChapters: ВСЕ главы из разбивки по вхождениям, а не одна доминирующая", () => {
   const plan = {
     byChapter: { Ch01: 19, Ch02: 18, Ch04: 20, Ch06: 1 },

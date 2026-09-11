@@ -1598,6 +1598,19 @@
 
   var HEX = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i;
 
+  /** #abc и #aabbcc (регистр не важен, вокруг — пробелы); всё остальное — не цвет. */
+  function isHexColor(v) {
+    return HEX.test(String(v == null ? "" : v).trim());
+  }
+
+  /** Нормализованный вид цвета для записи и сравнения: #aabbcc в нижнем регистре. */
+  function normalizeHexColor(v) {
+    var s = String(v == null ? "" : v).trim().toLowerCase();
+    if (!HEX.test(s)) return "";
+    if (s.length === 4) s = "#" + s[1] + s[1] + s[2] + s[2] + s[3] + s[3];
+    return s;
+  }
+
   /**
    * Группировка по цветам. По умолчанию цвет — у каждой главы свой (из chapterPalette),
    * и все секции, заголовки и блоки внутри главы красятся тем же цветом: кластер читаем
@@ -5011,6 +5024,9 @@
     fm.push(["status", s.status || "draft"]);
     if (s.parent) fm.push(["parent", String(s.parent)]);
     if (s.chapter) fm.push(["chapter", String(s.chapter)]);
+    // свой цвет вершины: пишется только валидным hex, иначе вершина красится как обычно
+    // (цветом главы или типом) — мусор из окна создания в frontmatter не попадает
+    if (s.color && isHexColor(s.color)) fm.push([cfg.colorKey, normalizeHexColor(s.color)]);
     if (s.keywords && s.keywords.length) fm.push([cfg.keywordsKey, s.keywords.join("; ")]);
     if (s.weight !== null && s.weight !== undefined) fm.push([cfg.weightKey, s.weight]);
     fm.push(["cssclasses", ["lg-node", "lg-node--" + type]]);
@@ -5419,6 +5435,8 @@
     placeClusters: placeClusters,
     packAroundAnchors: packAroundAnchors,
     resolveColors: resolveColors,
+    isHexColor: isHexColor,
+    normalizeHexColor: normalizeHexColor,
     toGraphJson: toGraphJson,
     toDot: toDot,
     toGraphML: toGraphML,
