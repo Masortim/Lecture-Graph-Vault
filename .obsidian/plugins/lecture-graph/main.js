@@ -7974,6 +7974,7 @@ class ManualMergeModal extends obsidian.Modal {
   onOpen() {
     var content = this.contentEl;
     var self = this;
+    this.modalEl.addClass("lg-modal-wide");
     content.addClass("lg-modal");
     content.addClass("lg-manual-merge");
     content.createEl("h2", { text: "Ручное слияние узлов" });
@@ -8246,6 +8247,7 @@ class MergeDuplicatesModal extends obsidian.Modal {
 
   onOpen() {
     var content = this.contentEl;
+    this.modalEl.addClass("lg-modal-wide");
     content.addClass("lg-modal");
     content.addClass("lg-merge");
     var self = this;

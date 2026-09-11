@@ -156,17 +156,30 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-k { opacity: .7; }
 .lg-v { text-align: right; font-variant-numeric: tabular-nums; }
 .lg-muted { opacity: .6; }
-.lg-modal h2 { margin-top: 0; }
-.lg-modal-path { font-family: var(--font-monospace); font-size: var(--font-ui-smaller); opacity: .65; margin-bottom: 10px; word-break: break-all; }
-.lg-modal-preview { border-left: 3px solid var(--interactive-accent); padding: 6px 10px; margin-bottom: 12px; background: var(--background-secondary); border-radius: 0 6px 6px 0; }
-.lg-field { margin-bottom: 10px; }
+/* Базовая гигиена модалок плагина: без неё длинный текст (пути файлов, id, длинные
+   названия узлов) распирает содержимое шире самого окна .modal, и внизу появляется
+   горизонтальный скролл-бар, а заголовок может наехать на крестик закрытия. */
+.lg-modal, .lg-modal * { box-sizing: border-box; }
+.lg-modal { max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+.lg-modal h2 { margin: 0 34px 0 0; max-width: 100%; overflow-wrap: break-word; word-break: break-word; }
+.lg-modal-path { font-family: var(--font-monospace); font-size: var(--font-ui-smaller); opacity: .65; margin-bottom: 10px; overflow-wrap: anywhere; word-break: break-all; }
+.lg-modal-preview { border-left: 3px solid var(--interactive-accent); padding: 6px 10px; margin-bottom: 12px; background: var(--background-secondary); border-radius: 0 6px 6px 0; max-width: 100%; }
+.lg-field { margin-bottom: 10px; min-width: 0; }
 .lg-field label { display: block; font-size: var(--font-ui-smaller); opacity: .75; margin-bottom: 3px; }
-.lg-field input { width: 100%; }
-.lg-field select { width: 100%; max-width: 420px; }
-.lg-field textarea { width: 100%; min-height: 58px; resize: vertical; font-family: var(--font-monospace); }
-.lg-field-row { display: flex; gap: 6px; }
-.lg-modal-hint { font-size: var(--font-ui-smaller); opacity: .7; margin: 8px 0 14px; }
-.lg-modal-btns { display: flex; gap: 8px; justify-content: flex-end; }
+.lg-field input { width: 100%; max-width: 100%; }
+.lg-field select { width: 100%; max-width: 100%; }
+.lg-field textarea { width: 100%; max-width: 100%; min-height: 58px; resize: vertical; font-family: var(--font-monospace); }
+.lg-field-row { display: flex; gap: 6px; min-width: 0; }
+.lg-field-row input { min-width: 0; }
+.lg-modal-hint { font-size: var(--font-ui-smaller); opacity: .7; margin: 8px 0 14px; overflow-wrap: break-word; }
+.lg-modal-btns { display: flex; gap: 8px; justify-content: flex-end; flex-wrap: wrap; }
+/* Модалки, которым нужно больше места (ручное слияние, предпросмотр дублей): ширину
+   и предел задаём самому modalEl (реальному окну), а не только внутреннему контенту —
+   иначе контент оказывается шире окна и снизу вылезает горизонтальный скролл-бар. */
+.lg-modal-wide.modal {
+  width: min(760px, calc(100vw - 48px));
+  max-width: calc(100vw - 48px);
+}
 /* окно удаления: список последствий — это то, ради чего оно нужно, поэтому списку
    дан воздух, а «отмена удаления» отделена как единственная хорошая новость */
 .lg-delete .lg-modal-preview { border-left-color: var(--text-error, #e5534b); }
@@ -178,11 +191,14 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .theme-light .lg-label-zh, .theme-light .lg-modal .lg-line--zh { fill: #2f6fd0; color: #2f6fd0; }
 
 /* --- ManualMergeModal: поиск и явный выбор второго узла --- */
-.lg-manual-merge { width: min(760px, calc(100vw - 48px)); }
+/* Ширину задаёт modalEl (класс lg-modal-wide), а не contentEl: контент всегда
+   заполняет окно на 100% и никогда не оказывается шире его. */
+.lg-manual-merge { width: 100%; max-width: 100%; min-width: 0; }
 .lg-manual-merge__source,
 .lg-manual-merge__target {
   padding: 9px 11px; margin-bottom: 10px; border: 1px solid var(--background-modifier-border);
   border-left: 3px solid var(--interactive-accent); border-radius: 7px; background: var(--background-secondary);
+  min-width: 0; overflow-wrap: break-word;
 }
 .lg-manual-merge__target { border-left-color: var(--text-warning, #f2b33d); }
 .lg-manual-merge__eyebrow {
@@ -204,15 +220,22 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
   border-radius: 7px; background: var(--background-primary);
 }
 .lg-manual-merge__item {
-  display: block; width: 100%; padding: 7px 9px; border: 1px solid transparent; border-radius: 6px;
+  display: block; width: 100%; max-width: 100%; min-width: 0; padding: 7px 9px;
+  border: 1px solid transparent; border-radius: 6px;
   background: transparent; box-shadow: none; color: var(--text-normal); text-align: left; cursor: pointer;
 }
 .lg-manual-merge__item:hover,
 .lg-manual-merge__item:focus { border-color: var(--background-modifier-border); background: var(--background-modifier-hover); }
 .lg-manual-merge__item--selected,
 .lg-manual-merge__item--selected:hover { border-color: var(--interactive-accent); background: rgba(127, 178, 255, .12); }
-.lg-manual-merge__item-name { font-size: var(--font-ui-small); font-weight: 600; }
-.lg-manual-merge__item-zh { color: #7fb2ff; font-weight: 400; }
+/* Название + перевод вершины: переносятся по словам, а не растягивают карточку вбок. */
+.lg-manual-merge__item-name { font-size: var(--font-ui-small); font-weight: 600; overflow-wrap: break-word; }
+.lg-manual-merge__item-zh { color: #7fb2ff; font-weight: 400; overflow-wrap: break-word; }
+.lg-manual-merge__item-meta { overflow-wrap: break-word; }
+/* Путь к файлу остаётся однострочным с многоточием (компактный список), но
+   min-width:0 у самой карточки (.lg-manual-merge__item) не даёт nowrap-тексту
+   распирать список и модалку вбок — раньше это и было источником горизонтального
+   скролл-бара. */
 .lg-manual-merge__item-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-monospace); }
 .lg-manual-merge__empty { margin: 8px 0 14px; color: var(--text-muted); font-size: var(--font-ui-small); }
 .lg-manual-merge__keeper select { width: 100%; }
