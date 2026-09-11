@@ -984,6 +984,7 @@ class LectureGraphView extends obsidian.ItemView {
       // поэтому его ставит updateNodeSizes(); здесь — первое значение
       var c = svgEl("circle", { r: this.radiusModel(n, this.view.k).toFixed(1), fill: n.color });
       c.__lgR = c.getAttribute("r");
+      c.__lgFill = n.color; // что нарисовано сейчас — redraw меняет заливку только при отличии
       g.__c = c;
       g.appendChild(c);
       var t = svgEl("text", { class: "lg-label", "text-anchor": "middle", y: n.r + 11 });
@@ -1455,6 +1456,13 @@ class LectureGraphView extends obsidian.ItemView {
         var n2 = this.byId[id2];
         if (!n2) continue;
         var el2 = this.nodeEls[id2];
+        // заливка меняется на месте (writeNodeColor правит colorProp и зовёт redraw):
+        // круг не пересоздаётся, поэтому следим и за fill, а не только за классами
+        var c2 = el2.__c || (el2.__c = el2.querySelector("circle"));
+        if (c2 && c2.__lgFill !== n2.color) {
+          c2.setAttribute("fill", n2.color);
+          c2.__lgFill = n2.color;
+        }
         var cls = "lg-node lg-node--" + n2.type;
         if (this.selected === id2) cls += " lg-node--selected";
         if (this.bubbleFor === id2) cls += " lg-node--captioned";
@@ -2081,6 +2089,13 @@ class LectureGraphView extends obsidian.ItemView {
     var menu = new obsidian.Menu(this.app);
     menu.addItem((it) => it.setTitle("Open note").setIcon("file-text").onClick(() => this.app.workspace.getLeaf(false).openFile(this.app.vault.getAbstractFileByPath(n.path))));
     menu.addItem((it) => it.setTitle("Edit label (EN / 中文)").setIcon("pencil").onClick(() => this.plugin.editLabel(n)));
+    menu.addItem((it) =>
+      it
+        .setTitle("Цвет вершины…")
+        .setIcon("palette")
+        .setDisabled(!!n.inline)
+        .onClick(() => this.plugin.editNodeColor(n))
+    );
     menu.addItem((it) => it.setTitle("Isolate chapter of this vertex").setIcon("scan").onClick(() => this.isolate(n.id)));
     menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
     menu.addSeparator();
@@ -2305,6 +2320,201 @@ class EditLabelModal extends obsidian.Modal {
   }
 }
 
+/* ------------------------------------------------------------------ образцы цвета */
+
+/**
+ * Один и тот же ряд образцов в окне «Цвет вершины» и в окне создания узла: пунктирный
+ * круг «как у главы/типа» плюс все цвета, которые уже есть в графе (plugin.usedColors).
+ */
+function fillColorSwatches(row, plugin, onPick) {
+  row.textContent = "";
+  var auto = row.createEl("button", {
+    cls: "lg-swatch lg-swatch--auto",
+    attr: { type: "button", title: "Как у главы/типа: вершина красится по общему правилу", "aria-label": "Как у главы/типа" },
+  });
+  auto.addEventListener("click", function () { onPick(""); });
+  plugin.usedColors().forEach(function (c) {
+    var b = row.createEl("button", {
+      cls: "lg-swatch",
+      attr: { type: "button", style: "background:" + c, title: c, "aria-label": "Цвет " + c },
+    });
+    b.dataset.color = c;
+    b.addEventListener("click", function () { onPick(c); });
+  });
+}
+
+/** Подсветить выбранный образец; пустое значение подсвечивает «как у главы/типа».
+ *  Полувведённый hex (#ff…) не подсвечивает ничего — это ещё не выбор. */
+function markColorSwatch(row, value) {
+  var raw = String(value == null ? "" : value).trim();
+  var want = core.isHexColor(raw) ? core.normalizeHexColor(raw) : "";
+  Array.prototype.forEach.call(row.querySelectorAll(".lg-swatch"), function (b) {
+    var on = want ? b.dataset && b.dataset.color === want : raw === "" && b.classList.contains("lg-swatch--auto");
+    b.classList.toggle("lg-swatch--on", on);
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+  });
+}
+
+/* ------------------------------------------------------------------ modal: цвет вершины */
+
+/**
+ * Смена цвета одной вершины. Цвет — это свойство color: в frontmatter заметки: оно
+ * перебивает и цвет главы, и цвет типа (см. core.resolveColors), поэтому окно пишет
+ * ровно его и ничего больше. Список образцов — цвета, которые уже есть в графе:
+ * палитра глав, цвета типов и чужие собственные color: у других вершин (plugin.usedColors);
+ * плюс свой цвет — пипеткой <input type="color"> или hex-строкой. Выбор «как у
+ * главы/типа» снимает свойство: вершина снова красится по общему правилу.
+ */
+class NodeColorModal extends obsidian.Modal {
+  constructor(app, plugin, node, opts) {
+    super(app);
+    this.plugin = plugin;
+    this.node = node;
+    this.opts = opts || {};
+    this.value = core.isHexColor(node.colorProp) ? core.normalizeHexColor(node.colorProp) : "";
+    this.busy = false;
+  }
+
+  /** Откуда сейчас цвет вершины: своё свойство, глава или тип (для пояснения в окне). */
+  colorSource() {
+    var n = this.node;
+    if (core.isHexColor(n.colorProp)) return { hex: core.normalizeHexColor(n.colorProp), why: "своё свойство color:" };
+    var byCh = (this.plugin.cache && this.plugin.cache.colorsByChapter) || {};
+    var ch = byCh[n.kwChapter || n.chapter];
+    if (ch) return { hex: ch, why: "глава " + (n.kwChapter || n.chapter) };
+    return { hex: (this.plugin.settings.colors || {})[n.type] || "#888888", why: "тип «" + (TYPE_LABEL[n.type] || n.type) + "»" };
+  }
+
+  onOpen() {
+    var content = this.contentEl;
+    var self = this;
+    content.addClass("lg-modal");
+    content.addClass("lg-node-color");
+    content.createEl("h2", { text: "Цвет вершины" });
+    content.createDiv({ cls: "lg-modal-path", text: this.node.path });
+
+    var preview = content.createDiv({ cls: "lg-modal-preview lg-node-color__preview" });
+    this.dotEl = preview.createDiv({ cls: "lg-node-color__dot" });
+    var lines = preview.createDiv({ cls: "lg-node-color__lines" });
+    this.pName = lines.createDiv({ cls: "lg-line lg-line--en", text: this.node.name || this.node.id });
+    this.pNote = lines.createDiv({ cls: "lg-node-color__note" });
+
+    var fPal = content.createDiv({ cls: "lg-field" });
+    fPal.createEl("label", { text: "Цвет вершины", attr: { for: "lg-node-color-swatches" } });
+    this.swatchRow = fPal.createDiv({ cls: "lg-swatches", attr: { id: "lg-node-color-swatches" } });
+
+    var fCustom = content.createDiv({ cls: "lg-field" });
+    fCustom.createEl("label", { text: "Свой цвет (пипетка или #rgb / #rrggbb)", attr: { for: "lg-node-color-hex" } });
+    var customRow = fCustom.createDiv({ cls: "lg-field-row" });
+    this.pickerEl = customRow.createEl("input", {
+      cls: "lg-color-picker",
+      type: "color",
+      attr: { id: "lg-node-color-picker", title: "Выбрать свой цвет" },
+    });
+    this.hexEl = customRow.createEl("input", {
+      type: "text",
+      attr: { id: "lg-node-color-hex", placeholder: "#3fa7d6", spellcheck: "false", autocomplete: "off" },
+    });
+
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Выбор пишется в свойство " + (this.plugin.settings.colorKey || "color") + " заметки и перебивает цвет главы и тип. " +
+        "«Как у главы/типа» (пунктирный круг) снимает свойство — вершина снова красится по общему правилу. Тело заметки не трогается.",
+    });
+
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    this.saveBtn = btns.createEl("button", { text: "Сохранить", cls: "mod-cta", attr: { type: "button" } });
+    this.saveBtn.addEventListener("click", () => this.submit());
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+
+    this.pickerEl.addEventListener("input", function () {
+      self.setValue(core.normalizeHexColor(this.value) || this.value, { from: "picker" });
+    });
+    this.hexEl.addEventListener("input", function () {
+      var v = this.value.trim();
+      if (!v) self.setValue(""); // очистил поле — вернулись к «как у главы/типа»
+      else if (core.isHexColor(v)) self.setValue(core.normalizeHexColor(v), { from: "hex" });
+      else {
+        // полу-введённый hex (#ff…): ещё не выбор — подсветку снимаем и не даём
+        // сохранить «старое» значение под видом недописанного
+        self.hexOk = false;
+        self.saveBtn.disabled = true;
+        self.markSwatches(v);
+      }
+    });
+    this.registerDomEvent(document, "keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) this.submit();
+    });
+
+    this.renderSwatches();
+    this.setValue(this.value);
+    setTimeout(() => this.hexEl.focus(), 30);
+  }
+
+  /** Ряд образцов: «как у главы/типа» (пунктир) + все цвета, которые уже есть в графе. */
+  renderSwatches() {
+    var self = this;
+    fillColorSwatches(this.swatchRow, this.plugin, function (v) { self.setValue(v); });
+  }
+
+  /** Единая точка выбора: подсветить образец, обновить пипетку, hex и предпросмотр. */
+  setValue(v, from) {
+    this.value = core.isHexColor(v) ? core.normalizeHexColor(v) : "";
+    this.hexOk = true;
+    if (!this.busy) this.saveBtn.disabled = false;
+    markColorSwatch(this.swatchRow, this.value);
+    var cur = this.colorSource();
+    // пипетка всегда активна: клик по ней сразу выбирает свой цвет; без своего цвета
+    // она показывает текущий (главы/типа), чтобы начать выбор с чего-то осмысленного
+    if (!from || from !== "picker") this.pickerEl.value = this.value || cur.hex;
+    if (!from || from !== "hex") this.hexEl.value = this.value;
+    var showOwn = !!this.value;
+    this.dotEl.style.background = showOwn ? this.value : "transparent";
+    this.dotEl.removeClass("lg-node-color__dot--auto");
+    if (!showOwn) this.dotEl.addClass("lg-node-color__dot--auto");
+    this.pNote.setText(
+      (showOwn ? "будет: " + this.value + " (свойство color:)" : "будет: как у главы/типа — сейчас " + cur.hex + " (" + cur.why + ")")
+    );
+  }
+
+  /** Подсветка выбранного образца без перезаписи полей (для полу-введённого hex). */
+  markSwatches(v) {
+    markColorSwatch(this.swatchRow, v);
+  }
+
+  async submit() {
+    if (this.busy) return;
+    if (this.hexOk === false) {
+      new obsidian.Notice("Цвет дописан не до конца: #abc или #aabbcc — либо очистите поле, чтобы снять свой цвет");
+      return;
+    }
+    this.busy = true;
+    this.saveBtn.disabled = true;
+    this.saveBtn.setText("Сохраняем…");
+    var ok;
+    try {
+      ok = await this.plugin.writeNodeColor(this.node, this.value);
+    } finally {
+      this.busy = false;
+      this.saveBtn.disabled = false;
+      this.saveBtn.setText("Сохранить");
+    }
+    if (ok) {
+      new obsidian.Notice(
+        this.value
+          ? "Цвет вершины " + this.node.id + ": " + this.value
+          : "Свой цвет снят: " + this.node.id + " снова красится по главе/типу"
+      );
+      this.close();
+    }
+  }
+
+  onClose() {
+    if (typeof this.opts.onDone === "function") this.opts.onDone(this.value);
+    this.contentEl.textContent = "";
+  }
+}
+
 /* ------------------------------------------------------------------ modal: новый узел */
 
 /** Родитель какого типа уместен для вершины этого уровня (конвенция курса). */
@@ -2364,20 +2574,86 @@ class CreateNodeModal extends obsidian.Modal {
     fParent.createEl("label", { text: "Родитель (необязательно)", attr: { for: "lg-new-parent" } });
     var parentSel = fParent.createEl("select", { attr: { id: "lg-new-parent" } });
 
-    var preview = content.createDiv({ cls: "lg-modal-preview" });
-    var pEn = preview.createDiv({ cls: "lg-line lg-line--en", text: "(название)" });
-    var pZh = preview.createDiv({ cls: "lg-line lg-line--zh", text: "—" });
+    // цвет можно задать сразу: образцами, которые уже есть в графе, или своим. По
+    // умолчанию — «как у главы/типа»: заметка красится по общему правилу, и её
+    // кластер остаётся читаемым; своё значение пишется в color: и перебивает его
+    var fColor = content.createDiv({ cls: "lg-field" });
+    fColor.createEl("label", { text: "Цвет вершины", attr: { for: "lg-new-color-swatches" } });
+    var colorRow = fColor.createDiv({ cls: "lg-swatches", attr: { id: "lg-new-color-swatches" } });
+    var fColorCustom = content.createDiv({ cls: "lg-field" });
+    fColorCustom.createEl("label", { text: "Свой цвет (пипетка или #rgb / #rrggbb)", attr: { for: "lg-new-color-hex" } });
+    var customRow = fColorCustom.createDiv({ cls: "lg-field-row" });
+    var colorPicker = customRow.createEl("input", {
+      cls: "lg-color-picker",
+      type: "color",
+      attr: { id: "lg-new-color-picker", title: "Выбрать свой цвет" },
+    });
+    var colorHex = customRow.createEl("input", {
+      type: "text",
+      attr: { id: "lg-new-color-hex", placeholder: "#3fa7d6", spellcheck: "false", autocomplete: "off" },
+    });
+
+    var preview = content.createDiv({ cls: "lg-modal-preview lg-node-color__preview" });
+    var pDot = preview.createDiv({ cls: "lg-node-color__dot" });
+    var pLines = preview.createDiv({ cls: "lg-node-color__lines" });
+    var pEn = pLines.createDiv({ cls: "lg-line lg-line--en", text: "(название)" });
+    var pZh = pLines.createDiv({ cls: "lg-line lg-line--zh", text: "—" });
+    var pColor = pLines.createDiv({ cls: "lg-node-color__note" });
 
     var btns = content.createDiv({ cls: "lg-modal-btns" });
     var save = btns.createEl("button", { text: "Создать", cls: "mod-cta", attr: { type: "button" } });
     btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
 
     var self = this;
+    this.color = "";
+    this.colorOk = true;
     var upd = function () {
       pEn.setText(en.value.trim() || "(название)");
       pZh.setText(zh.value.trim() || "—");
-      save.disabled = !en.value.trim() || self.busy;
+      save.disabled = !en.value.trim() || self.busy || !self.colorOk;
+      if (!self.color) pColor.setText("цвет: унаследуется — как у главы, а без неё как у типа «" + (TYPE_LABEL[typeSel.value] || typeSel.value) + "»");
     };
+    // «как у главы/типа» показывает цвет типа — до создания реальную главу никто
+    // не знает (её определит поиск по корпусу), а пунктир честно говорит «унаследуется»
+    var autoColor = function () {
+      return core.normalizeHexColor((self.plugin.settings.colors || {})[typeSel.value]) || "#888888";
+    };
+    var setColor = function (v) {
+      self.color = core.isHexColor(v) ? core.normalizeHexColor(v) : "";
+      self.colorOk = true;
+      markColorSwatch(colorRow, self.color);
+      // пипетка всегда активна; без своего цвета показывает цвет типа — с него
+      // удобно начинать выбор, а пунктирный круг говорит «пока не выбрано своё»
+      colorPicker.value = self.color || autoColor();
+      colorHex.value = self.color;
+      if (self.color) {
+        pDot.style.background = self.color;
+        pDot.removeClass("lg-node-color__dot--auto");
+        pColor.setText("цвет: " + self.color + " (свойство color:)");
+      } else {
+        pDot.style.background = "transparent";
+        pDot.addClass("lg-node-color__dot--auto");
+        pColor.setText("цвет: унаследуется — как у главы, а без неё как у типа «" + (TYPE_LABEL[typeSel.value] || typeSel.value) + "»");
+      }
+      upd();
+    };
+    fillColorSwatches(colorRow, this.plugin, setColor);
+    colorPicker.addEventListener("input", function () {
+      setColor(core.normalizeHexColor(this.value) || this.value);
+    });
+    colorHex.addEventListener("input", function () {
+      var v = this.value.trim();
+      if (!v) setColor(""); // очистил поле — снова «как у главы/типа»
+      else if (core.isHexColor(v)) setColor(core.normalizeHexColor(v));
+      else {
+        // полу-введённый hex: выбора нет, «Создать» заблокирован, чтобы не сохранить
+        // прежний цвет под видом недописанного
+        self.colorOk = false;
+        markColorSwatch(colorRow, v);
+        upd();
+      }
+    });
+    setColor("");
     en.addEventListener("input", upd);
     zh.addEventListener("input", upd);
 
@@ -2407,6 +2683,11 @@ class CreateNodeModal extends obsidian.Modal {
     fillParents(typeSel.value);
     typeSel.addEventListener("change", function () {
       fillParents(typeSel.value);
+      // подсказка про «как у главы/типа» зависит от выбранного типа
+      if (!self.color) {
+        pDot.style.background = "transparent";
+        pColor.setText("цвет: унаследуется — как у главы, а без неё как у типа «" + (TYPE_LABEL[typeSel.value] || typeSel.value) + "»");
+      }
     });
 
     save.addEventListener("click", () => this.submit());
@@ -2428,6 +2709,10 @@ class CreateNodeModal extends obsidian.Modal {
       new obsidian.Notice("Название (EN) обязательно: это первая строка подписи вершины");
       return;
     }
+    if (this.colorOk === false) {
+      new obsidian.Notice("Цвет дописан не до конца: #abc или #aabbcc — либо очистите поле, чтобы красить по общему правилу");
+      return;
+    }
     this.busy = true;
     var save = Array.from(this.contentEl.querySelectorAll("button")).find((b) => b.textContent === "Создать");
     if (save) {
@@ -2442,6 +2727,7 @@ class CreateNodeModal extends obsidian.Modal {
         nameZh: this.zh.value,
         keywords: this.kw.value,
         parent: this.parentSel && !this.parentSel.disabled ? this.parentSel.value : "",
+        color: this.color,
       });
     } finally {
       this.busy = false;
@@ -3242,6 +3528,106 @@ class LectureGraphSettingTab extends obsidian.PluginSettingTab {
       new obsidian.Setting(el).setName(TYPE_LABEL[t] || t).setDesc("тип вершины: " + t).addText((x) => x.setValue(s.colors[t]).onChange((v) => ((s.colors[t] = v), save(), this.plugin.changed())));
     });
 
+    /* Цвет отдельной вершины: выбрать узел графа и назначить ему другой цвет — из
+       уже используемых в графе или собственный. Пишется то же свойство color:, что
+       и из контекстного меню графа, поэтому оба пути взаимозаменяемы. */
+    el.createEl("h3", { text: "Цвет отдельной вершины" });
+    var plugin = this.plugin;
+    var colorBox = el.createDiv({ cls: "lg-node-color-settings" });
+    var renderNodeColorPicker = function (graph) {
+      colorBox.textContent = "";
+      var nodes = (graph.nodes || []).filter(function (n) { return !n.inline; });
+      nodes.sort(function (a, b) { return a.id < b.id ? -1 : a.id > b.id ? 1 : 0; });
+      colorBox.createDiv({
+        cls: "lg-modal-hint",
+        text: "Найдите вершину и назначьте ей другой цвет — из уже используемых в графе или собственный. " +
+          "Цвет сохраняется в свойство " + (s.colorKey || "color") + " заметки и перебивает цвет главы и цвет типа; " +
+          "кнопка «как у главы/типа» в окне снимает свойство.",
+      });
+      var fSearch = colorBox.createDiv({ cls: "lg-field" });
+      fSearch.createEl("label", { text: "Найти вершину", attr: { for: "lg-color-node-search" } });
+      var search = fSearch.createEl("input", {
+        type: "search",
+        attr: { id: "lg-color-node-search", placeholder: "id, название, перевод или путь", autocomplete: "off" },
+      });
+      var fSel = colorBox.createDiv({ cls: "lg-field" });
+      fSel.createEl("label", { text: "Вершина", attr: { for: "lg-color-node-sel" } });
+      var sel = fSel.createEl("select", { attr: { id: "lg-color-node-sel" } });
+      var info = colorBox.createDiv({ cls: "lg-node-color-settings__info", attr: { "aria-live": "polite" } });
+      var btns = colorBox.createDiv({ cls: "lg-node-color-settings__btns" });
+      var pick = btns.createEl("button", { text: "Выбрать цвет…", cls: "mod-cta", attr: { type: "button" } });
+      var LIMIT = 400; // верхнее окно селекта: дальше — только через поиск
+      var byId = function (id) {
+        for (var i = 0; i < nodes.length; i++) if (nodes[i].id === id) return nodes[i];
+        return null;
+      };
+      var updInfo = function () {
+        var n = byId(sel.value);
+        info.textContent = "";
+        pick.disabled = !n;
+        if (!n) {
+          info.setText("Вершин в графе: " + nodes.length);
+          return;
+        }
+        info.createSpan({
+          cls: "lg-node-color__dot lg-node-color__dot--sm",
+          attr: { style: "background:" + (n.color || "#888888") },
+        });
+        var own = core.isHexColor(n.colorProp);
+        var why = own
+          ? "свой цвет (" + core.normalizeHexColor(n.colorProp) + ")"
+          : (graph.colorsByChapter || {})[n.kwChapter || n.chapter]
+            ? "цвет главы " + (n.kwChapter || n.chapter)
+            : "цвет типа «" + (TYPE_LABEL[n.type] || n.type) + "»";
+        info.createSpan({ text: " " + (n.color || "") + " · " + why });
+      };
+      var fill = function () {
+        var q = search.value.trim().toLowerCase();
+        var list = !q
+          ? nodes
+          : nodes.filter(function (n) {
+              return (n.id + " " + (n.name || "") + " " + (n.nameZh || "") + " " + n.path).toLowerCase().indexOf(q) >= 0;
+            });
+        sel.textContent = "";
+        if (!list.length) {
+          sel.createEl("option", { text: "— ничего не найдено —", attr: { value: "" } });
+        } else {
+          list.slice(0, LIMIT).forEach(function (n) {
+            sel.createEl("option", { text: n.id + " — " + (n.name || n.id), attr: { value: n.id } });
+          });
+        }
+        updInfo();
+      };
+      search.addEventListener("input", fill);
+      sel.addEventListener("change", updInfo);
+      pick.addEventListener("click", function () {
+        var n = byId(sel.value);
+        if (!n) return;
+        // окно то же, что из графа (ПКМ по вершине); после закрытия обновляем строку
+        plugin.editNodeColor(n, { onDone: function () { updInfo(); } });
+      });
+      fill();
+    };
+    if (plugin.cache && plugin.cache.nodes && plugin.cache.nodes.length && !plugin.cacheDirty) {
+      renderNodeColorPicker(plugin.cache);
+    } else {
+      // список вершин собирается асинхронно; settings-вкладку это не должно блокировать
+      colorBox.createDiv({ cls: "lg-modal-hint", text: "Собираем список вершин графа…" });
+      plugin
+        .getGraph(false)
+        .then(function (g) {
+          if (colorBox.isConnected) renderNodeColorPicker(g);
+        })
+        .catch((e) => {
+          if (!colorBox.isConnected) return;
+          colorBox.textContent = "";
+          colorBox.createDiv({
+            cls: "lg-modal-hint",
+            text: "Не удалось собрать список вершин: " + (e && e.message ? e.message : e),
+          });
+        });
+    }
+
     el.createEl("h3", { text: "Раскладка" });
     var lay = s.layout;
     var slider = function (name, key, min, max, step, desc) {
@@ -3446,6 +3832,28 @@ class LectureGraphPlugin extends obsidian.Plugin {
       callback: () => new CreateNodeModal(this.app, this, {}).open(),
     });
     this.addCommand({
+      id: "set-selected-node-color",
+      name: "Set color of the selected vertex (existing palette or custom)",
+      callback: () => {
+        var v = this.view();
+        if (!v || !v.selected || !v.byId[v.selected]) {
+          return new obsidian.Notice("Сначала выделите вершину на графе (клик по ней)");
+        }
+        return this.editNodeColor(v.byId[v.selected]);
+      },
+    });
+    this.addCommand({
+      id: "set-node-color",
+      name: "Set the color of the current note's vertex",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.editNodeColor(node);
+      },
+    });
+    this.addCommand({
       id: "manual-merge-selected",
       name: "Manually merge the selected vertex with another vertex",
       callback: () => {
@@ -3562,6 +3970,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
             var node = g.nodes.find((n) => n.path === file.path);
             if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
             else this.editLabel(node);
+          })
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Цвет вершины графа…")
+          .setIcon("palette")
+          .onClick(async () => {
+            var g = await this.getGraph(false);
+            var node = g.nodes.find((n) => n.path === file.path && !n.inline);
+            if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+            else this.editNodeColor(node);
           })
       );
       menu.addItem((it) =>
@@ -3900,6 +4319,89 @@ class LectureGraphPlugin extends obsidian.Plugin {
       new obsidian.Notice("Не удалось записать: " + (e && e.message ? e.message : e));
       return false;
     }
+  }
+
+  /* -------------------------------------------------- цвет вершины */
+
+  /**
+   * Все цвета, которые уже есть в графе: палитра глав, цвета типов и собственные
+   * color: у вершин (в этом порядке — от привычного к редкому). Из этого списка
+   * состоят ряды образцов в окне выбора цвета и при создании узла, поэтому новый
+   * цвет можно взять «как у соседей», а не подбирать заново.
+   */
+  usedColors(graph) {
+    var out = [];
+    var seen = {};
+    var push = function (c) {
+      var v = core.normalizeHexColor(c);
+      if (!v || seen[v]) return;
+      seen[v] = true;
+      out.push(v);
+    };
+    (this.settings.chapterPalette || []).forEach(push);
+    TYPES.forEach((t) => push((this.settings.colors || {})[t]));
+    var g = graph || this.cache;
+    if (g && g.nodes) g.nodes.forEach(function (n) { push(n.colorProp); push(n.color); });
+    return out;
+  }
+
+  /** Открыть окно выбора цвета вершины (свойство color: в frontmatter). */
+  editNodeColor(node, opts) {
+    if (!node) return;
+    if (node.inline) {
+      new obsidian.Notice("Инлайн-блок живёт в тексте чужой заметки и своего свойства color: не имеет");
+      return;
+    }
+    var file = this.app.vault.getAbstractFileByPath(node.path);
+    if (!(file instanceof obsidian.TFile)) {
+      new obsidian.Notice("Файл не найден: " + node.path);
+      return;
+    }
+    new NodeColorModal(this.app, this, node, opts).open();
+  }
+
+  /**
+   * Записать (или снять — пустая строка) собственный цвет вершины. Граф не
+   * перестраивается: color: уже в заметке, поэтому достаточно пересчитать цвета
+   * на живой модели (core.resolveColors — O(n), раскладка не трогается) и
+   * перерисовать открытые виды: круг на месте меняет заливку.
+   */
+  async writeNodeColor(node, color) {
+    if (!node || !node.path) return false;
+    var file = this.app.vault.getAbstractFileByPath(node.path);
+    if (!(file instanceof obsidian.TFile)) {
+      new obsidian.Notice("Файл не найден: " + node.path);
+      return false;
+    }
+    var hex = core.normalizeHexColor(color);
+    if (color && !hex) {
+      new obsidian.Notice("Цвет выглядит не так: «#abc» или «#aabbcc» (получилось «" + color + "»)");
+      return false;
+    }
+    var patch = {};
+    patch[this.settings.colorKey || "color"] = hex; // пустое значение снимает ключ
+    try {
+      await this.processInternal(file, (data) => core.setFrontmatterValues(data, patch));
+    } catch (e) {
+      new obsidian.Notice("Не удалось записать цвет: " + (e && e.message ? e.message : e));
+      return false;
+    }
+    node.colorProp = hex || null;
+    // пересчитать цвета на живой модели (O(n), раскладка не трогается) и перерисовать
+    // открытые виды: круг на месте меняет заливку. Графы у вида и кэша один и те же,
+    // subset для фильтров держит те же объекты вершин, поэтому правка видна всюду
+    var opts = buildOptions(this.settings);
+    var graphs = [];
+    if (this.cache && this.cache.nodes) graphs.push(this.cache);
+    this.forEachView(function (v) {
+      if (v.graph && v.graph.nodes && graphs.indexOf(v.graph) < 0) graphs.push(v.graph);
+    });
+    graphs.forEach(function (g) { core.resolveColors(g, opts); });
+    this.forEachView(function (v) {
+      if (v.redraw) v.redraw();
+      if (v.updateStatus) v.updateStatus();
+    });
+    return true;
   }
 
   /** Имя файла оглавления — из настройки, чтобы меню и команда палитры писали в одно место. */
@@ -4613,6 +5115,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
       return null;
     }
     var keywords = core.parseKeywords(input.keywords);
+    // цвет из окна создания: валидный hex пишется в color:, мусор молча игнорируется
+    var color = core.isHexColor(input.color) ? core.normalizeHexColor(input.color) : "";
     // 1. Свежая модель без раскладки: для id, родителей, голосования папок и поиска.
     var g = await this.buildGraphModel(opts);
     var parentNode = null;
@@ -4682,6 +5186,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
         status: "draft",
         parent: parentNode ? parentNode.id : null,
         chapter: chapter,
+        color: color,
         keywords: keywords,
         weight: plan ? plan.weight : null,
         region: plan ? core.keywordRegionText(plan, opts) : "",
@@ -4716,6 +5221,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       "Узел создан: " + (node ? node.path : file.path) +
       (nameZh ? " · " + nameEn + " / " + nameZh : "") +
       (chapter ? " · глава " + chapter : "") +
+      (color ? " · цвет " + color : "") +
       (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
       // главы показываем поимённо: их немного, а увидеть, что тема сквозная, важнее
       // очередного числа в строке

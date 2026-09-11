@@ -281,3 +281,43 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-merge__plan { font-size: var(--font-ui-smaller); opacity: .85; }
 .lg-merge__warn { font-size: var(--font-ui-smaller); color: var(--text-warning, #f2b33d); margin-top: 4px; }
 .lg-merge__empty { font-size: var(--font-ui-small); margin: 12px 0; }
+
+/* --- цвет вершины: образцы, пипетка, предпросмотр (окно «Цвет вершины», окно
+   создания узла и раздел настроек «Цвет отдельной вершины») --- */
+/* Ряд образцов: пунктирный круг «как у главы/типа» + цвета, которые уже есть
+   в графе. Выбранный образец обведён акцентным кольцом поверх своего цвета. */
+.lg-swatches { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+.lg-swatch {
+  width: 26px; height: 26px; padding: 0; border-radius: 50%;
+  border: 2px solid var(--background-modifier-border); cursor: pointer;
+  transition: transform .08s ease;
+}
+.lg-swatch:hover { transform: scale(1.14); }
+.lg-swatch--on {
+  box-shadow: 0 0 0 2px var(--background-primary), 0 0 0 4px var(--interactive-accent);
+  border-color: var(--background-primary);
+}
+/* «как у главы/типа»: пунктир + палитра по кругу — понятно, что цвет не свой,
+   а наследуется по общему правилу */
+.lg-swatch--auto {
+  border-style: dashed;
+  background: conic-gradient(#f2b33d, #4a9eda, #59c98a, #c07ad8, #ff7a6b, #f2b33d);
+}
+/* пипетка и hex-поле в одну строку: пипетка фиксированной ширины, hex — на всё остальное */
+.lg-color-picker { width: 46px; height: 30px; padding: 2px 3px; flex: 0 0 auto; }
+/* предпросмотр: круг цвета + две строки подписи + пояснение, откуда цвет */
+.lg-node-color__preview { display: flex; align-items: center; gap: 12px; }
+.lg-node-color__lines { min-width: 0; }
+.lg-node-color__dot {
+  width: 24px; height: 24px; border-radius: 50%; flex: 0 0 auto;
+  border: 2px solid var(--background-modifier-border); background-clip: padding-box;
+}
+.lg-node-color__dot--auto { border-style: dashed; }
+.lg-node-color__dot--sm { width: 12px; height: 12px; border-width: 1.5px; display: inline-block; }
+.lg-node-color__note { font-size: var(--font-ui-smaller); opacity: .7; margin-top: 2px; }
+/* раздел настроек: строка «текущий цвет и почему» + кнопка выбора */
+.lg-node-color-settings__info {
+  display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+  margin: 6px 0 8px; font-size: var(--font-ui-small);
+}
+.lg-node-color-settings__btns { display: flex; gap: 8px; margin-bottom: 12px; }
