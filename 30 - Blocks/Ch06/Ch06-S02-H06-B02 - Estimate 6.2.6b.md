@@ -30,6 +30,14 @@ $$
 
 Used together with: [[Ch03-S03-H01-B03 - Estimate 3.3.1c|Estimate 3.3.1c]], [[Ch04-S03-H06-B02 - Estimate 4.3.6b|Estimate 4.3.6b]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×8]] — глава `Ch04`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (fixed point) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

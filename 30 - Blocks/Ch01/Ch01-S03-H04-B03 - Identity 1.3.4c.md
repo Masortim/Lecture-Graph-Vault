@@ -29,6 +29,15 @@ $$
 
 Used together with: [[Ch05-S04-H02-B02 - Estimate 5.4.2b|Estimate 5.4.2b]], [[Ch07-S01-H01-B02 - Identity 7.1.1b|Identity 7.1.1b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×8]] — глава `Ch02`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×8]] — глава `Ch04`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (density argument, radon-nikodym derivative) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

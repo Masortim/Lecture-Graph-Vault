@@ -28,6 +28,12 @@ $$
 
 Used together with: [[Ch05-S03-H06-B02 - Estimate 5.3.6b|Estimate 5.3.6b]], [[Ch06-S04-H05-B02 - Identity 6.4.5b|Identity 6.4.5b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (density argument) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

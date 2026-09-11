@@ -30,6 +30,16 @@ $$
 
 Used together with: [[Ch04-S02-H02-B02 - Estimate 4.2.2b|Estimate 4.2.2b]], [[Ch05-S03-H01-B02 - Identity 5.3.1b|Identity 5.3.1b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×8]] — глава `Ch01`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality ×2]] — глава `Ch07`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (linear operator, lipschitz continuity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

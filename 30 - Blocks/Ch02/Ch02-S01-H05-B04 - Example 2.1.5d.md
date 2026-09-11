@@ -30,6 +30,12 @@ $$
 
 Used together with: [[Ch09-S03-H02-B03 - Example 9.3.2c|Example 9.3.2c]], [[Ch01-S04-H01-B03 - Estimate 1.4.1c|Estimate 1.4.1c]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

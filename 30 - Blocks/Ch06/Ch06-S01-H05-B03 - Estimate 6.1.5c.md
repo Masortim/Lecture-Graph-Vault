@@ -30,6 +30,14 @@ $$
 
 Used together with: [[Ch01-S02-H06-B03 - Example 1.2.6c|Example 1.2.6c]], [[Ch02-S03-H05-B03 - Estimate 2.3.5c|Estimate 2.3.5c]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×15]] — глава `Ch01`, 15 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (orthogonal projection, eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

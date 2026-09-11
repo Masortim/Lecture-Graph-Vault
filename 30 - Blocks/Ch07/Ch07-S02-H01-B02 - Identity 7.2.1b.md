@@ -29,6 +29,16 @@ $$
 
 Used together with: [[Ch09-S01-H01-B03 - Estimate 9.1.1c|Estimate 9.1.1c]], [[Ch01-S01-H06-B02 - Estimate 1.1.6b|Estimate 1.1.6b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (gradient descent, banach limit) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

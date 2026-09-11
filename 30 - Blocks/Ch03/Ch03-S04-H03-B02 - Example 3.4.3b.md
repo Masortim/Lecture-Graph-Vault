@@ -30,6 +30,12 @@ $$
 
 Used together with: [[Ch03-S01-H05-B02 - Identity 3.1.5b|Identity 3.1.5b]], [[Ch04-S02-H04-B01 - Example 4.2.4a|Example 4.2.4a]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, approximation error) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

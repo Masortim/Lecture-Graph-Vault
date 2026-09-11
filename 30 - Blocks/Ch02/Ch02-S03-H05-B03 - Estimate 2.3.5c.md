@@ -30,6 +30,11 @@ $$
 
 Used together with: [[Ch04-S01-H02-B02 - Estimate 4.1.2b|Estimate 4.1.2b]], [[Ch05-S02-H01-B02 - Identity 5.2.1b|Identity 5.2.1b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (vector space) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

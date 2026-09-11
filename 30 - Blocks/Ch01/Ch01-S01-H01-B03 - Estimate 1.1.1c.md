@@ -30,6 +30,14 @@ $$
 
 Used together with: [[Ch01-S02-H02-B03 - Example 1.2.2c|Example 1.2.2c]], [[Ch02-S03-H01-B03 - Estimate 2.3.1c|Estimate 2.3.1c]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (vector space, entropy bound) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

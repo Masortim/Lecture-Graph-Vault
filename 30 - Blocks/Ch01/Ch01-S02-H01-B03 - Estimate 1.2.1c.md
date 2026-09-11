@@ -30,6 +30,11 @@ $$
 
 Used together with: [[Ch03-S01-H03-B03 - Proposition 3.1.3c|Proposition 3.1.3c]], [[Ch04-S02-H02-B02 - Estimate 4.2.2b|Estimate 4.2.2b]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (dual space) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

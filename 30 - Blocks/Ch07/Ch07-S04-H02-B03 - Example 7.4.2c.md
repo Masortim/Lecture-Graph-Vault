@@ -30,6 +30,15 @@ $$
 
 Used together with: [[Ch04-S01-H01-B02 - Identity 4.1.1b|Identity 4.1.1b]], [[Ch05-S01-H06-B01 - Identity 5.1.6a|Identity 5.1.6a]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — глава `Ch03`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (metric completion, spectral gap) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

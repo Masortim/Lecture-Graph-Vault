@@ -30,6 +30,15 @@ $$
 
 Used together with: [[Ch02-S01-H03-B02 - Example 2.1.3b|Example 2.1.3b]], [[Ch03-S02-H02-B01 - Identity 3.2.2a|Identity 3.2.2a]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, weak convergence) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

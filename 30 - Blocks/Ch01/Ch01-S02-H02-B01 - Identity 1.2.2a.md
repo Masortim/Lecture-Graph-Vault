@@ -29,6 +29,12 @@ $$
 
 Used together with: [[Ch03-S02-H01-B03 - Estimate 3.2.1c|Estimate 3.2.1c]], [[Ch04-S02-H06-B02 - Estimate 4.2.6b|Estimate 4.2.6b]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×8]] — глава `Ch02`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (adjoint operator) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

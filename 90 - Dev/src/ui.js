@@ -4011,8 +4011,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
    * Этап 2: превращает `keywords_en:` в настоящие wiki-ссылки (между маркерами
    * keywords:begin/end) и в свойство weight:. Работает для вершины любого уровня —
    * регион ключевых фраз читается графом у всех заметок, не только у блоков.
-   * Свойства и тело вне региона не трогаются, второй прогон байт-в-байт
-   * идемпотентен; заметки без списка фраз остаются как есть.
+   *
+   * Кроме региона фраз пересчёт держит в актуальном состоянии раздел
+   * «## Related chapters» — связи со ВСЕМИ главами, в аннотациях которых встретились
+   * ключевые фразы вершины, а не с одной «доминирующей». Раньше эти связи ставились
+   * лишь один раз, при создании узла (createNewNode), и устаревали при любой правке
+   * списка фраз; теперь та же логика (core.relatedChapters) применяется ко всему
+   * хранилищу при каждом пересчёте. Раздел живёт ВНЕ региона keywords:begin/end и
+   * снимается целиком, если подходящих глав не осталось.
+   *
+   * Свойства и тело вне региона/раздела глав не трогаются, второй прогон байт-в-байт
+   * идемпотентен; заметки без списка фраз теряют и регион, и раздел глав.
    */
   async recomputeKeywords(runOpts) {
     runOpts = runOpts || {};
@@ -4027,7 +4036,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
     var corpus = core.buildKeywordCorpus(abs, g, opts);
     var weightKey = opts.weightKey || "weight";
-    var touched = 0, planned = 0, sumWeight = 0, flipped = 0, cleaned = 0;
+    var touched = 0, planned = 0, sumWeight = 0, flipped = 0, cleaned = 0, chapterEdges = 0;
     var marks = core.keywordMarkers();
     var only = {};
     (runOpts.only || []).forEach(function (p) { if (p) only[String(p)] = true; });
@@ -4038,12 +4047,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
       var file = this.app.vault.getAbstractFileByPath(n.path);
       if (!(file instanceof obsidian.TFile)) continue;
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
+      var hasChapters = String(n.body || "").indexOf(core.CHAPTER_HEADING) >= 0;
       if (!(n.keywords && n.keywords.length)) {
-        if (!hasRegion) continue; // заметка живёт только на ручных ссылках — не трогаем
+        // заметка без ключевых фраз: снимаем и материализованный регион, и раздел
+        // глав (он строится по тем же фразам). Если нет ни того, ни другого — она
+        // живёт только на ручных ссылках, не трогаем.
+        if (!hasRegion && !hasChapters) continue;
         await this.processInternal(file, (data) => {
           var off = {};
           off[weightKey] = "";
-          var next = core.setFrontmatterValues(core.applyKeywordRegion(data, ""), off);
+          var cleared = core.applyRelatedChapters(core.applyKeywordRegion(data, ""), [], opts);
+          var next = core.setFrontmatterValues(cleared, off);
           if (next === data) return data;
           cleaned++;
           return next;
@@ -4055,10 +4069,23 @@ class LectureGraphPlugin extends obsidian.Plugin {
       sumWeight += plan.weight;
       if (plan.dominant && n.chapter && plan.dominant !== n.chapter) flipped++;
       var want = core.keywordRegionText(plan, opts);
+      // Связи со ВСЕМИ главами, в аннотациях которых встретились ключевые фразы —
+      // не только со «своей». Раньше эти связи ставились лишь при создании узла и
+      // устаревали при правке ключевых фраз; теперь пересчёт держит их актуальными.
+      // Исключаем главы, с которыми связь уже есть структурно: свою (chapter:) и
+      // главу родителя — дубля рёбер не будет.
+      var chExclude = [];
+      if (n.chapter) chExclude.push(n.chapter);
+      var parent = n.parent && g._byId ? g._byId[n.parent] : null;
+      if (parent) chExclude.push(parent.chapter || parent.id);
+      var chapters = core.relatedChapters(g, plan, { exclude: chExclude });
+      chapterEdges += chapters.length;
       await this.processInternal(file, (data) => {
         var patch = {};
         patch[weightKey] = plan.weight;
-        var next = core.setFrontmatterValues(core.applyKeywordRegion(data, want), patch);
+        var withRegion = core.applyKeywordRegion(data, want);
+        var withChapters = core.applyRelatedChapters(withRegion, chapters, opts);
+        var next = core.setFrontmatterValues(withChapters, patch);
         if (next === data) return data;
         touched++;
         return next;
@@ -4069,13 +4096,14 @@ class LectureGraphPlugin extends obsidian.Plugin {
     var kw = fresh.edges.filter(function (e) { return e.kind === "keyword"; }).length;
     var msg =
       "Ключевые фразы: вершин с весом " + fresh.stats.keywordNodes + " · ссылок " + kw +
+      " · связей с главами " + chapterEdges +
       " · записей обновлено " + touched + (cleaned ? " · снято " + cleaned : "") +
       (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
     if (!runOpts.silent) new obsidian.Notice(msg);
     // getGraph(true) выше уже обновил cache и все View; повторный changed() только
     // запустил бы ещё одну полную пересборку через debounce.
-    return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
+    return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw, chapterEdges: chapterEdges };
   }
 
   /* -------------------------------------------------- слияние узлов */

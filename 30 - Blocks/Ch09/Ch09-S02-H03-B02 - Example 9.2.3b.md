@@ -30,6 +30,12 @@ $$
 
 Used together with: [[Ch05-S03-H03-B03 - Proposition 5.3.3c|Proposition 5.3.3c]], [[Ch06-S04-H02-B02 - Estimate 6.4.2b|Estimate 6.4.2b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (vector space) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

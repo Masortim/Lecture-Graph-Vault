@@ -28,6 +28,13 @@ $$
 
 Used together with: [[Ch02-S04-H05-B03 - Estimate 2.4.5c|Estimate 2.4.5c]], [[Ch04-S01-H04-B02 - Proposition 4.1.4b|Proposition 4.1.4b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (norm equivalence) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

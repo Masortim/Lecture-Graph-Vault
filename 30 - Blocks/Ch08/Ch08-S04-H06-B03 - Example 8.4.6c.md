@@ -30,6 +30,15 @@ $$
 
 Used together with: [[Ch03-S01-H05-B02 - Identity 3.1.5b|Identity 3.1.5b]], [[Ch04-S02-H04-B01 - Example 4.2.4a|Example 4.2.4a]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×8]] — глава `Ch01`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (lipschitz continuity, norm equivalence) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

@@ -29,6 +29,11 @@ $$
 
 Used together with: [[Ch08-S04-H01-B02 - Identity 8.4.1b|Identity 8.4.1b]], [[Ch09-S04-H06-B01 - Identity 9.4.6a|Identity 9.4.6a]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (spectral gap) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

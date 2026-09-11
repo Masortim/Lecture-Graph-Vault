@@ -5,10 +5,15 @@
    совпадениями по аннотациям из `35 - Abstracts`, каждая найденная область даёт ссылку на
    вершину (секцию или заголовок), вес ребра = числу вхождений.
 
-   Сюда попадают ДВЕ вещи:
+   Сюда попадают ТРИ вещи:
    1) блок wiki-ссылок между маркерами `<!-- keywords:begin/end -->` в теле заметки —
       их и считает ядро как рёбра, так что источник правды для графа остаётся один;
-   2) свойство `weight:` в frontmatter — суммарное число вхождений, удобно для CSV/дашборда.
+   2) свойство `weight:` в frontmatter — суммарное число вхождений, удобно для CSV/дашборда;
+   3) раздел `## Related chapters` — связи со ВСЕМИ главами, в аннотациях которых
+      встретились ключевые фразы блока (а не с одной «доминирующей»). Раньше эти связи
+      ставились лишь при создании узла и устаревали при правке фраз; теперь пересчёт
+      держит их актуальными для всего хранилища. Раздел живёт вне региона keywords и
+      снимается целиком, если фраз не осталось.
 
    Идемпотентно: повторный прогон не меняет файлы. --check ничего не пишет и выходит с
    кодом 1, если на диске устаревшие связи (используется finalize.py). */
@@ -38,7 +43,7 @@ if (!absNotes.length) {
 }
 const corpus = core.buildKeywordCorpus(absNotes, graph, settings);
 
-let wrote = 0, same = 0, noKw = 0, recolored = 0, maxW = 0;
+let wrote = 0, same = 0, noKw = 0, recolored = 0, maxW = 0, chapterEdges = 0;
 const stale = [], top = [], unmatchedPhrases = new Set();
 for (const n of graph.nodes) {
   if (n.type !== "block" || !n.path) continue;
@@ -46,12 +51,23 @@ for (const n of graph.nodes) {
   if (!plan.keywords.length) { noKw++; }
   plan.unmatched.forEach((p) => unmatchedPhrases.add(p));
   const want = core.keywordRegionText(plan, settings);
+  // Связи со ВСЕМИ главами, где встретились ключевые фразы (не только со «своей»):
+  // исключаем главу самого блока (chapter:) и главу родителя — там связь уже есть
+  // структурно. Пустой список фраз даёт пустой список глав => раздел снимается.
+  const chExclude = [];
+  if (n.chapter) chExclude.push(n.chapter);
+  const parent = n.parent && graph._byId ? graph._byId[n.parent] : null;
+  if (parent) chExclude.push(parent.chapter || parent.id);
+  const chapters = core.relatedChapters(graph, plan, { exclude: chExclude });
+  chapterEdges += chapters.length;
   const file = path.join(ROOT, n.path);
   if (!fs.existsSync(file)) { stale.push(n.path + " (нет файла)"); continue; }
   const raw = fs.readFileSync(file, "utf8");
   const patch = {};
   patch[weightKey] = plan.keywords.length ? plan.weight : "";
-  const next = core.setFrontmatterValues(core.applyKeywordRegion(raw, want), patch);
+  const withRegion = core.applyKeywordRegion(raw, want);
+  const withChapters = core.applyRelatedChapters(withRegion, chapters, settings);
+  const next = core.setFrontmatterValues(withChapters, patch);
   const own = n.chapter;
   if (plan.dominant && own && plan.dominant !== own) recolored++;
   if (plan.weight > maxW) maxW = plan.weight;
@@ -71,6 +87,7 @@ console.log(
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков: " + corpus.stats.unmatched : ""),
     "блоков без ключевых фраз: " + noKw + " (остались только с ручными ссылками)",
     "ссылок в графе вида «ключевые фразы»: " + edges + " · вершин с весом: " + kwNodes,
+    "связей со всеми главами по фразам: " + chapterEdges,
     "максимальный вес: " + maxW + " · перекрашено в чужую главу: " + recolored,
     (CHECK ? "проверка" : "обновлено") + ": изменено файлов " + wrote + " · без изменений " + same,
   ].join("\n")

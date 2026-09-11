@@ -29,6 +29,14 @@ $$
 
 Used together with: [[Ch04-S02-H05-B03 - Estimate 4.2.5c|Estimate 4.2.5c]], [[Ch05-S03-H04-B02 - Proposition 5.3.4b|Proposition 5.3.4b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×12]] — глава `Ch03`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×8]] — глава `Ch04`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (fixed point, kernel and range) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

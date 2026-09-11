@@ -28,6 +28,13 @@ $$
 
 Used together with: [[Ch04-S04-H05-B03 - Estimate 4.4.5c|Estimate 4.4.5c]], [[Ch06-S01-H04-B02 - Proposition 6.1.4b|Proposition 6.1.4b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×12]] — глава `Ch03`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems]] — глава `Ch04`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (uniform boundedness, hahn-banach extension) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

@@ -29,6 +29,13 @@ $$
 
 Used together with: [[Ch09-S01-H06-B02 - Estimate 9.1.6b|Estimate 9.1.6b]], [[Ch01-S02-H05-B02 - Identity 1.2.5b|Identity 1.2.5b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×13]] — глава `Ch01`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×2]] — глава `Ch02`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (norm equivalence, fixed point) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

@@ -30,6 +30,15 @@ $$
 
 Used together with: [[Ch01-S04-H04-B02 - Proposition 1.4.4b|Proposition 1.4.4b]], [[Ch03-S01-H03-B02 - Example 3.1.3b|Example 3.1.3b]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×5]] — глава `Ch05`, 5 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — глава `Ch03`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity, regularization) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

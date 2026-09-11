@@ -29,6 +29,13 @@ $$
 
 Used together with: [[Ch02-S02-H05-B03 - Estimate 2.2.5c|Estimate 2.2.5c]], [[Ch03-S03-H04-B02 - Proposition 3.3.4b|Proposition 3.3.4b]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (kernel matrix) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

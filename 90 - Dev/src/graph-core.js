@@ -883,6 +883,82 @@
     return (head ? head + "\n\n" : "") + trim + "\n";
   }
 
+  // строка-пункт машинного раздела «Related chapters»: «- [[stem|name]] — глава `id`…»
+  var CHAPTER_BULLET_RE = /^\s*[-*+]\s+\[\[[^\]]*\]\][^\n]*\u0433\u043b\u0430\u0432\u0430\s+`/;
+
+  /**
+   * Снимает ТОЛЬКО машинный раздел «Related chapters»: заголовок и идущие следом
+   * его же пункты-ссылки (плюс пустые строки между ними). Останавливается на первой
+   * строке, которая не пустая и не такой пункт, — чтобы не проглотить произвольный
+   * текст, оказавшийся после раздела (например, абзац, «съехавший» вниз при слиянии
+   * узлов: там body-контент может встать сразу за списком глав, без своего заголовка).
+   */
+  function removeSection(text, heading) {
+    var lines = String(text == null ? "" : text).replace(/\r\n/g, "\n").split("\n");
+    var low = String(heading || "").toLowerCase();
+    for (var i = 0; i < lines.length; i++) {
+      if (lines[i].trim().toLowerCase() !== low) continue;
+      var end = i + 1;
+      while (end < lines.length) {
+        var t = lines[end].trim();
+        if (t === "" || CHAPTER_BULLET_RE.test(lines[end])) { end++; continue; }
+        break;
+      }
+      lines.splice(i, end - i);
+      // подчищаем сдвоенные и хвостовые пустые строки, оставшиеся после выреза
+      while (i > 0 && i < lines.length && lines[i - 1].trim() === "" && lines[i].trim() === "") lines.splice(i, 1);
+      while (lines.length && lines[lines.length - 1].trim() === "") lines.pop();
+      i--;
+    }
+    return lines.join("\n");
+  }
+
+  /** Строки-пункты раздела «Related chapters» из плана relatedChapters (тот же формат, что в composeNote). */
+  function chapterBullets(chapters) {
+    return (chapters || []).map(function (c) {
+      return "- [[" + c.stem + "|" + c.name + (c.count > 1 ? " ×" + c.count : "") + "]] — глава `" +
+        c.id + "`" + (c.detail ? ", " + c.detail : "");
+    });
+  }
+
+  /**
+   * Идемпотентно записывает раздел «Related chapters» (связи со ВСЕМИ главами, где
+   * встретились ключевые фразы вершины) в тело заметки. Раздел машинный: старый
+   * снимается целиком и ставится заново — так пересчёт держит связи в актуальном
+   * состоянии, когда меняется список `keywords_en`. Пустой список глав убирает раздел.
+   *
+   * Раздел всегда живёт ВНЕ региона keywords:begin/end (перед ним): регион пишет
+   * только материализатор фраз и он обязан оставаться последним блоком тела, а сам
+   * раздел ссылок-глав должен попадать в граф как обычные рёбра «reference».
+   * Фронтматтер и всё, что стоит после региона, не трогаются.
+   */
+  function applyRelatedChapters(text, chapters, opts) {
+    var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
+    var parsed = parseFrontmatter(src);
+    var body = parsed.body;
+    var cut = splitKeywordRegion(body);
+    // часть тела до региона фраз (или всё тело, если региона нет) — только её и правим
+    var before = cut.region === null ? body : body.slice(0, cut.at);
+    var rest = cut.region === null ? "" : body.slice(cut.at);
+    var stripped = removeSection(before, CHAPTER_HEADING);
+    var bullets = chapterBullets(chapters);
+    var head;
+    if (bullets.length) {
+      var base = stripped.replace(/\s+$/g, "");
+      head = (base ? base + "\n\n" : "") + CHAPTER_HEADING + "\n\n" + bullets.join("\n");
+    } else {
+      head = stripped.replace(/\s+$/g, "");
+    }
+    var newBody;
+    if (cut.region === null) {
+      newBody = head.replace(/\s+$/g, "") + "\n";
+    } else {
+      // регион (и всё после него) остаётся байт-в-байт: раздел пишется ДО него
+      newBody = head.replace(/\s+$/g, "") + "\n\n" + rest.replace(/^\n+/, "");
+    }
+    return (parsed.hasFrontmatter ? parsed.raw : "") + newBody;
+  }
+
   /* ------------------------------------------------------------ граф */
 
   function basenameKey(path) {
@@ -1025,6 +1101,14 @@
         weight: w,
         anchors: [],
       };
+      // Ссылка на главу — обычно «эта тема встречается и в главе X» из машинного раздела
+      // «Related chapters» (связи по ключевым фразам со ВСЕМИ подходящими главами, а не
+      // с одной). Это тематическая пометка, а не структура: ребро РИСУЕТСЯ и учитывается
+      // как связь, но в раскладку-пружину не входит (см. frStep/step) — иначе сотни таких
+      // рёбер стянули бы все главы-хабы в центр, где их широкие подписи наезжают и часть
+      // с экрана пропадает. На размер вершины (степень) эти рёбра влияют как обычные
+      // ссылки — глава, на которую часто ссылаются по теме, справедливо крупнее.
+      if (kind === "reference" && target.type === "chapter") e.chapterRef = true;
       if (meta && meta.alias) e.alias = meta.alias;
       seenPair[key] = e;
       edges.push(e);
@@ -2168,6 +2252,8 @@
     var eLen = edges.length;
     for (var ei = 0; ei < eLen; ei++) {
       var e = edges[ei];
+      // тематическая ссылка на главу в пружину не входит (см. addEdge/chapterRef)
+      if (e.chapterRef) continue;
       var a = byId[e.source];
       var b = byId[e.target];
       if (!a || !b) continue;
@@ -2602,6 +2688,9 @@
     var eLen = edges.length;
     for (var ei = 0; ei < eLen; ei++) {
       var e = edges[ei];
+      // тематическая ссылка на главу (раздел «Related chapters») в пружину не входит:
+      // рисуется, но не стягивает главы-хабы в центр (см. addEdge/chapterRef)
+      if (e.chapterRef) continue;
       var a = byId[e.source], b = byId[e.target];
       if (!a || !b) continue;
       var edx = b.x - a.x, edy = b.y - a.y;
@@ -2649,6 +2738,11 @@
       var adjOffsets = new Int32Array(nn + 1);
       var degreeArr = new Int32Array(nn);
       var edges = graph.edges;
+      // В neato (SMACOF) тематические ссылки на главу ОСТАВЛЯЕМ: расстояние здесь
+      // графово-теоретическое, крупные хабы оно не сминает (главы всё равно расходятся),
+      // зато блок притягивается к главе-лидеру по своим ключевым фразам — это и есть
+      // видимый «дрейф» темы к главе, где она встречается чаще. В пружинных режимах
+      // (frStep/step) эти же рёбра из физики исключены — там они схлопывали бы хабы.
       for (var ei = 0; ei < edges.length; ei++) {
         var es = byId[edges[ei].source], et = byId[edges[ei].target];
         if (es && es.index !== undefined) degreeArr[es.index]++;
@@ -4945,10 +5039,7 @@
       // удаления последней главы раздел уходит целиком (dropEmptySection), а не
       // остаётся сиротливым заголовком с пояснением к пустому списку.
       body.push("", CHAPTER_HEADING, "");
-      chapters.forEach(function (c) {
-        body.push("- [[" + c.stem + "|" + c.name + (c.count > 1 ? " ×" + c.count : "") + "]] — глава `" +
-          c.id + "`" + (c.detail ? ", " + c.detail : ""));
-      });
+      chapterBullets(chapters).forEach(function (line) { body.push(line); });
     }
     // регион ключевых фраз — всегда ПОСЛЕДНИМ блоком тела: материализатор
     // (applyKeywordRegion) пишет его в конец, и повторный пересчёт не двигает его
@@ -5285,6 +5376,8 @@
     keywordRegionText: keywordRegionText,
     splitKeywordRegion: splitKeywordRegion,
     applyKeywordRegion: applyKeywordRegion,
+    applyRelatedChapters: applyRelatedChapters,
+    chapterBullets: chapterBullets,
     appendManualLink: appendManualLink,
     appendBulletToSection: appendBulletToSection,
     RELATED_HEADING: RELATED_HEADING,

@@ -29,6 +29,11 @@ $$
 
 Used together with: [[Ch06-S01-H06-B02 - Estimate 6.1.6b|Estimate 6.1.6b]], [[Ch07-S02-H05-B02 - Identity 7.2.5b|Identity 7.2.5b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

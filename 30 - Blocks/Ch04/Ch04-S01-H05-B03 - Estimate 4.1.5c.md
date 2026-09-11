@@ -30,6 +30,11 @@ $$
 
 Used together with: [[Ch05-S02-H06-B03 - Example 5.2.6c|Example 5.2.6c]], [[Ch06-S03-H05-B03 - Estimate 6.3.5c|Estimate 6.3.5c]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

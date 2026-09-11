@@ -30,6 +30,15 @@ $$
 
 Used together with: [[Ch07-S01-H03-B02 - Example 7.1.3b|Example 7.1.3b]], [[Ch08-S02-H02-B01 - Identity 8.2.2a|Identity 8.2.2a]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×12]] — глава `Ch03`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×8]] — глава `Ch04`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (convex hull, fixed point) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

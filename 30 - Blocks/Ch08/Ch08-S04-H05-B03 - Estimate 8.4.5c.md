@@ -30,6 +30,14 @@ $$
 
 Used together with: [[Ch02-S04-H03-B02 - Example 2.4.3b|Example 2.4.3b]], [[Ch04-S01-H02-B01 - Identity 4.1.2a|Identity 4.1.2a]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (gradient descent, lipschitz continuity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

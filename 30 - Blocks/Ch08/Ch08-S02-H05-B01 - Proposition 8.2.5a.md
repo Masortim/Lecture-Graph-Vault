@@ -28,6 +28,12 @@ $$
 
 Used together with: [[Ch08-S01-H03-B03 - Proposition 8.1.3c|Proposition 8.1.3c]], [[Ch09-S02-H02-B02 - Estimate 9.2.2b|Estimate 9.2.2b]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (singular values) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

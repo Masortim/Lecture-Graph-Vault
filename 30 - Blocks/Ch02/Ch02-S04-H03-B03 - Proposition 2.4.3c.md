@@ -28,6 +28,13 @@ $$
 
 Used together with: [[Ch05-S02-H01-B02 - Identity 5.2.1b|Identity 5.2.1b]], [[Ch06-S02-H06-B01 - Identity 6.2.6a|Identity 6.2.6a]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (orthogonal projection, sample complexity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

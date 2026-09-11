@@ -29,6 +29,13 @@ $$
 
 Used together with: [[Ch07-S02-H06-B03 - Example 7.2.6c|Example 7.2.6c]], [[Ch08-S03-H05-B03 - Estimate 8.3.5c|Estimate 8.3.5c]].
 
+## Related chapters
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×12]] — глава `Ch03`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems]] — глава `Ch04`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (uniform boundedness, closed graph) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

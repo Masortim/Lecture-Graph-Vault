@@ -30,6 +30,12 @@ $$
 
 Used together with: [[Ch01-S04-H02-B03 - Example 1.4.2c|Example 1.4.2c]], [[Ch03-S01-H01-B03 - Estimate 3.1.1c|Estimate 3.1.1c]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (basis and coordinates) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
