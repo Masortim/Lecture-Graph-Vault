@@ -30,6 +30,13 @@ $$
 
 Used together with: [[Ch07-S04-H05-B02 - Identity 7.4.5b|Identity 7.4.5b]], [[Ch09-S01-H04-B01 - Example 9.1.4a|Example 9.1.4a]].
 
+## Related chapters
+
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality ×2]] — глава `Ch07`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (kernel matrix, feature map) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

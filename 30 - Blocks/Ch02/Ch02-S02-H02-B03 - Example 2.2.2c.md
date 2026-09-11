@@ -30,6 +30,13 @@ $$
 
 Used together with: [[Ch01-S02-H05-B03 - Estimate 1.2.5c|Estimate 1.2.5c]], [[Ch02-S03-H04-B02 - Proposition 2.3.4b|Proposition 2.3.4b]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×9]] — глава `Ch01`, 9 вхождений ключевых фраз в аннотациях главы
+- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
+- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (lipschitz continuity, eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

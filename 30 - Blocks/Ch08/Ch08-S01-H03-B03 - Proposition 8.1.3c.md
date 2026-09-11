@@ -28,6 +28,14 @@ $$
 
 Used together with: [[Ch05-S04-H04-B03 - Identity 5.4.4c|Identity 5.4.4c]], [[Ch07-S01-H03-B03 - Proposition 7.1.3c|Proposition 7.1.3c]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×14]] — глава `Ch01`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization ×2]] — глава `Ch09`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (contraction mapping, density argument) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

@@ -30,6 +30,13 @@ $$
 
 Used together with: [[Ch02-S01-H03-B02 - Example 2.1.3b|Example 2.1.3b]], [[Ch03-S02-H02-B01 - Identity 3.2.2a|Identity 3.2.2a]].
 
+## Related chapters
+
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×14]] — глава `Ch01`, 14 вхождений ключевых фраз в аннотациях главы
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
+- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization ×2]] — глава `Ch09`, 2 вхождения ключевых фраз в аннотациях главы
+- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (density argument, contraction mapping) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.

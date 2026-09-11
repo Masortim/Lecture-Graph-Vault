@@ -951,7 +951,7 @@ function runMode(mode, over) {
 }
 
 ok("все режимы: координаты конечны и наложений нет ни у кругов, ни у подписей", () => {
-  const sizes = {}, layeredness = {};
+  const sizes = {}, layeredness = {}, norм = {};
   MODES.forEach((m) => {
     const r = runMode(m);
     r.g.nodes.forEach((n) => assert.ok(isFinite(n.x) && isFinite(n.y), m + ": NaN у " + n.id));
@@ -964,14 +964,31 @@ ok("все режимы: координаты конечны и наложени
     sizes[m] = Math.round(Math.hypot(b.maxX - b.minX, b.maxY - b.minY));
     const cx = (b.minX + b.maxX) / 2, cy = (b.minY + b.maxY) / 2;
     layeredness[m] = new Set(r.g.nodes.map((n) => Math.round(Math.hypot(n.x - cx, n.y - cy) / 8))).size / r.g.nodes.length;
+    // нормированные координаты (bbox -> единичный квадрат): сравнивать РАССТАНОВКУ вершин,
+    // а не размах холста — размах у пружинных режимов сходится, когда граф плотнеет
+    const w = (b.maxX - b.minX) || 1, h = (b.maxY - b.minY) || 1;
+    norм[m] = {};
+    r.g.nodes.forEach((n) => (norм[m][n.id] = { x: (n.x - b.minX) / w, y: (n.y - b.minY) / h }));
   });
+  // средняя разница положения ОДНИХ И ТЕХ ЖЕ вершин между двумя раскладками (0 — силуэт
+  // совпал, ~0.3-0.5 — расстановки принципиально разные). Устойчиво к плотности графа:
+  // добавление рёбер (напр. связей со всеми главами по фразам) меняет размах холста, но
+  // не делает два разных движка одинаковыми.
+  const shapeDiff = (a, b) => {
+    let s = 0, k = 0;
+    Object.keys(norм[a]).forEach((id) => {
+      if (!norм[b][id]) return;
+      s += Math.hypot(norм[a][id].x - norм[b][id].x, norм[a][id].y - norм[b][id].y);
+      k++;
+    });
+    return k ? s / k : 0;
+  };
   // режимы обязаны выглядеть РАЗНО: картинка не должна сводиться к одному и тому же силуэту
   assert.ok(Math.abs(sizes.fdp - sizes.clusters) / sizes.clusters > 0.1, "fdp как clusters: " + JSON.stringify(sizes));
-  assert.ok(Math.abs(sizes.neato - sizes.fdp) / sizes.fdp > 0.1, "neato как fdp: " + JSON.stringify(sizes));
-  // для twopi размах холста близок к fdp (слои растянуты по тому же радиусу) — сравниваем форму:
-  // доля «слоёв» (сколько различных расстояний до центра, шагом 8px, на все вершины). У
-  // радиальных режимов она копеечная (вершины квантованы по кольцам), у пружинных — высокая.
-  assert.ok(Math.abs(sizes.twopi - sizes.fdp) / sizes.fdp > 0.05, "twopi как fdp: " + JSON.stringify(sizes));
+  // два пружинных движка дают заметно разную РАССТАНОВКУ (размах может совпасть на плотном графе)
+  assert.ok(shapeDiff("neato", "fdp") > 0.1, "neato как fdp по расстановке: " + shapeDiff("neato", "fdp").toFixed(3) + " " + JSON.stringify(sizes));
+  // twopi (радиальный) тоже отличается от fdp по расстановке — не только по размаху
+  assert.ok(shapeDiff("twopi", "fdp") > 0.1, "twopi как fdp по расстановке: " + shapeDiff("twopi", "fdp").toFixed(3));
   assert.ok(layeredness.fdp > 0.3 && layeredness.neato > 0.3, "пружинные режимы стали кольцами: " + JSON.stringify(layeredness));
   assert.ok(layeredness.twopi < 0.2 && layeredness.clusters < 0.2, "радиальные режимы потеряли кольца: " + JSON.stringify(layeredness));
 });
@@ -1447,6 +1464,52 @@ ok("composeNote: раздел Related chapters даёт рёбра на все �
   // без глав раздела нет вовсе — пустой заголовок в заметке не нужен
   const bare = core.composeNote({ type: "block", id: "MN-43", name: "No Chapters", chapters: [] }, shippedCfg);
   assert.strictEqual(bare.indexOf("## Related chapters"), -1, "пустой раздел глав всё равно записан");
+});
+
+ok("applyRelatedChapters: пересчёт материализует/обновляет/снимает раздел глав (идемпотентно)", () => {
+  const marks = core.keywordMarkers();
+  // существующий блок с регионом ключевых фраз, но БЕЗ раздела глав — так выглядит
+  // всё хранилище до этой правки (связь была только со «своей» главой)
+  const before =
+    "---\ntype: block\nid: B1\nchapter: Ch01\nweight: 5\n---\n\n# Block One\n\nBody paragraph.\n\n" +
+    marks.begin + "\n\n- [[Ch01-S01 - Setup and Notation|vector space ×5]]\n\n" + marks.end + "\n";
+  const chapters = core.relatedChapters(graph, { byChapter: { Ch02: 4, Ch06: 1 } }, {});
+  assert.ok(chapters.length >= 2, "нужны минимум две главы для проверки — иначе тест вырождается");
+
+  const applied = core.applyRelatedChapters(before, chapters, {});
+  assert.ok(applied.indexOf("## Related chapters") > 0, "раздел глав не появился");
+  // раздел глав — ДО региона ключевых фраз (регион обязан оставаться последним)
+  assert.ok(applied.indexOf("## Related chapters") < applied.indexOf(marks.begin),
+    "раздел глав попал внутрь/после региона ключевых фраз");
+  // регион фраз не тронут байт-в-байт
+  const reg = (s) => s.slice(s.indexOf(marks.begin), s.indexOf(marks.end) + marks.end.length);
+  assert.strictEqual(reg(applied), reg(before), "регион ключевых фраз изменился");
+  chapters.forEach((c) => {
+    assert.ok(applied.indexOf("[[" + c.stem + "|") > 0, "нет ссылки на главу " + c.id);
+    assert.ok(applied.indexOf("`" + c.id + "`") > 0, "нет id главы " + c.id);
+  });
+
+  // второй прогон ничего не меняет
+  assert.strictEqual(core.applyRelatedChapters(applied, chapters, {}), applied, "не идемпотентно");
+
+  // фразы дают другой набор глав — раздел ПЕРЕПИсывается целиком (не накапливается)
+  const fewer = core.relatedChapters(graph, { byChapter: { Ch02: 9 } }, {});
+  const updated = core.applyRelatedChapters(applied, fewer, {});
+  assert.strictEqual((updated.match(/## Related chapters/g) || []).length, 1, "разделов глав стало больше одного");
+  assert.strictEqual((updated.match(/— глава `/g) || []).length, fewer.length, "старые главы не вычищены");
+
+  // список глав опустел — раздел уходит целиком, регион и тело остаются
+  const cleared = core.applyRelatedChapters(updated, [], {});
+  assert.strictEqual(cleared.indexOf("## Related chapters"), -1, "пустой раздел глав не снят");
+  assert.strictEqual(reg(cleared), reg(before), "снятие раздела задело регион ключевых фраз");
+  assert.ok(cleared.indexOf("Body paragraph.") > 0, "снятие раздела задело тело заметки");
+
+  // раздел «Related topics» (совпадения по названию) — соседний и НЕ трогается
+  const withTopics = before.replace("Body paragraph.\n",
+    "Body paragraph.\n\n## Related topics\n\n- [[Foo|foo]] — вершина\n");
+  const both = core.applyRelatedChapters(withTopics, chapters, {});
+  assert.ok(both.indexOf("## Related topics") > 0 && both.indexOf("[[Foo|foo]]") > 0, "Related topics затёрт");
+  assert.ok(both.indexOf("## Related chapters") > both.indexOf("## Related topics"), "порядок разделов нарушен");
 });
 
 ok("заметка из composeNote — сразу вершина графа: рёбра keyword и reference из коробки", () => {

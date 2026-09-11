@@ -8,8 +8,8 @@ cssclasses: ["lg-index"]
 
 # 📚 Оглавление курса · Course Index
 
-9 глав · 36 секций · 216 заголовков · 756 блоков · 7703 ссылок в графе · 1017 вершин
-*пересобрано: 2026-09-10 12:20*
+9 глав · 36 секций · 216 заголовков · 756 блоков · 8508 ссылок в графе · 1017 вершин
+*пересобрано: 2026-09-11 11:07*
 
 > [!tip]- как пользоваться оглавлением
 > 🟡 глава · 🔵 секция · 🟢 заголовок · 🟣 блоки — у каждого уровня своя цветная полоска слева,
@@ -27,21 +27,21 @@ cssclasses: ["lg-index"]
 
 | # | глава | 中文 | секции | заголовки | блоки | `⇠` |
 |--:|---|---|--:|--:|--:|--:|
-| 1 | [[#Ch01 · Metric Spaces and Completion]] | 度量空间与完备化 | 4 | 24 | 84 | `48` |
-| 2 | [[#Ch02 · Normed Spaces and Operators]] | 赋范空间与算子 | 4 | 24 | 84 | `13` |
-| 3 | [[#Ch03 · Inner Products and Orthogonality]] | 内积与正交性 | 4 | 24 | 84 | `18` |
-| 4 | [[#Ch04 · Banach Space Theorems]] | 巴拿赫空间定理 | 4 | 24 | 84 | `13` |
-| 5 | [[#Ch05 · Hilbert Space Geometry]] | 希尔伯特空间几何 | 4 | 24 | 84 | `31` |
-| 6 | [[#Ch06 · Spectral Theory]] | 谱理论 | 4 | 24 | 84 | `13` |
-| 7 | [[#Ch07 · Convexity and Duality]] | 凸性与对偶性 | 4 | 24 | 84 | `13` |
-| 8 | [[#Ch08 · Concentration and Probability]] | 集中性与概率 | 4 | 24 | 84 | `13` |
-| 9 | [[#Ch09 · Learning Theory and Regularization]] | 学习理论与正则化 | 4 | 24 | 84 | `22` |
+| 1 | [[#Ch01 · Metric Spaces and Completion]] | 度量空间与完备化 | 4 | 24 | 84 | `160` |
+| 2 | [[#Ch02 · Normed Spaces and Operators]] | 赋范空间与算子 | 4 | 24 | 84 | `145` |
+| 3 | [[#Ch03 · Inner Products and Orthogonality]] | 内积与正交性 | 4 | 24 | 84 | `148` |
+| 4 | [[#Ch04 · Banach Space Theorems]] | 巴拿赫空间定理 | 4 | 24 | 84 | `138` |
+| 5 | [[#Ch05 · Hilbert Space Geometry]] | 希尔伯特空间几何 | 4 | 24 | 84 | `155` |
+| 6 | [[#Ch06 · Spectral Theory]] | 谱理论 | 4 | 24 | 84 | `67` |
+| 7 | [[#Ch07 · Convexity and Duality]] | 凸性与对偶性 | 4 | 24 | 84 | `62` |
+| 8 | [[#Ch08 · Concentration and Probability]] | 集中性与概率 | 4 | 24 | 84 | `46` |
+| 9 | [[#Ch09 · Learning Theory and Regularization]] | 学习理论与正则化 | 4 | 24 | 84 | `68` |
 
 ---
 
 ## Ch01 · Metric Spaces and Completion
 
-> [!chapter]+ 🟡 *度量空间与完备化* · [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] · `48` · исходящих `5`
+> [!chapter]+ 🟡 *度量空间与完备化* · [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] · `160` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch01-S01` · [[Ch01-S01 - Setup and Notation|Setup and Notation — Metric Spaces and Completion]] · 度量空间与完备化：预备知识与记号 · `⇠ 70` · `◌`
 > >
@@ -233,7 +233,7 @@ cssclasses: ["lg-index"]
 
 ## Ch02 · Normed Spaces and Operators
 
-> [!chapter]+ 🟡 *赋范空间与算子* · [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] · `13` · исходящих `5`
+> [!chapter]+ 🟡 *赋范空间与算子* · [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] · `145` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch02-S01` · [[Ch02-S01 - Setup and Notation|Setup and Notation — Normed Spaces and Operators]] · 赋范空间与算子：预备知识与记号 · `⇠ 37` · `◌`
 > >
@@ -425,7 +425,7 @@ cssclasses: ["lg-index"]
 
 ## Ch03 · Inner Products and Orthogonality
 
-> [!chapter]+ 🟡 *内积与正交性* · [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] · `18` · исходящих `5`
+> [!chapter]+ 🟡 *内积与正交性* · [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] · `148` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch03-S01` · [[Ch03-S01 - Setup and Notation|Setup and Notation — Inner Products and Orthogonality]] · 内积与正交性：预备知识与记号 · `⇠ 45` · `◌`
 > >
@@ -617,7 +617,7 @@ cssclasses: ["lg-index"]
 
 ## Ch04 · Banach Space Theorems
 
-> [!chapter]+ 🟡 *巴拿赫空间定理* · [[Ch04 - Banach Space Theorems|Banach Space Theorems]] · `13` · исходящих `5`
+> [!chapter]+ 🟡 *巴拿赫空间定理* · [[Ch04 - Banach Space Theorems|Banach Space Theorems]] · `138` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch04-S01` · [[Ch04-S01 - Setup and Notation|Setup and Notation — Banach Space Theorems]] · 巴拿赫空间定理：预备知识与记号 · `⇠ 30` · `◌`
 > >
@@ -809,7 +809,7 @@ cssclasses: ["lg-index"]
 
 ## Ch05 · Hilbert Space Geometry
 
-> [!chapter]+ 🟡 *希尔伯特空间几何* · [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] · `31` · исходящих `5`
+> [!chapter]+ 🟡 *希尔伯特空间几何* · [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] · `155` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch05-S01` · [[Ch05-S01 - Setup and Notation|Setup and Notation — Hilbert Space Geometry]] · 希尔伯特空间几何：预备知识与记号 · `⇠ 23` · `◌`
 > >
@@ -1001,7 +1001,7 @@ cssclasses: ["lg-index"]
 
 ## Ch06 · Spectral Theory
 
-> [!chapter]+ 🟡 *谱理论* · [[Ch06 - Spectral Theory|Spectral Theory]] · `13` · исходящих `5`
+> [!chapter]+ 🟡 *谱理论* · [[Ch06 - Spectral Theory|Spectral Theory]] · `67` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch06-S01` · [[Ch06-S01 - Setup and Notation|Setup and Notation — Spectral Theory]] · 谱理论：预备知识与记号 · `⇠ 41` · `◌`
 > >
@@ -1193,7 +1193,7 @@ cssclasses: ["lg-index"]
 
 ## Ch07 · Convexity and Duality
 
-> [!chapter]+ 🟡 *凸性与对偶性* · [[Ch07 - Convexity and Duality|Convexity and Duality]] · `13` · исходящих `5`
+> [!chapter]+ 🟡 *凸性与对偶性* · [[Ch07 - Convexity and Duality|Convexity and Duality]] · `62` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch07-S01` · [[Ch07-S01 - Setup and Notation|Setup and Notation — Convexity and Duality]] · 凸性与对偶性：预备知识与记号 · `⇠ 40` · `◌`
 > >
@@ -1385,7 +1385,7 @@ cssclasses: ["lg-index"]
 
 ## Ch08 · Concentration and Probability
 
-> [!chapter]+ 🟡 *集中性与概率* · [[Ch08 - Concentration and Probability|Concentration and Probability]] · `13` · исходящих `5`
+> [!chapter]+ 🟡 *集中性与概率* · [[Ch08 - Concentration and Probability|Concentration and Probability]] · `46` · исходящих `5`
 >
 > > [!section]+ 🔵 `Ch08-S01` · [[Ch08-S01 - Setup and Notation|Setup and Notation — Concentration and Probability]] · 集中性与概率：预备知识与记号 · `⇠ 36` · `◌`
 > >
@@ -1577,7 +1577,7 @@ cssclasses: ["lg-index"]
 
 ## Ch09 · Learning Theory and Regularization
 
-> [!chapter]+ 🟡 *学习理论与正则化* · [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] · `22` · исходящих `4`
+> [!chapter]+ 🟡 *学习理论与正则化* · [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] · `68` · исходящих `4`
 >
 > > [!section]+ 🔵 `Ch09-S01` · [[Ch09-S01 - Setup and Notation|Setup and Notation — Learning Theory and Regularization]] · 学习理论与正则化：预备知识与记号 · `⇠ 33` · `◌`
 > >
@@ -1771,11 +1771,19 @@ cssclasses: ["lg-index"]
 
 | вершина | метка | тип | 中文 | `⇠` | тексты | структурные | врезки |
 |---|---|---|---|--:|--:|--:|--:|
+| [[Ch01 - Metric Spaces and Completion]] | Metric Spaces and Completion | chapter | 度量空间与完备化 | `160` | 160 | 4 | 0 |
+| [[Ch05 - Hilbert Space Geometry]] | Hilbert Space Geometry | chapter | 希尔伯特空间几何 | `155` | 155 | 4 | 0 |
+| [[Ch03 - Inner Products and Orthogonality]] | Inner Products and Orthogonality | chapter | 内积与正交性 | `148` | 148 | 4 | 0 |
+| [[Ch02 - Normed Spaces and Operators]] | Normed Spaces and Operators | chapter | 赋范空间与算子 | `145` | 145 | 4 | 0 |
+| [[Ch04 - Banach Space Theorems]] | Banach Space Theorems | chapter | 巴拿赫空间定理 | `138` | 138 | 4 | 0 |
 | [[Ch04-S04-H01 - Definition Contraction Mapping]] | Definition: Contraction Mapping | heading | 压缩映射：定义 | `81` | 81 | 4 | 0 |
 | [[Ch01-S01 - Setup and Notation]] | Setup and Notation — Metric Spaces and Completion | section | 度量空间与完备化：预备知识与记号 | `70` | 70 | 6 | 0 |
 | [[Ch01-S01-H01-B01 - Proposition 1.1.1a]] | Vector Space Proposition 1.1.1a | block | 向量空间命题 1.1.1a | `69` | 69 | 0 | 0 |
 | [[Ch04-S01-H01-B01 - Proposition 4.1.1a]] | Duality Gap Proposition 4.1.1a | block | 对偶间隙命题 4.1.1a | `69` | 69 | 0 | 0 |
+| [[Ch09 - Learning Theory and Regularization]] | Learning Theory and Regularization | chapter | 学习理论与正则化 | `68` | 68 | 4 | 0 |
+| [[Ch06 - Spectral Theory]] | Spectral Theory | chapter | 谱理论 | `67` | 67 | 4 | 0 |
 | [[Ch01-S01-H01 - Definition Vector Space]] | Definition: Vector Space | heading | 向量空间：定义 | `66` | 66 | 4 | 0 |
+| [[Ch07 - Convexity and Duality]] | Convexity and Duality | chapter | 凸性与对偶性 | `62` | 62 | 4 | 0 |
 | [[Ch02-S03-H01 - Definition Sample Complexity]] | Definition: Sample Complexity | heading | 样本复杂度：定义 | `58` | 58 | 4 | 0 |
 | [[Ch04-S03-H01 - Definition Orthogonal Projection]] | Definition: Orthogonal Projection | heading | 正交投影：定义 | `58` | 58 | 4 | 0 |
 | [[Ch02-S03-H06 - Proof and Consequences Linear Operator]] | Proof and Consequences: Linear Operator | heading | 线性算子：证明与推论 | `57` | 57 | 3 | 0 |
@@ -1783,14 +1791,6 @@ cssclasses: ["lg-index"]
 | [[Ch03-S04-H01 - Definition Approximation Error]] | Definition: Approximation Error | heading | 逼近误差：定义 | `56` | 56 | 4 | 0 |
 | [[Ch04-S02-H01 - Definition Spectral Gap]] | Definition: Spectral Gap | heading | 谱隙：定义 | `55` | 55 | 4 | 0 |
 | [[Ch01-S02-H01 - Definition Dual Space]] | Definition: Dual Space | heading | 对偶空间：定义 | `53` | 53 | 4 | 0 |
-| [[Ch01-S02 - Core Theory]] | Core Theory — Metric Spaces and Completion | section | 度量空间与完备化：核心理论 | `52` | 52 | 6 | 0 |
-| [[Ch07-S02 - Core Theory]] | Core Theory — Convexity and Duality | section | 凸性与对偶性：核心理论 | `52` | 52 | 6 | 0 |
-| [[Ch01-S04-H01 - Definition Singular Values]] | Definition: Singular Values | heading | 奇异值：定义 | `51` | 51 | 4 | 0 |
-| [[Ch06-S04-H06-B03 - Example 6.4.6c]] | Open Mapping Example 6.4.6c | block | 开映射例子 6.4.6c | `51` | 51 | 0 | 0 |
-| [[Ch09-S04-H06-B03 - Example 9.4.6c]] | Density Argument Example 9.4.6c | block | 稠密性论证例子 9.4.6c | `51` | 51 | 0 | 0 |
-| [[Ch01-S02-H05 - Main Theorem Contraction Mapping]] | Main Theorem: Contraction Mapping | heading | 压缩映射：主定理 | `50` | 50 | 4 | 0 |
-| [[Ch02-S01-H05 - Main Theorem Entropy Bound]] | Main Theorem: Entropy Bound | heading | 熵界：主定理 | `50` | 50 | 4 | 0 |
-| [[Ch03-S01-H01 - Definition Spectral Theorem]] | Definition: Spectral Theorem | heading | 谱定理：定义 | `50` | 50 | 4 | 0 |
 
 ## Что починить
 

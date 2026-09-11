@@ -1510,7 +1510,8 @@ const plugin = new PluginClass(app, manifest);
     assert.ok(node, "не нашлось блока без ключевых фраз");
     const abs = path.join(TMP, node.path);
     const raw = fs.readFileSync(abs, "utf8");
-    fs.writeFileSync(abs, core.setFrontmatterValues(raw, { keywords_en: "vector space" }));
+    // фразы из разных глав курса — чтобы у сквозной темы было НЕСКОЛЬКО глав, а не одна
+    fs.writeFileSync(abs, core.setFrontmatterValues(raw, { keywords_en: "vector space; compact set; orthogonal projection" }));
     const res = await plugin.recomputeKeywords();
     assert.ok(res && res.touched >= 1, "команда ничего не записала: " + JSON.stringify(res));
     const after = fs.readFileSync(abs, "utf8");
@@ -1526,6 +1527,20 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(n2.kwWeight, w, "вес в заметке (" + w + ") не равеносу в графе (" + n2.kwWeight + ")");
     assert.strictEqual(n2.sizeValue, w, "размер не по весу");
     assert.ok(n2.out.filter((o) => o.kind === "keyword").length === links, "ссылок в регионе и рёбер разное число");
+    // ПЕРЕСЧЁТ материализует связи со ВСЕМИ главами по фразам (не только со «своей»):
+    // раздел «Related chapters» появляется в теле, а в графе — рёбра reference на главы
+    assert.ok(res.chapterEdges >= 1, "пересчёт не построил ни одной связи с главой: " + JSON.stringify(res));
+    assert.ok(after.indexOf("## Related chapters") >= 0, "раздел глав не материализован пересчётом");
+    // раздел глав — вне региона фраз (регион остаётся последним блоком тела)
+    assert.ok(after.indexOf("## Related chapters") < after.indexOf("<!-- keywords:begin -->"),
+      "раздел глав попал внутрь/после региона ключевых фраз");
+    const chLinks = n2.out.filter((o) => o.kind === "reference" && /^Ch\d+$/.test(o.id) && o.id !== n2.chapter);
+    assert.ok(chLinks.length >= 1, "нет рёбер на главы по фразам: " + JSON.stringify(n2.out.map((o) => o.id + "/" + o.kind)));
+    // связи с главами не должны раздувать вес по фразам (вес — только по региону)
+    assert.strictEqual(n2.kwWeight, w, "связи с главами изменили вес по фразам");
+    // своя глава в раздел не дублируется — с ней связь уже есть структурно (chapter:)
+    if (n2.chapter) assert.strictEqual(after.indexOf("глава `" + n2.chapter + "`"), -1,
+      "своя глава продублирована в Related chapters");
     // идемпотентность: второй прогон не трогает файл
     const res2 = await plugin.recomputeKeywords();
     assert.ok(res2.touched === 0, "второй прогон что-то переписал: " + res2.touched);
@@ -1552,11 +1567,17 @@ const plugin = new PluginClass(app, manifest);
     const after = fs.readFileSync(abs, "utf8");
     assert.strictEqual(after.indexOf("keywords:"), -1, "после снятия списка остались следы");
     assert.strictEqual(core.parseFrontmatter(after).data.weight, undefined, "weight: остался в frontmatter");
+    // снятие фраз убирает и раздел «Related chapters»: он машинный, строится по тем
+    // же фразам. Ждём остальное тело — до первого из машинных блоков (раздел глав
+    // может стоять перед регионом, если его успел материализовать прошлый пересчёт).
+    assert.strictEqual(after.indexOf("## Related chapters"), -1, "раздел глав после снятия фраз остался");
     const body = core.parseFrontmatter(after).body;
     const origBody = core.parseFrontmatter(withKw).body;
     assert.ok(origBody.indexOf("keywords:begin") >= 0);
-    const before = origBody.slice(0, origBody.indexOf("<!-- keywords:begin -->")).replace(/\s+$/g, "");
-    assert.strictEqual(body.replace(/\s+$/g, ""), before, "вне региона тело изменилось");
+    const chAt = origBody.indexOf("## Related chapters");
+    const cutAt = chAt >= 0 ? chAt : origBody.indexOf("<!-- keywords:begin -->");
+    const before = origBody.slice(0, cutAt).replace(/\s+$/g, "");
+    assert.strictEqual(body.replace(/\s+$/g, ""), before, "вне региона/раздела глав тело изменилось");
     fs.writeFileSync(abs, withKw);
     await plugin.getGraph(true);
   });
@@ -2335,7 +2356,7 @@ const plugin = new PluginClass(app, manifest);
     assert.ok(!g2._byId[d1], "первый дубль остался в графе");
     const keptRaw = fs.readFileSync(path.join(TMP, g2._byId[d2].path), "utf8");
     assert.ok(keptRaw.indexOf("First preview duplicate brings Galois theory remark about field extensions.") >= 0, "тело первого дубля не перенесено в keeper");
-    assert.ok(keptRaw.indexOf("Second preview duplicate brings spectral gap remark about expander graphs.") >= 0, "свое предложение keeper потеряно");
+    console.error("=== KEPTRAW ===\n"+keptRaw+"\n=== END ===");assert.ok(keptRaw.indexOf("Second preview duplicate brings spectral gap remark about expander graphs.") >= 0, "свое предложение keeper потеряно");
     // Undo после слияния из окна возвращает оба файла
     await plugin.undoDuplicateMerge();
     assert.ok(fs.existsSync(path.join(TMP, p1)) && fs.existsSync(path.join(TMP, p2)), "undo не вернул файлы дублей");

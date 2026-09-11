@@ -29,6 +29,11 @@ $$
 
 Used together with: [[Ch01-S03-H03-B02 - Example 1.3.3b|Example 1.3.3b]], [[Ch02-S04-H02-B01 - Identity 2.4.2a|Identity 2.4.2a]].
 
+## Related chapters
+
+- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
+- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
+
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (hilbert decomposition) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
