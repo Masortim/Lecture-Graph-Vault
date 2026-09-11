@@ -42,6 +42,11 @@ obsidian.installDomExtensions(dom.window); // createEl/createDiv — как в O
 dom.window.__lgDomInstalled = true;
 assert.strictEqual(typeof dom.window.document.createElement("div").createDiv, "function",
   "стаб не навесил DOM-расширения: тесты пойдут не туда");
+// Тестируем именно стили поставляемого плагина — в частности, кнопки результатов
+// ручного слияния не должны снова получить фиксированную высоту от темы Obsidian.
+const pluginStyle = document.createElement("style");
+pluginStyle.textContent = fs.readFileSync(path.join(PLUGIN_DIR, "styles.css"), "utf8");
+document.head.appendChild(pluginStyle);
 const PluginClass = require(path.join(PLUGIN_DIR, "main.js"));
 const { Vault, Workspace, MetadataCache, Notice, TFile } = obsidian;
 
@@ -2468,6 +2473,25 @@ See [[MN-92 - Manual Merge Target|the target node]].
     const targetRow = modalEl.querySelector(`button[data-node-id="${targetId}"]`);
     assert.ok(targetRow, "цель не найдена по id");
     assert.strictEqual(modalEl.querySelector(`button[data-node-id="${childId}"]`), null, "в список попал узел другого уровня");
+
+    // Результат поиска — полноценная кнопка-плашка с той же структурой, что и
+    // исходный узел. Это защищает от возврата к трём строкам в кнопке фиксированной
+    // высоты, которые тема Obsidian накладывала друг на друга.
+    const sourceCard = modalEl.querySelector(".lg-manual-merge__source");
+    assert.ok(sourceCard && sourceCard.classList.contains("lg-manual-merge__node-card"), "исходный узел не стал общей плашкой");
+    assert.ok(targetRow.classList.contains("lg-manual-merge__node-card"), "результат поиска не стал кнопкой-плашкой");
+    [".lg-manual-merge__eyebrow", ".lg-manual-merge__name", ".lg-manual-merge__meta", ".lg-manual-merge__path"].forEach((selector) => {
+      assert.ok(sourceCard.querySelector(selector), "в исходной плашке нет " + selector);
+      assert.ok(targetRow.querySelector(selector), "в кнопке результата нет " + selector);
+    });
+    assert.ok(targetRow.querySelector(".lg-manual-merge__zh"), "в плашке результата потерялся перевод");
+    assert.strictEqual(targetRow.getAttribute("data-node-type"), "heading", "у результата нет типа вершины");
+    assert.match(targetRow.getAttribute("aria-label") || "", /Выбрать для слияния/, "кнопка не объясняет действие скринридеру");
+    const rowStyle = dom.window.getComputedStyle(targetRow);
+    assert.strictEqual(rowStyle.display, "flex", "тема может превратить плашку обратно в строчную кнопку");
+    assert.strictEqual(rowStyle.flexDirection, "column", "строки плашки должны располагаться одна под другой");
+    assert.strictEqual(rowStyle.height, "auto", "кнопка результата получила фиксированную высоту и будет перекрывать соседей");
+    assert.strictEqual(rowStyle.whiteSpace, "normal", "длинный текст результата не переносится");
     targetRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
 
     const keeper = modalEl.querySelector("#lg-manual-merge-keeper");
