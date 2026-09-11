@@ -100,7 +100,7 @@ const plugin = new PluginClass(app, manifest);
     await plugin.onload();
     assert.ok(plugin.commands.length >= 6, "commands " + plugin.commands.length);
     const ids = plugin.commands.map((c) => c.id);
-    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts", "merge-duplicates", "merge-current-note-duplicates", "undo-merge-duplicates"].forEach((id) =>
+    ["open-view", "edit-label", "rebuild", "export-svg", "export-csv", "labels-note", "write-counts", "manual-merge-selected", "manual-merge-current-note", "merge-duplicates", "merge-current-note-duplicates", "undo-merge-duplicates", "undo-node-merge"].forEach((id) =>
       assert.ok(ids.includes(id), "missing command " + id)
     );
     assert.strictEqual(plugin.ribbon.length, 1);
@@ -2362,6 +2362,147 @@ const plugin = new PluginClass(app, manifest);
       obsidian.Menu = OrigMenu;
     }
     await plugin.undoDuplicateMerge();
+  });
+
+  console.log("\n== раунд 24: ручное слияние через поиск в контекстном меню ==");
+
+  await ok("выделение → ПКМ → ручное слияние: поиск цели, выбор keeper, план, merge и Undo", async () => {
+    const sourceId = "MN-91", targetId = "MN-92", childId = "MN-93", refId = "MN-94";
+    const sourcePath = "25 - Headings/Ch01/MN-91 - Manual Merge Source.md";
+    const targetPath = "25 - Headings/Ch01/MN-92 - Manual Merge Target.md";
+    const childPath = "30 - Blocks/Ch01/MN-93 - Manual Merge Child.md";
+    const refPath = "30 - Blocks/Ch01/MN-94 - Manual Merge Referrer.md";
+    const sourceRaw = `---
+type: heading
+id: ${sourceId}
+name: "Manual Merge Source"
+name_zh: "手动合并源"
+status: draft
+parent: Ch01-S01
+chapter: Ch01
+---
+
+# Manual Merge Source
+
+Source-only theorem material.
+`;
+    const targetRaw = `---
+type: heading
+id: ${targetId}
+name: "Manual Merge Target"
+name_zh: "手动合并目标"
+status: draft
+parent: Ch01-S01
+chapter: Ch01
+keywords_en: "compactness criterion"
+---
+
+# Manual Merge Target
+
+Target-only proof material that must survive the manual merge.
+
+## Related topics
+
+- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — added via graph
+`;
+    const childRaw = `---
+type: block
+id: ${childId}
+name: "Manual Merge Child"
+status: draft
+parent: ${targetId}
+chapter: Ch01
+---
+
+# Manual Merge Child
+
+Child material.
+`;
+    const refRaw = `---
+type: block
+id: ${refId}
+name: "Manual Merge Referrer"
+status: draft
+parent: Ch01-S01-H02
+chapter: Ch01
+---
+
+See [[MN-92 - Manual Merge Target|the target node]].
+`;
+    await plugin.writeFile(sourcePath, sourceRaw);
+    await plugin.writeFile(targetPath, targetRaw);
+    await plugin.writeFile(childPath, childRaw);
+    await plugin.writeFile(refPath, refRaw);
+    plugin.markGraphDirty();
+    await plugin.getGraph(true);
+    await view.refresh(false);
+    const g0 = await plugin.getGraph(false);
+    const source = g0._byId[sourceId];
+    assert.ok(source && view.nodeEls[sourceId], "исходный узел не появился на графе");
+
+    const OrigMenu = obsidian.Menu;
+    let captured = null;
+    obsidian.Menu = class extends OrigMenu {
+      constructor(a) { super(a); captured = this; }
+    };
+    try {
+      view.select(sourceId, true);
+      view.nodeEls[sourceId].dispatchEvent(
+        new dom.window.MouseEvent("contextmenu", { bubbles: true, cancelable: true, clientX: 22, clientY: 22 })
+      );
+      const item = captured && captured.items.find((i) => i._t === "Ручное слияние с другим узлом…");
+      assert.ok(item, "в контекстном меню нет ручного слияния");
+      await item._cb();
+    } finally {
+      obsidian.Menu = OrigMenu;
+    }
+
+    const modal = plugin.manualMergeModal;
+    const modalEl = document.querySelector(".modal .lg-manual-merge");
+    assert.ok(modal && modalEl, "окно ручного слияния не открылось");
+    assert.ok(modalEl.textContent.includes("Manual Merge Source"), "в окне не показан исходный узел");
+    const search = modalEl.querySelector("#lg-manual-merge-search");
+    assert.ok(search, "нет поля поиска узла");
+    search.value = targetId;
+    search.dispatchEvent(new dom.window.Event("input", { bubbles: true }));
+    const targetRow = modalEl.querySelector(`button[data-node-id="${targetId}"]`);
+    assert.ok(targetRow, "цель не найдена по id");
+    assert.strictEqual(modalEl.querySelector(`button[data-node-id="${childId}"]`), null, "в список попал узел другого уровня");
+    targetRow.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    const keeper = modalEl.querySelector("#lg-manual-merge-keeper");
+    assert.ok(keeper && keeper.options.length === 2, "нельзя выбрать keeper");
+    assert.strictEqual(keeper.value, sourceId, "по умолчанию должен остаться выбранный на графе узел");
+    assert.ok(modalEl.querySelector(".lg-manual-merge__plan").textContent.includes("ссылок перенаправить"), "нет плана изменений");
+    assert.ok(modalEl.querySelector(".lg-manual-merge__warn").textContent.includes("сходство"), "нет предупреждения о ручной операции");
+    const mergeBtn = Array.from(modalEl.querySelectorAll(".lg-modal-btns button")).find((b) => b.textContent === "Объединить узлы");
+    assert.ok(mergeBtn && !mergeBtn.disabled, "кнопка слияния не активировалась после выбора цели");
+    mergeBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+
+    const deadline = Date.now() + 60000;
+    while (Date.now() < deadline && fs.existsSync(path.join(TMP, targetPath))) {
+      await new Promise((r) => setTimeout(r, 150));
+    }
+    assert.ok(!fs.existsSync(path.join(TMP, targetPath)), "второй узел не отправлен в корзину");
+    const g1 = await plugin.getGraph(false);
+    assert.ok(g1._byId[sourceId] && !g1._byId[targetId], "после слияния остались неверные вершины");
+    const sourceAfter = fs.readFileSync(path.join(TMP, sourcePath), "utf8");
+    assert.ok(sourceAfter.includes("Target-only proof material"), "текст цели не перенесён");
+    assert.ok(sourceAfter.includes("## Material merged manually from " + targetId), "слияние не отмечено как ручное");
+    assert.ok(sourceAfter.includes("### Related topics carried from " + targetId) && sourceAfter.includes("[[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]]"),
+      "исходящие ручные ссылки цели не перенесены");
+    assert.ok(!sourceAfter.includes("merged automatically from duplicate"), "ручное слияние названо автоматическим");
+    const refAfter = fs.readFileSync(path.join(TMP, refPath), "utf8");
+    assert.ok(refAfter.includes("[[MN-91 - Manual Merge Source|the target node]]"), "ссылка не перенаправлена в keeper");
+    assert.strictEqual(obsidian_stub_parse(fs.readFileSync(path.join(TMP, childPath), "utf8")).data.parent, sourceId, "ребёнок не перевешен");
+    assert.ok(plugin.lastMerge && plugin.lastMerge.mode === "manual", "ручное слияние не попало в Undo");
+    assert.strictEqual(plugin.manualMergeModal, null, "закрытая модалка осталась в plugin");
+
+    await plugin.undoDuplicateMerge();
+    assert.strictEqual(fs.readFileSync(path.join(TMP, sourcePath), "utf8"), sourceRaw, "Undo не восстановил source байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, targetPath), "utf8"), targetRaw, "Undo не восстановил target байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, childPath), "utf8"), childRaw, "Undo не восстановил child байт-в-байт");
+    assert.strictEqual(fs.readFileSync(path.join(TMP, refPath), "utf8"), refRaw, "Undo не восстановил referrer байт-в-байт");
   });
 
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));

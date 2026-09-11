@@ -177,6 +177,53 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-delete .mod-warning { border-color: var(--background-modifier-error, #e5534b); }
 .theme-light .lg-label-zh, .theme-light .lg-modal .lg-line--zh { fill: #2f6fd0; color: #2f6fd0; }
 
+/* --- ManualMergeModal: поиск и явный выбор второго узла --- */
+.lg-manual-merge { width: min(760px, calc(100vw - 48px)); }
+.lg-manual-merge__source,
+.lg-manual-merge__target {
+  padding: 9px 11px; margin-bottom: 10px; border: 1px solid var(--background-modifier-border);
+  border-left: 3px solid var(--interactive-accent); border-radius: 7px; background: var(--background-secondary);
+}
+.lg-manual-merge__target { border-left-color: var(--text-warning, #f2b33d); }
+.lg-manual-merge__eyebrow {
+  margin-bottom: 3px; color: var(--text-muted); font-size: var(--font-ui-smaller);
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.lg-manual-merge__name { font-weight: 650; }
+.lg-manual-merge__meta,
+.lg-manual-merge__count,
+.lg-manual-merge__item-meta,
+.lg-manual-merge__item-path { color: var(--text-muted); font-size: var(--font-ui-smaller); }
+.lg-manual-merge__source .lg-modal-path,
+.lg-manual-merge__target .lg-modal-path { margin: 3px 0 0; }
+.lg-manual-merge__search { margin-bottom: 4px; }
+.lg-manual-merge__count { margin: 0 0 5px; }
+.lg-manual-merge__list {
+  display: flex; flex-direction: column; gap: 4px; min-height: 64px; max-height: 31vh;
+  margin-bottom: 10px; padding: 4px; overflow-y: auto; border: 1px solid var(--background-modifier-border);
+  border-radius: 7px; background: var(--background-primary);
+}
+.lg-manual-merge__item {
+  display: block; width: 100%; padding: 7px 9px; border: 1px solid transparent; border-radius: 6px;
+  background: transparent; box-shadow: none; color: var(--text-normal); text-align: left; cursor: pointer;
+}
+.lg-manual-merge__item:hover,
+.lg-manual-merge__item:focus { border-color: var(--background-modifier-border); background: var(--background-modifier-hover); }
+.lg-manual-merge__item--selected,
+.lg-manual-merge__item--selected:hover { border-color: var(--interactive-accent); background: rgba(127, 178, 255, .12); }
+.lg-manual-merge__item-name { font-size: var(--font-ui-small); font-weight: 600; }
+.lg-manual-merge__item-zh { color: #7fb2ff; font-weight: 400; }
+.lg-manual-merge__item-path { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-family: var(--font-monospace); }
+.lg-manual-merge__empty { margin: 8px 0 14px; color: var(--text-muted); font-size: var(--font-ui-small); }
+.lg-manual-merge__keeper select { width: 100%; }
+.lg-manual-merge__plan { margin: 7px 0; font-size: var(--font-ui-small); }
+.lg-manual-merge__warn {
+  margin: 0 0 12px; padding: 7px 9px; border-radius: 6px; background: rgba(242, 179, 61, .10);
+  color: var(--text-warning, #f2b33d); font-size: var(--font-ui-smaller);
+}
+.lg-manual-merge .mod-warning { border-color: var(--text-warning, #f2b33d); }
+.theme-light .lg-manual-merge__item-zh { color: #2f6fd0; }
+
 /* --- MergeDuplicatesModal: предпросмотр групп дубликатов --- */
 .lg-merge__toolbar { font-size: var(--font-ui-small); margin-bottom: 10px; }
 .lg-merge__toolbar a { text-decoration: none; }

@@ -3769,6 +3769,105 @@
     });
   }
 
+  /**
+   * Кандидаты для ручного слияния. В отличие от findDuplicateGroups эта функция
+   * ничего не решает за пользователя: она только даёт полный, предсказуемый список
+   * совместимых вершин и поиск по нему. Совместимыми считаются обычные файловые
+   * вершины того же уровня — сливать, например, главу в блок нельзя, потому что у
+   * их детей разные инварианты parent:/chapter:.
+   *
+   * Поиск видит обе строки названия, id, путь, aliases, keywords, parent и chapter.
+   * Без запроса выше оказываются похожие по названию и близкие по структуре узлы;
+   * это лишь порядок списка, а не автоматическое подтверждение дубликата.
+   */
+  function mergeSearchNorm(value) {
+    var text = String(value == null ? "" : value).toLowerCase();
+    if (text.normalize) {
+      try { text = text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""); } catch (e) { /* noop */ }
+    }
+    // Названия пользовательских узлов могут быть не только на EN/中文. Unicode-класс
+    // сохраняет кириллицу и другие письменности; fallback нужен старым JS-движкам.
+    try {
+      return text.replace(/[^\p{L}\p{N}]+/gu, " ").replace(/\s+/g, " ").trim();
+    } catch (e2) {
+      return text.replace(/[^a-z0-9\u0400-\u04ff\u4e00-\u9fff]+/g, " ").replace(/\s+/g, " ").trim();
+    }
+  }
+
+  function mergeCandidateText(node) {
+    var data = (node && node.data) || {};
+    var values = [
+      node && node.id,
+      node && node.name,
+      node && node.nameZh,
+      node && node.stem,
+      node && node.path,
+      node && node.parent,
+      node && node.chapter,
+      node && node.type,
+      data.aliases,
+      data.keywords_en,
+      data.keywords,
+      node && node.keywords,
+    ];
+    var flat = [];
+    values.forEach(function (v) {
+      if (Object.prototype.toString.call(v) === "[object Array]") {
+        v.forEach(function (x) { if (x !== undefined && x !== null) flat.push(String(x)); });
+      } else if (v !== undefined && v !== null) {
+        flat.push(String(v));
+      }
+    });
+    return mergeSearchNorm(flat.join(" "));
+  }
+
+  function findMergeCandidates(graph, source, query, opts) {
+    var o = opts || {};
+    var byId = (graph && graph._byId) || {};
+    var src = typeof source === "string" ? byId[source] : source;
+    if (!src || src.inline) return [];
+    var q = mergeSearchNorm(query || "");
+    var terms = q ? q.split(/\s+/).filter(Boolean) : [];
+    var scored = [];
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!n || n.id === src.id || !n.path) return;
+      if (!o.includeInline && n.inline) return;
+      if (o.sameType !== false && n.type !== src.type) return;
+      var hay = mergeCandidateText(n);
+      for (var i = 0; i < terms.length; i++) {
+        if (hay.indexOf(terms[i]) < 0) return;
+      }
+      var rank = 0;
+      if (q) {
+        var exact = [n.id, n.name, n.nameZh, n.stem].map(mergeSearchNorm);
+        if (exact.indexOf(q) >= 0) rank += 10000;
+        for (var e = 0; e < exact.length; e++) {
+          if (exact[e] && exact[e].indexOf(q) === 0) rank += 1000;
+        }
+        var at = hay.indexOf(q);
+        if (at >= 0) rank += 500 - Math.min(499, at);
+      } else {
+        var en = dupTitleSim(dupNormTitle(src.name), dupNormTitle(n.name));
+        var zh = dupTitleSim(dupNormTitle(src.nameZh), dupNormTitle(n.nameZh));
+        rank += Math.max(en, zh) * 1000;
+        if (src.parent && n.parent === src.parent) rank += 90;
+        if (src.chapter && n.chapter === src.chapter) rank += 35;
+      }
+      rank += Math.min(30, Number(n.degree || 0)) / 100;
+      scored.push({ node: n, rank: rank });
+    });
+    scored.sort(function (a, b) {
+      if (b.rank !== a.rank) return b.rank - a.rank;
+      var an = String(a.node.name || a.node.id || "").toLowerCase();
+      var bn = String(b.node.name || b.node.id || "").toLowerCase();
+      if (an !== bn) return an < bn ? -1 : 1;
+      return a.node.id < b.node.id ? -1 : a.node.id > b.node.id ? 1 : 0;
+    });
+    var out = scored.map(function (x) { return x.node; });
+    if (o.limit !== undefined && isFinite(Number(o.limit))) out = out.slice(0, Math.max(0, Number(o.limit)));
+    return out;
+  }
+
   /* ------------------------------------------------- поиск и слияние дубликатов */
 
   function dupNormText(text) {
@@ -3800,7 +3899,7 @@
     return lines.join("\n");
   }
 
-  function mergeBodyCore(node) {
+  function mergeBodyCore(node, opts) {
     var name = normPhrase((node && (node.name || node.stem)) || "");
     var zh = normPhrase((node && node.nameZh) || "");
     var rawBody = String((node && node.body) || "").replace(/\r\n/g, "\n");
@@ -3809,7 +3908,22 @@
     // (якорь/абзац, дописанные в конец файла) — обычное содержимое, а не Related
     var beforePart = cut.at >= 0 ? rawBody.slice(0, cut.at) : rawBody;
     var afterPart = cut.at >= 0 ? rawBody.slice(cut.end >= 0 ? cut.end : rawBody.length) : "";
-    var cleanedBefore = removeHeadingSection(beforePart, RELATED_HEADING).replace(/\s+$/g, "");
+    var cleanedBefore;
+    if (opts && opts.preserveRelated) {
+      // При ручном слиянии пользователь ожидает сохранить и исходящие ручные
+      // связи удаляемого узла. Оставляем их wiki-ссылки в переносимом материале,
+      // но понижаем служебные H2 до H3 и подписываем источник, чтобы у keeper не
+      // появлялось два одинаковых активных раздела `## Related topics`.
+      var from = (node && node.id) || "node";
+      cleanedBefore = beforePart.split("\n").map(function (line) {
+        var low = line.trim().toLowerCase();
+        if (low === RELATED_HEADING.toLowerCase()) return "### Related topics carried from " + from;
+        if (low === CHAPTER_HEADING.toLowerCase()) return "### Related chapters carried from " + from;
+        return line;
+      }).join("\n").replace(/\s+$/g, "");
+    } else {
+      cleanedBefore = removeHeadingSection(beforePart, RELATED_HEADING).replace(/\s+$/g, "");
+    }
     var cleanedAfter = afterPart.replace(/^\s+|\s+$/g, "");
     var body = [cleanedBefore, cleanedAfter].filter(function (x) { return x !== ""; }).join("\n\n");
     var lines = body.split("\n");
@@ -4537,7 +4651,8 @@
 
   function mergeNodeBodies(keep, drop, opts) {
     var base = splitKeywordRegion((keep && keep.body) || "").outside.replace(/\s+$/g, "");
-    var add = mergeBodyCore(drop);
+    var manual = !!(opts && opts.manualMerge);
+    var add = mergeBodyCore(drop, { preserveRelated: manual });
     var emptyBase = base ? base + "\n" : "";
     if (!add) return { body: emptyBase, anchorMap: {}, appended: false, kept: 0, skipped: 0 };
     var ren = renameAnchorsForMerge(base, add, drop && drop.id);
@@ -4568,8 +4683,10 @@
       fresh.push(p);
     });
     if (!fresh.length) return { body: emptyBase, anchorMap: ren.anchorMap, appended: false, kept: 0, skipped: skipped };
-    var block = "## Duplicate material merged from " + ((drop && drop.id) || "duplicate") +
-      "\n\n> merged automatically from duplicate note \"" + sanitizeLabel((drop && (drop.name || drop.stem)) || "duplicate") +
+    var block = (manual ? "## Material merged manually from " : "## Duplicate material merged from ") +
+      ((drop && drop.id) || (manual ? "node" : "duplicate")) +
+      "\n\n> " + (manual ? "merged manually from note \"" : "merged automatically from duplicate note \"") +
+      sanitizeLabel((drop && (drop.name || drop.stem)) || (manual ? "node" : "duplicate")) +
       "\" (`" + String((drop && drop.path) || "") + "`).\n\n" + fresh.join("\n\n");
     return { body: (base ? base + "\n\n" : "") + block.replace(/\s+$/g, "") + "\n", anchorMap: ren.anchorMap, appended: true, kept: fresh.length, skipped: skipped };
   }
@@ -5219,6 +5336,7 @@
     neighborhood: neighborhood,
     components: components,
     filterNodes: filterNodes,
+    findMergeCandidates: findMergeCandidates,
     findDuplicateGroups: findDuplicateGroups,
     duplicateScore: duplicateScore,
     pickDuplicateKeeper: pickDuplicateKeeper,
