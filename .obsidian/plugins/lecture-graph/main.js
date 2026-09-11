@@ -7983,16 +7983,11 @@ class ManualMergeModal extends obsidian.Modal {
       text: "Найдите второй узел того же уровня. Слияние перенесёт его текст, ссылки, ключевые фразы, подпись и дочерние вершины в выбранный keeper, а второй файл отправит в корзину Obsidian. Автопроверка на дубликат здесь не применяется.",
     });
 
-    var sourceBox = content.createDiv({ cls: "lg-manual-merge__source" });
-    sourceBox.createDiv({ cls: "lg-manual-merge__eyebrow", text: "Узел, выбранный на графе" });
-    sourceBox.createDiv({ cls: "lg-manual-merge__name", text: this.source.name || this.source.id });
-    if (this.source.nameZh) sourceBox.createDiv({ cls: "lg-line lg-line--zh", text: this.source.nameZh });
-    sourceBox.createDiv({
-      cls: "lg-manual-merge__meta",
-      text: "id " + this.source.id + " · " + (TYPE_LABEL[this.source.type] || this.source.type) +
-        (this.source.chapter ? " · глава " + this.source.chapter : ""),
-    });
-    sourceBox.createDiv({ cls: "lg-modal-path", text: this.source.path });
+    // У исходной вершины и найденных вариантов одна и та же «плашка».
+    // Так пользователь сравнивает не три разрозненные строки в тесной кнопке,
+    // а одинаковые карточки с названием, контекстом и путём.
+    var sourceBox = content.createDiv({ cls: "lg-manual-merge__node-card lg-manual-merge__source" });
+    this.renderNodeCard(sourceBox, this.source, "Узел, выбранный на графе");
 
     var searchField = content.createDiv({ cls: "lg-field lg-manual-merge__search" });
     searchField.createEl("label", { text: "Найти узел для слияния", attr: { for: "lg-manual-merge-search" } });
@@ -8008,12 +8003,8 @@ class ManualMergeModal extends obsidian.Modal {
     this.listEl = content.createDiv({ cls: "lg-manual-merge__list", attr: { role: "listbox", "aria-label": "Узлы для слияния" } });
     this.emptyEl = content.createDiv({ cls: "lg-manual-merge__empty", text: "Совпадений нет. Попробуйте искать по id или части названия." });
 
-    this.targetBox = content.createDiv({ cls: "lg-manual-merge__target" });
-    this.targetBox.createDiv({ cls: "lg-manual-merge__eyebrow", text: "Выбран второй узел" });
-    this.targetNameEl = this.targetBox.createDiv({ cls: "lg-manual-merge__name", text: "—" });
-    this.targetZhEl = this.targetBox.createDiv({ cls: "lg-line lg-line--zh", text: "" });
-    this.targetMetaEl = this.targetBox.createDiv({ cls: "lg-manual-merge__meta", text: "" });
-    this.targetPathEl = this.targetBox.createDiv({ cls: "lg-modal-path", text: "" });
+    this.targetBox = content.createDiv({ cls: "lg-manual-merge__node-card lg-manual-merge__target" });
+    this.renderNodeCard(this.targetBox, null, "Выбран второй узел");
     this.targetBox.style.display = "none";
 
     var keeperField = content.createDiv({ cls: "lg-field lg-manual-merge__keeper" });
@@ -8047,6 +8038,24 @@ class ManualMergeModal extends obsidian.Modal {
     setTimeout(() => this.searchEl.focus(), 30);
   }
 
+  /**
+   * Единая плашка вершины для source, результатов поиска и выбранной цели.
+   * У каждого фрагмента есть собственный блочный контейнер: тема Obsidian может
+   * менять базовый вид <button>, но не сможет наложить название на метаданные
+   * или путь следующего результата.
+   */
+  renderNodeCard(card, node, eyebrow) {
+    card.textContent = "";
+    card.createDiv({ cls: "lg-manual-merge__eyebrow", text: eyebrow });
+    var name = card.createDiv({ cls: "lg-manual-merge__name", text: node ? (node.name || node.id) : "—" });
+    if (node && node.nameZh) name.createDiv({ cls: "lg-line lg-line--zh lg-manual-merge__zh", text: node.nameZh });
+    var bits = node ? ["id " + node.id, TYPE_LABEL[node.type] || node.type, "⇠ " + (node.degree || 0)] : [];
+    if (node && node.chapter) bits.push("глава " + node.chapter);
+    if (node && node.parent) bits.push("родитель " + node.parent);
+    card.createDiv({ cls: "lg-manual-merge__meta", text: bits.join(" · ") });
+    card.createDiv({ cls: "lg-modal-path lg-manual-merge__path", text: node ? node.path : "" });
+  }
+
   renderCandidates(query) {
     var self = this;
     var all = core.findMergeCandidates(this.graph, this.source, query, { sameType: true });
@@ -8054,21 +8063,17 @@ class ManualMergeModal extends obsidian.Modal {
     this.listEl.textContent = "";
     shown.forEach(function (n) {
       var item = self.listEl.createEl("button", {
-        cls: "lg-manual-merge__item" + (self.target && self.target.id === n.id ? " lg-manual-merge__item--selected" : ""),
+        cls: "lg-manual-merge__node-card lg-manual-merge__item" + (self.target && self.target.id === n.id ? " lg-manual-merge__item--selected" : ""),
         attr: {
           type: "button",
           role: "option",
           "aria-selected": self.target && self.target.id === n.id ? "true" : "false",
+          "aria-label": "Выбрать для слияния: " + (n.name || n.id) + ", " + n.id,
           "data-node-id": n.id,
+          "data-node-type": n.type,
         },
       });
-      var top = item.createDiv({ cls: "lg-manual-merge__item-name", text: n.name || n.id });
-      if (n.nameZh) top.createSpan({ cls: "lg-manual-merge__item-zh", text: " · " + n.nameZh });
-      var bits = ["id " + n.id, TYPE_LABEL[n.type] || n.type, "⇠" + (n.degree || 0)];
-      if (n.chapter) bits.push("глава " + n.chapter);
-      if (n.parent) bits.push("parent " + n.parent);
-      item.createDiv({ cls: "lg-manual-merge__item-meta", text: bits.join(" · ") });
-      item.createDiv({ cls: "lg-manual-merge__item-path", text: n.path });
+      self.renderNodeCard(item, n, "Нажмите, чтобы выбрать");
       item.addEventListener("click", function () { self.selectTarget(n); });
     });
     var tail = all.length > shown.length ? " · показаны первые " + shown.length + " — уточните запрос" : "";
@@ -8088,12 +8093,7 @@ class ManualMergeModal extends obsidian.Modal {
       items[i].classList.toggle("lg-manual-merge__item--selected", on);
       items[i].setAttribute("aria-selected", on ? "true" : "false");
     }
-    this.targetNameEl.setText(node.name || node.id);
-    this.targetZhEl.setText(node.nameZh || "");
-    this.targetZhEl.style.display = node.nameZh ? "" : "none";
-    this.targetMetaEl.setText("id " + node.id + " · " + (TYPE_LABEL[node.type] || node.type) +
-      (node.chapter ? " · глава " + node.chapter : ""));
-    this.targetPathEl.setText(node.path);
+    this.renderNodeCard(this.targetBox, node, "Выбран второй узел");
     this.targetBox.style.display = "";
 
     this.keeperEl.textContent = "";
