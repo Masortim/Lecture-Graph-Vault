@@ -220,7 +220,15 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
   border-radius: 7px; background: var(--background-primary);
 }
 .lg-manual-merge__item {
-  display: block; width: 100%; max-width: 100%; min-width: 0; padding: 7px 9px;
+  /* Элемент списка — это <button>, а у кнопок в теме Obsidian задана фиксированная
+     высота (--input-height) и вертикальное центрирование содержимого. Из-за этого
+     три строки (название + двухстрочное описание + путь) вылезали за пределы кнопки
+     и наезжали на соседние элементы. Раскладываем строки колонкой и разрешаем
+     кнопке расти по содержимому. */
+  display: flex; flex-direction: column; gap: 2px; align-items: stretch;
+  width: 100%; max-width: 100%; min-width: 0;
+  height: auto; min-height: 0; line-height: 1.35;
+  padding: 7px 9px; white-space: normal;
   border: 1px solid transparent; border-radius: 6px;
   background: transparent; box-shadow: none; color: var(--text-normal); text-align: left; cursor: pointer;
 }
