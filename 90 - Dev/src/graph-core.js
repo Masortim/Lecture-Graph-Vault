@@ -16,6 +16,15 @@
 
   var TYPES = ["chapter", "section", "heading", "block"];
 
+  /**
+   * Подпись, которая не влезла в свой бюджет, не обрезается многоточием, а ГАСНЕТ
+   * к правому краю. Это нижняя граница «сколько текста показано в полную силу»: даже
+   * у названия втрое длиннее бюджета непрозрачным остаётся не меньше трети строки,
+   * иначе метка превращалась бы в еле видимую полоску. Затухание рисует вид
+   * (ui.js: linearGradient + mask), в модель оно приходит числом n.labelFade.
+   */
+  var LABEL_FADE_MIN = 0.34;
+
   var DEFAULTS = {
     nameKey: "name",
     nameZhKey: "name_zh",
@@ -697,6 +706,63 @@
     };
   }
 
+  /** «1 вхождение / 2 вхождения / 5 вхождений» — русские числительные для отчётов. */
+  function plural(n) {
+    var v = Math.abs(Number(n) || 0) % 100, d = v % 10;
+    if (v > 10 && v < 20) return " вхождений";
+    if (d === 1) return " вхождение";
+    if (d >= 2 && d <= 4) return " вхождения";
+    return " вхождений";
+  }
+
+  /**
+   * ВСЕ главы, о которых говорит новая вершина, — а не одна «доминирующая».
+   *
+   * Корпус аннотаций состоит из секций и заголовков, поэтому прямые попадания
+   * (plan.targets) — это всегда они; главу же до сих пор использовали только чтобы
+   * выбрать папку и цвет (plan.dominant), и связь с ней в графе не появлялась вовсе.
+   * Между тем ключевые фразы почти всегда попадают в НЕСКОЛЬКО глав: именно эти связи
+   * и показывают, что тема сквозная. Здесь они превращаются в обычные ссылки-рёбра
+   * (kind "reference"), по одной на главу, отсортированные по числу вхождений.
+   *
+   * Вес по ключевым фразам (`weight:`) при этом НЕ меняется: он считается по региону
+   * keywords:begin/end, а эти ссылки живут в теле заметки, поэтому «вес = число
+   * вхождений в корпусе» остаётся прежним, а рёбра глав добавляются сверх него.
+   */
+  function relatedChapters(graph, plan, opts) {
+    var o = opts || {};
+    var exclude = {};
+    (o.exclude || []).forEach(function (id) {
+      if (id) exclude[id] = true;
+    });
+    var byId = (graph && graph._byId) || {};
+    var byChapter = (plan && plan.byChapter) || {};
+    var out = [];
+    Object.keys(byChapter).forEach(function (id) {
+      if (exclude[id]) return;
+      var n = byId[id];
+      if (!n || n.type !== "chapter" || n.inline) return;
+      var count = byChapter[id];
+      out.push({
+        id: id,
+        stem: n.stem,
+        name: n.name,
+        type: "chapter",
+        phrase: n.name,
+        count: count,
+        // почему связь появилась — видно прямо в заметке, а не только в графе
+        detail: count + plural(count) + " ключевых фраз в аннотациях главы",
+      });
+    });
+    // сначала главы, о которых тема говорит больше всего; при равенстве — по id
+    out.sort(function (a, b) {
+      if (a.count !== b.count) return b.count - a.count;
+      return a.id < b.id ? -1 : 1;
+    });
+    var limit = o.limit === undefined ? 0 : o.limit;
+    return limit > 0 ? out.slice(0, limit) : out;
+  }
+
   /** Текст блока между маркерами (материализованные ссылки). "" — значит «блока нет». */
   function keywordRegionText(plan, opts) {
     var cfg = merge(DEFAULTS, opts || {});
@@ -711,7 +777,7 @@
     plan.targets.forEach(function (t) {
       out.push("- [[" + t.stem + "|" + t.phrases.join(" · ") + (t.count > 1 ? " ×" + t.count : "") + "]] — " +
         (t.level === "section" ? "секция" : "заголовок") + " `" + t.id + "`, " + t.count +
-        (t.count === 1 ? " вхождение" : t.count < 5 ? " вхождения" : " вхождений") + " в корпусе");
+        plural(t.count) + " в корпусе");
     });
     plan.unmatched.forEach(function (p) {
       out.push("- «" + p + "» — в корпусе `" + cfg.keywordFolder + "` не найдено");
@@ -737,6 +803,8 @@
   }
 
   var RELATED_HEADING = "## Related topics";
+  // связи со всеми главами, где встречаются ключевые фразы вершины (см. relatedChapters)
+  var CHAPTER_HEADING = "## Related chapters";
 
   /**
    * Дописывает пункт-ссылку в раздел с данным заголовком; раздела нет — создаёт его
@@ -1145,14 +1213,23 @@
       // 3) габариты подписи -> «упаковочный» радиус: метки не должны наезжать друг на друга
       var lines = labelLines(n, cfg);
       var per = n.labelChars;
-      // рисуем ровно две строки (EN и перевод), обрезанные до per символов:
-      // размеры упаковки считаются по тому же тексту, что видно на экране
-      n.labelEn = clipLabel(lines[0], per);
-      n.labelZh = lines[1] ? clipLabel(lines[1], per) : "";
+      // рисуем ровно две строки (EN и перевод) ЦЕЛИКОМ: то, что не влезает в бюджет
+      // уровня, гаснет к правому краю (n.labelFade — доля подписи в полную силу),
+      // а не отрезается многоточием. Упаковка считается по бюджету, а не по полному
+      // тексту: место под метку отведено то же, что и при обрезке, поэтому нулевые
+      // наложения меток сохраняются, а прочитать название целиком можно наведением.
+      n.labelEn = fadeLabel(lines[0]);
+      n.labelZh = lines[1] ? fadeLabel(lines[1]) : "";
+      n.labelFade = labelFadeFrac(n.labelEn, n.labelZh, per);
+      // «сколько метка занимает места» — по-прежнему бюджет уровня, а не полная строка:
+      // текст за его границей уже прозрачен и на соседей не претендует
+      n.labelEnClipped = clipLabel(lines[0], per);
+      n.labelZhClipped = lines[1] ? clipLabel(lines[1], per) : "";
       // ширина — в «ем» по фактическим символам: азиатская глиф-строка в 1.6 раза шире
       // латинской при том же числе символов, и считать её по длине нельзя (метки бы
-      // наезжали друг на друга, хотя «по оценке» всё чисто)
-      n.lw = Math.max(textUnits(n.labelEn), textUnits(n.labelZh)) * n.font + 8;
+      // наезжали друг на друга, хотя «по оценке» всё чисто). Берём ОБРЕЗАННЫЕ строки:
+      // ровно столько места метка и занимает, хвост за бюджетом уже прозрачен
+      n.lw = Math.max(textUnits(n.labelEnClipped), textUnits(n.labelZhClipped)) * n.font + 8;
       n.lh = n.font * (n.labelZh ? 2.4 : 1.25) + 5;
       n.labelShown = labelShown(n, cfg);
       // «след» вершины: сколько места ей нужно по дуге кольца и сколько по радиусу.
@@ -1530,12 +1607,58 @@
    * (каждое внутри своего клина), а упаковка с учётом подписей убирает наложения меток.
    */
 
-  /** Обрезаем подпись так, как она будет нарисована (одна строка, max `per` символов). */
+  /**
+   * Обрезаем подпись так, как она будет нарисована в СТАТИЧЕСКОМ экспорте (одна
+   * строка, max `per` символов). В живом виде текст не режется вовсе: он рисуется
+   * целиком и гаснет к правому краю своего бюджета (см. fadeLabel/labelFadeFrac) —
+   * многоточие там не нужно и только съедает полезный символ.
+   */
   function clipLabel(text, per) {
     var str = String(text == null ? "" : text).replace(/\s+/g, " ").trim();
     if (!per || per < 4) per = 4;
     if (str.length <= per) return str;
     return str.slice(0, Math.max(2, per - 1)).trim() + "\u2026";
+  }
+
+  /**
+   * Подпись для ЖИВОГО вида: тот же текст, но без обрезки и без многоточия. Строка
+   * возвращается целиком, а «не влезло» показывается затуханием — за него отвечает
+   * labelFadeFrac(), который считает, какая доля метки помещается в отведённый бюджет.
+   * Пробелы схлопываются, как и в clipLabel: иначе ширина по глифам считалась бы по
+   * тексту, которого на экране нет.
+   */
+  function fadeLabel(text) {
+    return String(text == null ? "" : text).replace(/\s+/g, " ").trim();
+  }
+
+  /**
+   * Ширина `per` первых символов строки в ГЛИФАХ (em) — столько места отведено метке.
+   * Считать бюджет в символах нельзя: иероглиф в полтора раза шире латинской буквы,
+   * и «24 символа» для 中文 и для латиницы — это разная ширина на экране.
+   */
+  function labelBudgetUnits(text, per) {
+    var str = fadeLabel(text);
+    if (!str) return 0;
+    if (!per || per < 4) per = 4;
+    return textUnits(str.slice(0, per));
+  }
+
+  /**
+   * Какая доля ПОДПИСИ показывается в полную силу: 1 — текст влез в бюджет целиком
+   * (гасить нечего), меньше 1 — во столько раз он шире отведённого места, и во столько
+   * же раз раньше начинается градиент прозрачности. Считается сразу по обеим строкам
+   * (EN и перевод), потому что маска затухания в живом виде накладывается на подпись
+   * целиком: короткая вторая строка при этом остаётся внутри непрозрачной части.
+   * Ниже LABEL_FADE_MIN не опускаемся — у самого длинного названия должно оставаться
+   * читаемое начало, а не один растворяющийся символ.
+   */
+  function labelFadeFrac(en, zh, per) {
+    var a = fadeLabel(en), b = fadeLabel(zh);
+    var full = Math.max(textUnits(a), textUnits(b));
+    if (full <= 0) return 1;
+    var budget = Math.max(labelBudgetUnits(a, per), labelBudgetUnits(b, per));
+    if (budget >= full) return 1;
+    return clamp(budget / full, LABEL_FADE_MIN, 1);
   }
 
   /**
@@ -1888,9 +2011,12 @@
           unresolved: n.unresolved || 0,
           size_factor: n.sizeFactor || 1,
           radius: Math.round((n.r || 0) * 100) / 100,
-          // как подпись лежит на экране: name — целиком, label_en/label_zh — как нарисована
+          // как подпись лежит на экране: label_en/label_zh — как нарисована (текст рисуется
+          // целиком), label_fade — доля строки в полную силу: 1 = влезла, меньше 1 = хвост
+          // гаснет к правому краю бюджета (в статическом SVG вместо этого обрезка)
           label_en: n.labelEn === undefined ? n.name : n.labelEn,
           label_zh: n.labelZh === undefined ? (n.nameZh || "") : n.labelZh,
+          label_fade: Math.round((n.labelFade === undefined ? 1 : n.labelFade) * 1000) / 1000,
           label_font: Math.round((n.font || 0) * 100) / 100,
           color: n.color || null,
           caption: n.caption || null,
@@ -3249,8 +3375,13 @@
       );
       if (!showLabels || !labelShown(n, cfg)) return;
       var ll = labelLines(n, cfg);
-      // рисуем ровно те же обрезанные строки, под которые строилась упаковка
-      if (n.labelEn !== undefined || n.labelZh !== undefined) ll = [n.labelEn || "", n.labelZh || ""];
+      // статическая картинка градиента не имеет — здесь по-прежнему рисуются ОБРЕЗАННЫЕ
+      // строки, под которые строилась упаковка (в живом виде их гасит маска, см. ui.js)
+      if (n.labelEnClipped !== undefined || n.labelZhClipped !== undefined) {
+        ll = [n.labelEnClipped || "", n.labelZhClipped || ""];
+      } else if (n.labelEn !== undefined || n.labelZh !== undefined) {
+        ll = [clipLabel(n.labelEn, n.labelChars), clipLabel(n.labelZh, n.labelChars)];
+      }
       var fs = n.font || opts.fontSize || 10;
       var chars = n.labelChars || perLine;
       var ty = y + (n.r || 6) + fs * 0.95;
@@ -4687,6 +4818,21 @@
         body.push("- [[" + r.stem + "|" + r.phrase + "]] — " + label + (r.name && r.name !== r.phrase ? " «" + r.name + "»" : ""));
       });
     }
+    // Связи со ВСЕМИ главами, в аннотациях которых нашлись ключевые фразы (не только
+    // с «доминирующей», которая задаёт папку и цвет): у сквозной темы их несколько, и
+    // без этого раздела в графе не было бы видно ни одной из них. Отдельный заголовок,
+    // а не общий «Related topics»: пункты машинные, у каждого — за что связь.
+    var chapters = s.chapters || [];
+    if (chapters.length) {
+      // Без вводного абзаца: за что связь, написано в самом пункте. Тогда после
+      // удаления последней главы раздел уходит целиком (dropEmptySection), а не
+      // остаётся сиротливым заголовком с пояснением к пустому списку.
+      body.push("", CHAPTER_HEADING, "");
+      chapters.forEach(function (c) {
+        body.push("- [[" + c.stem + "|" + c.name + (c.count > 1 ? " ×" + c.count : "") + "]] — глава `" +
+          c.id + "`" + (c.detail ? ", " + c.detail : ""));
+      });
+    }
     // регион ключевых фраз — всегда ПОСЛЕДНИМ блоком тела: материализатор
     // (applyKeywordRegion) пишет его в конец, и повторный пересчёт не двигает его
     var region = String(s.region || "").replace(/\s+$/g, "");
@@ -4860,9 +5006,14 @@
     // случай — блок связан с вершиной исключительно по ключевым фразам).
     var outside = stripTargetRefs(cut.outside, list, res);
     var region = cut.region === null ? null : stripTargetRefs(cut.region, list, res);
-    var drop = dropEmptySection(outside, RELATED_HEADING);
-    outside = drop.text;
-    res.dropped += drop.dropped;
+    // оба машинных раздела пустыми не остаются: и «Related topics» (совпадения по
+    // названию), и «Related chapters» (главы по ключевым фразам) существуют только
+    // ради своих ссылок — без них заголовок в заметке не нужен
+    [RELATED_HEADING, CHAPTER_HEADING].forEach(function (h) {
+      var drop = dropEmptySection(outside, h);
+      outside = drop.text;
+      res.dropped += drop.dropped;
+    });
     if (!res.removed) return res; // ни одной ссылки не сняли — заметка не меняется
     var body;
     if (region === null) {
@@ -5020,6 +5171,7 @@
     appendManualLink: appendManualLink,
     appendBulletToSection: appendBulletToSection,
     RELATED_HEADING: RELATED_HEADING,
+    CHAPTER_HEADING: CHAPTER_HEADING,
     radiusFor: radiusFor,
     initPositions: initPositions,
     buildTree: buildTree,
@@ -5044,6 +5196,10 @@
     arcPath: arcPath,
     edgePath: edgePath,
     clipLabel: clipLabel,
+    fadeLabel: fadeLabel,
+    labelFadeFrac: labelFadeFrac,
+    labelBudgetUnits: labelBudgetUnits,
+    LABEL_FADE_MIN: LABEL_FADE_MIN,
     textUnits: textUnits,
     labelShown: labelShown,
     labelThreshold: labelThreshold,
@@ -5070,6 +5226,7 @@
     mergeNodeBodies: mergeNodeBodies,
     retargetLinks: retargetLinks,
     relatedByName: relatedByName,
+    relatedChapters: relatedChapters,
     nextNodeId: nextNodeId,
     composeNote: composeNote,
     noteKeyMatch: noteKeyMatch,

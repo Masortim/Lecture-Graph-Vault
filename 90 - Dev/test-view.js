@@ -146,15 +146,13 @@ const plugin = new PluginClass(app, manifest);
     const g = view.nodeEls[node.id];
     const tspans = g.querySelectorAll("tspan");
     assert.strictEqual(tspans.length, 2, "tspans " + tspans.length);
-    // рисуем ОБРЕЗАННУЮ подпись (иначе длинные названия гарантированно наезжают друг
-    // на друга); full name остаётся в данных и в свойствах заметки
+    // рисуем ПОЛНУЮ подпись: длинное название не режется многоточием, а гаснет к краю
+    // (маска), поэтому текст в DOM всегда совпадает с name/name_zh заметки
     assert.strictEqual(tspans[0].textContent, node.labelEn);
     assert.strictEqual(tspans[1].textContent, node.labelZh);
-    assert.ok(String(node.name).indexOf(String(node.labelEn).replace(/\u2026$/, "")) === 0,
-      "подпись не является началом названия: " + node.labelEn + " / " + node.name);
-    assert.ok(node.labelEn.length <= node.labelChars, "подпись длиннее разрешённой");
-    assert.ok(node.name.length > node.labelEn.length ? /\u2026$/.test(node.labelEn) : true,
-      "длинное название не обрезано многоточием");
+    assert.strictEqual(node.labelEn, core.fadeLabel(node.name),
+      "подпись не совпадает с полным названием: " + node.labelEn + " / " + node.name);
+    assert.strictEqual(node.labelEn.indexOf("\u2026"), -1, "подпись обрезана многоточием: " + node.labelEn);
     assert.doesNotMatch(tspans[0].textContent, /[一-鿿]/, "EN line contains CJK");
     assert.match(tspans[1].textContent, /[一-鿿]/, "ZH line has no CJK");
     assert.strictEqual(tspans[0].getAttribute("class"), "lg-label-en");
@@ -381,17 +379,20 @@ const plugin = new PluginClass(app, manifest);
     // вьюха должна показать новую подпись без перестройки
     assert.strictEqual(node.name, "Renamed Heading EN");
     assert.strictEqual(node.nameZh, "重命名后的中文标题");
-    // на графе — обрезанная версия (полное название не влезает в кольцо без наездов),
-    // при наведении — полное
-    assert.strictEqual(node.labelEn, core.clipLabel("Renamed Heading EN", node.labelChars),
+    // на графе подпись пишется ЦЕЛИКОМ (многоточия больше нет): то, что не влезло в
+    // бюджет уровня, гасится маской, а под курсором маска снимается
+    assert.strictEqual(node.labelEn, core.fadeLabel("Renamed Heading EN"),
       "после правки подпись не пересчитана");
+    assert.strictEqual(node.labelEn.indexOf("\u2026"), -1, "в подписи снова появилось многоточие");
     assert.ok(node.lw > 8, "после правки не пересчитана ширина подписи (упаковка поедет)");
     var tspanNow = view.nodeEls[node.id].querySelectorAll("tspan")[0].textContent;
-    assert.ok("Renamed Heading EN".indexOf(tspanNow.replace(/\u2026$/, "")) === 0, "на графе не новая подпись: " + tspanNow);
+    assert.strictEqual(tspanNow, "Renamed Heading EN", "на графе не новая подпись: " + tspanNow);
     view.hoverId = node.id;
     view.updateLabels();
     assert.strictEqual(view.nodeEls[node.id].querySelectorAll("tspan")[0].textContent, "Renamed Heading EN",
       "при наведении подпись не показана целиком");
+    assert.strictEqual(view.nodeEls[node.id].__t.getAttribute("mask"), null,
+      "под курсором подпись обязана быть без затухания");
     view.hoverId = null;
     view.updateLabels();
     assert.ok(Notice.all.every((m) => !/Не удалось/.test(m)), "error notice: " + Notice.all.join(" | "));
@@ -744,6 +745,75 @@ const plugin = new PluginClass(app, manifest);
     view.applySizesNow();
     Object.assign(view.view, v0);
     view.redraw();
+    view.updateLabels();
+  });
+
+  await ok("длинная подпись гаснет к краю вместо многоточия, под курсором — целиком", async () => {
+    const core = require("./src/graph-core.js");
+    view.select(null);
+    view.neigh = null;
+    view.hoverId = null;
+    plugin.settings.labelMode = "always";
+    view.updateLabels();
+    // в графе не должно остаться НИ ОДНОЙ подписи с многоточием — ни в модели, ни в DOM
+    const clipped = view.graph.nodes.filter((n) => /\u2026/.test(n.labelEn || "") || /\u2026/.test(n.labelZh || ""));
+    assert.strictEqual(clipped.length, 0, "подписи всё ещё обрезаны многоточием: " +
+      clipped.slice(0, 3).map((n) => n.id + " «" + n.labelEn + "»").join(", "));
+    const tspanText = Object.keys(view.nodeEls).map((id) => view.nodeEls[id].querySelectorAll("tspan")[0].textContent);
+    assert.strictEqual(tspanText.filter((t) => /\u2026$/.test(t)).length, 0, "в DOM остались метки с многоточием");
+    // модель подписи = полное название заметки
+    const anyNode = view.graph.nodes.find((n) => n.type === "chapter");
+    assert.strictEqual(anyNode.labelEn, core.fadeLabel(anyNode.name), "подпись главы не равна полному названию");
+
+    // у длинного названия доля видимого текста меньше 1 -> на <text> висит маска затухания
+    const long = view.graph.nodes
+      .filter((n) => view.nodeEls[n.id] && n.labelFade < 0.999 && view.nodeEls[n.id].__t.style.display !== "none")
+      .sort((a, b) => a.labelFade - b.labelFade)[0];
+    assert.ok(long, "в графе нет ни одной подписи, которая не влезает в свой бюджет");
+    assert.ok(long.labelFade >= core.LABEL_FADE_MIN, "доля видимого текста ниже допустимой: " + long.labelFade);
+    const t = view.nodeEls[long.id].__t;
+    const maskAttr = t.getAttribute("mask");
+    assert.ok(maskAttr && /^url\(#lg-fade-\d+\)$/.test(maskAttr), "у длинной подписи нет маски затухания: " + maskAttr);
+    // маска существует в defs и это градиент «видно -> прозрачно»
+    const maskId = maskAttr.slice(5, -1);
+    const maskEl = view.svg.querySelector("mask#" + maskId);
+    assert.ok(maskEl, "маска " + maskId + " не объявлена в defs");
+    const grad = view.svg.querySelector("linearGradient#" + maskId + "-g");
+    assert.ok(grad, "у маски нет градиента");
+    const stops = Array.from(grad.querySelectorAll("stop")).map((s) => Number(s.getAttribute("stop-opacity")));
+    assert.ok(Math.max(...stops) === 1 && Math.min(...stops) === 0,
+      "градиент не гасит текст: " + JSON.stringify(stops));
+    assert.strictEqual(stops[stops.length - 1], 0, "правый край подписи не прозрачен");
+    // текст под маской — ПОЛНЫЙ, а не обрезанный: гаснет рисунок, а не содержимое
+    assert.strictEqual(view.nodeEls[long.id].querySelectorAll("tspan")[0].textContent, long.name,
+      "под маской лежит не полное название");
+
+    // наведение снимает затухание — название читается целиком
+    view.hoverId = long.id;
+    view.updateLabels();
+    assert.strictEqual(t.getAttribute("mask"), null, "при наведении затухание не снято");
+    assert.strictEqual(view.nodeEls[long.id].querySelectorAll("tspan")[0].textContent, long.name,
+      "при наведении подпись не полная");
+    // и вершина поднята над соседями, иначе полное название уйдёт под чужие круги
+    assert.strictEqual(view.nodesLayer.lastChild, view.nodeEls[long.id], "наведённая вершина не поднята над соседями");
+    // выделение работает так же, как наведение
+    view.hoverId = null;
+    view.select(long.id);
+    assert.strictEqual(t.getAttribute("mask"), null, "у выделенной вершины затухание не снято");
+    view.select(null);
+    view.updateLabels();
+    assert.ok(t.getAttribute("mask"), "после снятия выделения затухание не вернулось");
+
+    // короткая подпись маску не получает вовсе (лишних масок в DOM быть не должно)
+    const short = view.graph.nodes.find((n) => (n.labelFade === undefined || n.labelFade >= 0.999) && view.nodeEls[n.id]);
+    if (short) {
+      assert.strictEqual(view.nodeEls[short.id].__t.getAttribute("mask"), null,
+        "подпись, которая влезает целиком, зря гасится: " + short.id);
+    }
+    // масок ровно столько, сколько ступеней, а не по одной на вершину
+    const masks = view.svg.querySelectorAll("mask").length;
+    assert.ok(masks > 0 && masks < 20, "масок затухания подозрительно много: " + masks);
+    plugin.settings.labelMode = "size";
     view.updateLabels();
   });
 
@@ -1622,6 +1692,59 @@ const plugin = new PluginClass(app, manifest);
     assert.notStrictEqual(res2.id, res.id, "id повторился");
     assert.notStrictEqual(res2.file.path, res.file.path, "путь повторился");
       assert.ok(!res2.plan, "без ключевых фраз не должно быть плана корпуса");
+    } finally {
+      plugin.settings.autoMergeDuplicates = prevAutoMerge;
+    }
+  });
+
+  await ok("создание узла: связи со ВСЕМИ главами, где нашлись ключевые фразы", async () => {
+    const prevAutoMerge = plugin.settings.autoMergeDuplicates;
+    plugin.settings.autoMergeDuplicates = false;
+    try {
+      // фразы из разных глав курса: разбивка plan.byChapter обязана быть многоглавой,
+      // иначе проверка вырождается («все главы» = одна глава)
+      const res = await plugin.createNewNode({
+        type: "block",
+        nameEn: "Cross Chapter Topic",
+        nameZh: "跨章节主题",
+        keywords: "vector space; compact set; orthogonal projection",
+      });
+      assert.ok(res && res.file, "узел не создан");
+      assert.ok(res.plan, "плана по корпусу нет — фразы не нашлись, тест бессмысленен");
+      const found = Object.keys(res.plan.byChapter);
+      assert.ok(found.length > 1, "фразы попали лишь в одну главу: " + JSON.stringify(res.plan.byChapter));
+      // в результат попали ВСЕ главы разбивки, кроме своей (с ней уже есть chapter:)
+      const want = found.filter((id) => id !== res.chapter).sort();
+      assert.deepStrictEqual(res.chapters.map((c) => c.id).sort(), want,
+        "связаны не все главы: " + JSON.stringify(res.chapters.map((c) => c.id)) + " вместо " + JSON.stringify(want));
+      assert.ok(res.chapters.length >= 2, "глав в связях меньше двух: " + res.chapters.length);
+      // порядок — по числу вхождений, самая «говорящая» глава первой
+      for (let i = 1; i < res.chapters.length; i++) {
+        assert.ok(res.chapters[i - 1].count >= res.chapters[i].count, "главы не отсортированы по вхождениям");
+      }
+      // в заметке — отдельный раздел со ссылками и пояснением «за что связь»
+      const raw = fs.readFileSync(path.join(TMP, res.file.path), "utf8");
+      assert.ok(raw.indexOf("## Related chapters") > 0, "нет раздела Related chapters");
+      res.chapters.forEach((c) => {
+        assert.ok(raw.indexOf("[[" + c.stem + "|") > 0, "в заметке нет ссылки на главу " + c.id);
+        assert.ok(raw.indexOf("`" + c.id + "`") > 0, "в заметке не указан id главы " + c.id);
+      });
+      // и главное: это РЁБРА в графе, а не просто текст
+      const g = await plugin.getGraph(false);
+      const n = g._byId[res.id];
+      assert.ok(n, "новой вершины нет в графе");
+      res.chapters.forEach((c) => {
+        assert.ok(n.out.some((o) => o.id === c.id && o.kind === "reference"),
+          "нет ребра на главу " + c.id + ": " + JSON.stringify(n.out.map((o) => o.id + "/" + o.kind)));
+      });
+      // вес по ключевым фразам считается по региону: связи глав его не раздувают
+      const parsed = obsidian_stub_parse(raw);
+      assert.strictEqual(n.kwWeight, parsed.data.weight, "вес в графе разошёлся с weight: в заметке");
+      assert.strictEqual(n.kwWeight, res.plan.weight, "связи с главами изменили вес по фразам");
+      // пересчёт фраз не должен трогать созданную заметку (раздел глав — вне региона)
+      await plugin.recomputeKeywords();
+      assert.strictEqual(fs.readFileSync(path.join(TMP, res.file.path), "utf8"), raw,
+        "Recompute keyword links переписал раздел глав");
     } finally {
       plugin.settings.autoMergeDuplicates = prevAutoMerge;
     }

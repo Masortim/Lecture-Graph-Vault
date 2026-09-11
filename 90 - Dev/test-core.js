@@ -1376,6 +1376,79 @@ ok("composeNote: конвенции frontmatter + регион фраз + Relate
   assert.ok(text.indexOf("## Related topics") < text.indexOf(marks.begin), "регион должен быть последним блоком тела");
 });
 
+ok("relatedChapters: ВСЕ главы из разбивки по вхождениям, а не одна доминирующая", () => {
+  const plan = {
+    byChapter: { Ch01: 19, Ch02: 18, Ch04: 20, Ch06: 1 },
+    dominant: "Ch04",
+    weight: 58,
+    targets: [],
+    keywords: ["vector space"],
+    unmatched: [],
+  };
+  const all = core.relatedChapters(graph, plan, {});
+  assert.strictEqual(all.length, 4, "потеряны главы: " + all.map((c) => c.id).join(","));
+  // порядок — по числу вхождений (самая «говорящая» глава первой), при равенстве по id
+  assert.deepStrictEqual(all.map((c) => c.id), ["Ch04", "Ch01", "Ch02", "Ch06"], "порядок глав не по весу");
+  assert.strictEqual(all[0].count, 20);
+  assert.strictEqual(all[0].type, "chapter");
+  assert.ok(all[0].stem && all[0].name, "у главы нет stem/name — ссылку не построить");
+  // русские числительные в пояснении: 1 вхождение / 19 вхождений
+  assert.ok(/^1 вхождение /.test(all[3].detail), "числительное для 1: " + all[3].detail);
+  assert.ok(/^19 вхождений /.test(all[1].detail), "числительное для 19: " + all[1].detail);
+  // exclude убирает уже связанное (своя глава, родитель, совпадения по названию)
+  const less = core.relatedChapters(graph, plan, { exclude: ["Ch04", "Ch01"] });
+  assert.deepStrictEqual(less.map((c) => c.id), ["Ch02", "Ch06"], "exclude не работает");
+  assert.strictEqual(core.relatedChapters(graph, plan, { limit: 2 }).length, 2, "limit не работает");
+  // без плана и без вхождений — пусто, а не исключение
+  assert.deepStrictEqual(core.relatedChapters(graph, null, {}), []);
+  assert.deepStrictEqual(core.relatedChapters(graph, { byChapter: {} }, {}), []);
+  // в разбивке может оказаться id, которого нет в графе (главу удалили) — пропускаем
+  assert.deepStrictEqual(core.relatedChapters(graph, { byChapter: { "Ch99": 5 } }, {}), []);
+  // и вершина не-глава туда тоже не попадёт
+  assert.deepStrictEqual(core.relatedChapters(graph, { byChapter: { "Ch01-S01": 5 } }, {}), []);
+});
+
+ok("composeNote: раздел Related chapters даёт рёбра на все главы, вес не меняется", () => {
+  const marks = core.keywordMarkers();
+  const chapters = core.relatedChapters(graph, { byChapter: { Ch02: 18, Ch06: 1 } }, {});
+  const text = core.composeNote(
+    {
+      type: "block",
+      id: "MN-42",
+      name: "Cross Cutting Topic",
+      keywords: ["vector space"],
+      weight: 5,
+      chapter: "Ch01",
+      region: marks.begin + "\n\n- [[Ch01-S01 - Setup and Notation|vector space ×5]]\n\n" + marks.end,
+      related: [],
+      chapters: chapters,
+    },
+    shippedCfg
+  );
+  assert.ok(text.indexOf("## Related chapters") > 0, "нет раздела глав");
+  assert.ok(text.indexOf("## Related chapters") < text.indexOf(marks.begin),
+    "регион ключевых фраз обязан оставаться последним блоком тела");
+  chapters.forEach((c) => {
+    assert.ok(text.indexOf("[[" + c.stem + "|") > 0, "нет ссылки на главу " + c.id);
+  });
+  // заметка сразу становится вершиной с рёбрами на КАЖДУЮ главу
+  const g = core.buildGraph(allNotes.concat([{ path: "30 - Blocks/Ch01/MN-42 - Cross Cutting Topic.md", text }]), shippedCfg);
+  const n = g._byId["MN-42"];
+  assert.ok(n, "заметка не стала вершиной");
+  chapters.forEach((c) => {
+    assert.ok(n.out.some((o) => o.id === c.id && o.kind === "reference"),
+      "нет ребра reference на главу " + c.id + ": " + JSON.stringify(n.out.map((o) => o.id + "/" + o.kind)));
+  });
+  // вес по ключевым фразам считается ТОЛЬКО по региону: связи глав его не раздувают
+  assert.strictEqual(n.kwWeight, 5, "вес изменился из-за связей с главами: " + n.kwWeight);
+  // и сами эти рёбра — не keyword: иначе они попали бы в вес и в размер вершины
+  assert.strictEqual(n.out.filter((o) => o.kind === "keyword" && /^Ch\d+$/.test(o.id)).length, 0,
+    "связь с главой стала ребром keyword");
+  // без глав раздела нет вовсе — пустой заголовок в заметке не нужен
+  const bare = core.composeNote({ type: "block", id: "MN-43", name: "No Chapters", chapters: [] }, shippedCfg);
+  assert.strictEqual(bare.indexOf("## Related chapters"), -1, "пустой раздел глав всё равно записан");
+});
+
 ok("заметка из composeNote — сразу вершина графа: рёбра keyword и reference из коробки", () => {
   const marks = core.keywordMarkers();
   const text = core.composeNote(
@@ -1588,6 +1661,29 @@ ok("stripDeletedRefs: пустой «Related topics» и опустевший р
   const keep = core.dropEmptySection("## Related topics\n\n- [[A|A]] — блок\n- [[B|B]] — блок\n", core.RELATED_HEADING);
   assert.strictEqual(keep.dropped, 0);
   assert.ok(keep.text.indexOf("[[B|B]]") > 0, "чужие пункты пострадали");
+});
+
+ok("stripDeletedRefs: раздел Related chapters живёт по тем же правилам, что Related topics", () => {
+  const chapters = [
+    { id: "Ch02", stem: "Ch02 - Normed Spaces and Operators", path: "10 - Chapters/Ch02 - Normed Spaces and Operators.md", name: "Normed Spaces and Operators", type: "chapter" },
+    { id: "Ch06", stem: "Ch06 - Spectral Theory", path: "10 - Chapters/Ch06 - Spectral Theory.md", name: "Spectral Theory", type: "chapter" },
+  ];
+  const text = "---\ntype: block\n---\n\n# T\n\n" + core.CHAPTER_HEADING + "\n\n" +
+    "- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×18]] — глава `Ch02`, 18 вхождений\n" +
+    "- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение\n\n## Другое\n\nтекст\n";
+  // одна глава ушла — пункт исчезает целиком, остальные на месте
+  const one = core.stripDeletedRefs(text, [chapters[0]], core.DEFAULTS);
+  assert.strictEqual(one.removed, 1);
+  assert.strictEqual(one.text.indexOf("Ch02 - Normed"), -1, "пункт удалённой главы остался");
+  assert.ok(one.text.indexOf("Ch06 - Spectral Theory") > 0, "чужой пункт пострадал");
+  assert.ok(one.text.indexOf(core.CHAPTER_HEADING) > 0, "раздел снесён, хотя в нём остались главы");
+  // ушли все — раздел уходит вместе с заголовком, соседний раздел цел
+  const all = core.stripDeletedRefs(text, chapters, core.DEFAULTS);
+  assert.strictEqual(all.text.indexOf(core.CHAPTER_HEADING), -1, "пустой раздел глав остался: " + JSON.stringify(all.text));
+  assert.ok(all.text.indexOf("## Другое") > 0, "снесён соседний раздел");
+  assert.ok(all.text.indexOf("текст") > 0, "снесён текст соседнего раздела");
+  // повторный проход не меняет байты
+  assert.strictEqual(core.stripDeletedRefs(all.text, chapters, core.DEFAULTS).text, all.text, "удаление не идемпотентно");
 });
 
 ok("stripDeletedRefs: ссылка внутри инлайн-кода не трогается, врезка исчезает", () => {
