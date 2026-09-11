@@ -2066,8 +2066,9 @@ class LectureGraphView extends obsidian.ItemView {
           .onClick(() => this.plugin.mergeDuplicateNodes())
       );
       if (this.plugin.lastMerge) {
+        var undoMergeTitle = this.plugin.lastMerge.mode === "manual" ? "Undo last manual merge" : "Undo last duplicate merge";
         menu.addItem((it) =>
-          it.setTitle("Undo last duplicate merge").setIcon("undo").onClick(() => this.plugin.undoDuplicateMerge())
+          it.setTitle(undoMergeTitle).setIcon("undo").onClick(() => this.plugin.undoDuplicateMerge())
         );
       }
       menu.addSeparator();
@@ -2084,6 +2085,13 @@ class LectureGraphView extends obsidian.ItemView {
     menu.addItem((it) => it.setTitle("Clear filters").setIcon("x").onClick(() => this.clearIsolation()));
     menu.addSeparator();
     menu.addItem((it) => it.setTitle("Copy wiki link").setIcon("link").onClick(() => this.plugin.copyLink(n)));
+    menu.addItem((it) =>
+      it
+        .setTitle("Ручное слияние с другим узлом…")
+        .setIcon("combine")
+        .setDisabled(!!n.inline)
+        .onClick(() => this.plugin.openManualMerge(n))
+    );
     menu.addItem((it) => it.setTitle("Merge duplicates of this vertex").setIcon("git-merge").onClick(() => this.plugin.mergeDuplicateNodes({ ids: [n.id] })));
     menu.addItem((it) => it.setTitle("Preview duplicates of this vertex…").setIcon("eye").onClick(() => this.plugin.previewDuplicateNodes({ ids: [n.id] })));
     // ручная связь без Ctrl: если вершина уже выделена, меню предлагает оба направления
@@ -2570,6 +2578,209 @@ class DeleteNodeModal extends obsidian.Modal {
   onClose() {
     this.contentEl.textContent = "";
     if (this.plugin.deleteModal === this) this.plugin.deleteModal = null;
+  }
+}
+
+/* ------------------------------------------------- ручное слияние двух узлов */
+
+/**
+ * Ручное слияние не зависит от эвристики дубликатов. Пользователь выбирает второй
+ * узел сам, но только среди обычных вершин того же уровня: так section не сможет
+ * внезапно стать ребёнком block, а chapter — потерять собственную иерархию.
+ */
+class ManualMergeModal extends obsidian.Modal {
+  constructor(app, plugin, source, graph) {
+    super(app);
+    this.plugin = plugin;
+    this.source = source;
+    this.graph = graph;
+    this.target = null;
+    this.busy = false;
+    this.renderLimit = 160;
+  }
+
+  onOpen() {
+    var content = this.contentEl;
+    var self = this;
+    content.addClass("lg-modal");
+    content.addClass("lg-manual-merge");
+    content.createEl("h2", { text: "Ручное слияние узлов" });
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Найдите второй узел того же уровня. Слияние перенесёт его текст, ссылки, ключевые фразы, подпись и дочерние вершины в выбранный keeper, а второй файл отправит в корзину Obsidian. Автопроверка на дубликат здесь не применяется.",
+    });
+
+    var sourceBox = content.createDiv({ cls: "lg-manual-merge__source" });
+    sourceBox.createDiv({ cls: "lg-manual-merge__eyebrow", text: "Узел, выбранный на графе" });
+    sourceBox.createDiv({ cls: "lg-manual-merge__name", text: this.source.name || this.source.id });
+    if (this.source.nameZh) sourceBox.createDiv({ cls: "lg-line lg-line--zh", text: this.source.nameZh });
+    sourceBox.createDiv({
+      cls: "lg-manual-merge__meta",
+      text: "id " + this.source.id + " · " + (TYPE_LABEL[this.source.type] || this.source.type) +
+        (this.source.chapter ? " · глава " + this.source.chapter : ""),
+    });
+    sourceBox.createDiv({ cls: "lg-modal-path", text: this.source.path });
+
+    var searchField = content.createDiv({ cls: "lg-field lg-manual-merge__search" });
+    searchField.createEl("label", { text: "Найти узел для слияния", attr: { for: "lg-manual-merge-search" } });
+    this.searchEl = searchField.createEl("input", {
+      type: "search",
+      attr: {
+        id: "lg-manual-merge-search",
+        placeholder: "Название, перевод, id, путь, alias или ключевая фраза",
+        autocomplete: "off",
+      },
+    });
+    this.countEl = content.createDiv({ cls: "lg-manual-merge__count", attr: { "aria-live": "polite" } });
+    this.listEl = content.createDiv({ cls: "lg-manual-merge__list", attr: { role: "listbox", "aria-label": "Узлы для слияния" } });
+    this.emptyEl = content.createDiv({ cls: "lg-manual-merge__empty", text: "Совпадений нет. Попробуйте искать по id или части названия." });
+
+    this.targetBox = content.createDiv({ cls: "lg-manual-merge__target" });
+    this.targetBox.createDiv({ cls: "lg-manual-merge__eyebrow", text: "Выбран второй узел" });
+    this.targetNameEl = this.targetBox.createDiv({ cls: "lg-manual-merge__name", text: "—" });
+    this.targetZhEl = this.targetBox.createDiv({ cls: "lg-line lg-line--zh", text: "" });
+    this.targetMetaEl = this.targetBox.createDiv({ cls: "lg-manual-merge__meta", text: "" });
+    this.targetPathEl = this.targetBox.createDiv({ cls: "lg-modal-path", text: "" });
+    this.targetBox.style.display = "none";
+
+    var keeperField = content.createDiv({ cls: "lg-field lg-manual-merge__keeper" });
+    keeperField.createEl("label", { text: "Какой узел оставить (keeper)", attr: { for: "lg-manual-merge-keeper" } });
+    this.keeperEl = keeperField.createEl("select", { attr: { id: "lg-manual-merge-keeper" } });
+    this.keeperEl.disabled = true;
+    this.keeperEl.createEl("option", { text: "Сначала выберите второй узел", attr: { value: "" } });
+
+    this.planEl = content.createDiv({ cls: "lg-manual-merge__plan", attr: { "aria-live": "polite" } });
+    this.warnEl = content.createDiv({ cls: "lg-manual-merge__warn" });
+    this.planEl.setText("Выберите узел в списке — здесь появится план изменений.");
+    this.warnEl.style.display = "none";
+
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    this.mergeBtn = btns.createEl("button", { cls: "mod-warning", text: "Объединить узлы", attr: { type: "button" } });
+    this.mergeBtn.disabled = true;
+    this.mergeBtn.addEventListener("click", () => this.submit());
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+
+    this.searchEl.addEventListener("input", function () { self.renderCandidates(self.searchEl.value); });
+    this.searchEl.addEventListener("keydown", function (ev) {
+      if (ev.key !== "ArrowDown") return;
+      var first = self.listEl.querySelector("button.lg-manual-merge__item");
+      if (first) { ev.preventDefault(); first.focus(); }
+    });
+    this.keeperEl.addEventListener("change", function () { self.updatePlan(); });
+    this.registerDomEvent(document, "keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) this.submit();
+    });
+    this.renderCandidates("");
+    setTimeout(() => this.searchEl.focus(), 30);
+  }
+
+  renderCandidates(query) {
+    var self = this;
+    var all = core.findMergeCandidates(this.graph, this.source, query, { sameType: true });
+    var shown = all.slice(0, this.renderLimit);
+    this.listEl.textContent = "";
+    shown.forEach(function (n) {
+      var item = self.listEl.createEl("button", {
+        cls: "lg-manual-merge__item" + (self.target && self.target.id === n.id ? " lg-manual-merge__item--selected" : ""),
+        attr: {
+          type: "button",
+          role: "option",
+          "aria-selected": self.target && self.target.id === n.id ? "true" : "false",
+          "data-node-id": n.id,
+        },
+      });
+      var top = item.createDiv({ cls: "lg-manual-merge__item-name", text: n.name || n.id });
+      if (n.nameZh) top.createSpan({ cls: "lg-manual-merge__item-zh", text: " · " + n.nameZh });
+      var bits = ["id " + n.id, TYPE_LABEL[n.type] || n.type, "⇠" + (n.degree || 0)];
+      if (n.chapter) bits.push("глава " + n.chapter);
+      if (n.parent) bits.push("parent " + n.parent);
+      item.createDiv({ cls: "lg-manual-merge__item-meta", text: bits.join(" · ") });
+      item.createDiv({ cls: "lg-manual-merge__item-path", text: n.path });
+      item.addEventListener("click", function () { self.selectTarget(n); });
+    });
+    var tail = all.length > shown.length ? " · показаны первые " + shown.length + " — уточните запрос" : "";
+    this.countEl.setText("Найдено: " + all.length + " из " + Math.max(0, (this.graph.nodes || []).filter(function (n) {
+      return n && !n.inline && n.id !== self.source.id && n.type === self.source.type;
+    }).length) + tail);
+    this.emptyEl.style.display = all.length ? "none" : "";
+    this.listEl.style.display = all.length ? "" : "none";
+  }
+
+  selectTarget(node) {
+    if (!node || node.id === this.source.id || node.inline || node.type !== this.source.type) return;
+    this.target = node;
+    var items = this.listEl.querySelectorAll("button[data-node-id]");
+    for (var i = 0; i < items.length; i++) {
+      var on = items[i].getAttribute("data-node-id") === node.id;
+      items[i].classList.toggle("lg-manual-merge__item--selected", on);
+      items[i].setAttribute("aria-selected", on ? "true" : "false");
+    }
+    this.targetNameEl.setText(node.name || node.id);
+    this.targetZhEl.setText(node.nameZh || "");
+    this.targetZhEl.style.display = node.nameZh ? "" : "none";
+    this.targetMetaEl.setText("id " + node.id + " · " + (TYPE_LABEL[node.type] || node.type) +
+      (node.chapter ? " · глава " + node.chapter : ""));
+    this.targetPathEl.setText(node.path);
+    this.targetBox.style.display = "";
+
+    this.keeperEl.textContent = "";
+    this.keeperEl.createEl("option", {
+      text: "Оставить выбранный на графе: " + (this.source.name || this.source.id) + " · " + this.source.id,
+      attr: { value: this.source.id },
+    });
+    this.keeperEl.createEl("option", {
+      text: "Оставить найденный: " + (node.name || node.id) + " · " + node.id,
+      attr: { value: node.id },
+    });
+    this.keeperEl.value = this.source.id;
+    this.keeperEl.disabled = false;
+    this.mergeBtn.disabled = false;
+    this.updatePlan();
+  }
+
+  updatePlan() {
+    if (!this.target) return;
+    var keepId = this.keeperEl.value || this.source.id;
+    var keep = keepId === this.target.id ? this.target : this.source;
+    var drop = keep.id === this.source.id ? this.target : this.source;
+    var plan = core.planNodeMerge(this.graph, { keep: keep, drop: [drop] }, buildOptions(this.plugin.settings));
+    var links = (plan.refs || []).reduce(function (sum, r) { return sum + (r.links || 0); }, 0);
+    this.planEl.setText(
+      "Останется «" + (keep.name || keep.id) + "» (" + keep.id + "). Узел «" + (drop.name || drop.id) +
+      "» уйдёт в корзину · ссылок перенаправить: " + links + " в " + plan.refs.length +
+      " заметках · детей перевесить: " + plan.children.length + " · файлов затронет: " + plan.files + "."
+    );
+    var warnings = (plan.warnings || []).slice();
+    warnings.unshift("Это ручная операция: сходство названий и содержимого не проверяется.");
+    this.warnEl.setText("Внимание: " + warnings.join(" · "));
+    this.warnEl.style.display = "";
+  }
+
+  async submit() {
+    if (this.busy || !this.target) return;
+    this.busy = true;
+    this.mergeBtn.disabled = true;
+    this.mergeBtn.setText("Объединяем…");
+    var result = null;
+    try {
+      result = await this.plugin.mergeNodesManually({
+        sourceId: this.source.id,
+        targetId: this.target.id,
+        keeperId: this.keeperEl.value || this.source.id,
+      });
+    } finally {
+      this.busy = false;
+      if (this.mergeBtn) {
+        this.mergeBtn.disabled = !this.target;
+        this.mergeBtn.setText("Объединить узлы");
+      }
+    }
+    if (result) this.close();
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+    if (this.plugin.manualMergeModal === this) this.plugin.manualMergeModal = null;
   }
 }
 
@@ -3105,6 +3316,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
     // запускать сотни одинаковых refresh/layout во время пакетных команд.
     this.internalWrites = {};
     this.lastMerge = null;
+    this.manualMergeModal = null;
+    this.mergingManually = false;
 
     this.addRibbonIcon("git-fork", "Lecture graph (полный экран — Shift+клик)", (ev) => this.activateView(!!(ev && (ev.shiftKey || ev.ctrlKey))));
     this.addCommand({
@@ -3231,6 +3444,28 @@ class LectureGraphPlugin extends obsidian.Plugin {
       callback: () => new CreateNodeModal(this.app, this, {}).open(),
     });
     this.addCommand({
+      id: "manual-merge-selected",
+      name: "Manually merge the selected vertex with another vertex",
+      callback: () => {
+        var v = this.view();
+        if (!v || !v.selected || !v.byId[v.selected]) {
+          return new obsidian.Notice("Ручное слияние: сначала выделите вершину на графе");
+        }
+        return this.openManualMerge(v.byId[v.selected]);
+      },
+    });
+    this.addCommand({
+      id: "manual-merge-current-note",
+      name: "Manually merge the current note with another vertex",
+      editorCallback: () => {
+        var f = this.app.workspace.getActiveFile();
+        if (!f) return new obsidian.Notice("Откройте заметку-вершину");
+        var node = this.nodeByPath(f.path);
+        if (!node) return new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+        return this.openManualMerge(node);
+      },
+    });
+    this.addCommand({
       id: "merge-duplicates",
       name: "Merge duplicate vertices (same title / same content)",
       callback: () => this.mergeDuplicateNodes(),
@@ -3264,7 +3499,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
     });
     this.addCommand({
       id: "undo-merge-duplicates",
-      name: "Undo last duplicate merge",
+      name: "Undo last node merge (duplicate or manual)",
+      callback: () => this.undoDuplicateMerge(),
+    });
+    this.addCommand({
+      id: "undo-node-merge",
+      name: "Undo last node merge",
       callback: () => this.undoDuplicateMerge(),
     });
     this.addCommand({
@@ -3320,6 +3560,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
             var node = g.nodes.find((n) => n.path === file.path);
             if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
             else this.editLabel(node);
+          })
+      );
+      menu.addItem((it) =>
+        it
+          .setTitle("Ручное слияние с другим узлом…")
+          .setIcon("combine")
+          .onClick(async () => {
+            var g = await this.getGraph(false);
+            var node = g.nodes.find((n) => n.path === file.path);
+            if (!node) new obsidian.Notice("Заметка не является вершиной графа (нет type: в frontmatter)");
+            else this.openManualMerge(node);
           })
       );
       menu.addItem((it) =>
@@ -3825,9 +4076,115 @@ class LectureGraphPlugin extends obsidian.Plugin {
     return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw };
   }
 
-  /* -------------------------------------------------- дубликаты: слияние узлов */
+  /* -------------------------------------------------- слияние узлов */
 
-  async mergeDuplicateCaptions(keep, drops, snapshot) {
+  /** Открыть поиск второго узла для ручного слияния по свежей модели графа. */
+  async openManualMerge(nodeOrId) {
+    var opts = buildOptions(this.settings);
+    var g = await this.buildGraphModel(opts);
+    var id = nodeOrId && nodeOrId.id ? nodeOrId.id : String(nodeOrId || "");
+    var path = nodeOrId && nodeOrId.path ? nodeOrId.path : "";
+    var source = (g._byId && g._byId[id]) || (path ? g.nodes.find(function (n) { return n.path === path && !n.inline; }) : null);
+    if (!source) {
+      new obsidian.Notice("Ручное слияние: выбранный узел больше не существует — перестройте граф");
+      return null;
+    }
+    if (source.inline) {
+      new obsidian.Notice("Инлайн-блок нельзя сливать как отдельную заметку: откройте содержащий его файл");
+      return null;
+    }
+    if (this.manualMergeModal && this.manualMergeModal.isOpen) this.manualMergeModal.close();
+    var modal = new ManualMergeModal(this.app, this, source, g);
+    this.manualMergeModal = modal;
+    modal.open();
+    return modal;
+  }
+
+  /**
+   * Выполнить явно выбранное слияние двух узлов. В автоматическую эвристику эта
+   * операция не заходит: единственные guard'ы — существование файлов, разные id и
+   * одинаковый тип. Вся файловая механика общая с mergeDuplicateGroup, поэтому
+   * ручное слияние так же ретаргетит wiki-ссылки/^якоря, перевешивает детей,
+   * объединяет frontmatter/caption и поддерживает session-only Undo.
+   */
+  async mergeNodesManually(runOpts) {
+    runOpts = runOpts || {};
+    if (this.mergingManually) {
+      new obsidian.Notice("Ручное слияние уже выполняется");
+      return null;
+    }
+    var mergeOpts = buildOptions(this.settings);
+    var g = await this.buildGraphModel(mergeOpts);
+    var source = g._byId && g._byId[String(runOpts.sourceId || "")];
+    var target = g._byId && g._byId[String(runOpts.targetId || "")];
+    if (!source || !target) {
+      new obsidian.Notice("Ручное слияние: один из выбранных узлов больше не существует");
+      return null;
+    }
+    if (source.id === target.id) {
+      new obsidian.Notice("Нельзя объединить узел с самим собой");
+      return null;
+    }
+    if (source.inline || target.inline || !source.path || !target.path) {
+      new obsidian.Notice("Ручное слияние доступно только для узлов-заметок, не для инлайн-блоков");
+      return null;
+    }
+    if (source.type !== target.type) {
+      new obsidian.Notice("Нельзя объединить узлы разных уровней: " + source.type + " и " + target.type);
+      return null;
+    }
+    var keeperId = String(runOpts.keeperId || source.id);
+    if (keeperId !== source.id && keeperId !== target.id) {
+      new obsidian.Notice("Ручное слияние: неверно выбран keeper");
+      return null;
+    }
+    var keep = keeperId === target.id ? target : source;
+    var drop = keep.id === source.id ? target : source;
+    var group = { id: keep.id, keep: keep, nodes: [keep, drop], drop: [drop], reasons: ["manual"], confidence: "manual" };
+    var snapshotMap = {};
+    var snapshot = function (path, text) {
+      if (snapshotMap[path] === undefined) snapshotMap[path] = text;
+    };
+    this.mergingManually = true;
+    var result;
+    try {
+      result = await this.mergeDuplicateGroup(g, group, { snapshot: snapshot, manualMerge: true });
+    } catch (e) {
+      new obsidian.Notice("Не удалось объединить узлы: " + (e && e.message ? e.message : e));
+      return null;
+    } finally {
+      this.mergingManually = false;
+    }
+    if (!result) {
+      new obsidian.Notice("Не удалось объединить узлы: keeper недоступен для записи");
+      return null;
+    }
+    this.lastMerge = {
+      at: Date.now(),
+      mode: "manual",
+      sourceId: source.id,
+      targetId: target.id,
+      files: Object.keys(snapshotMap).map(function (p) { return { path: p, text: snapshotMap[p] }; }),
+      results: [result],
+    };
+    await this.recomputeKeywords({ only: [result.keepPath], silent: true });
+    this.markGraphDirty();
+    var fresh = await this.getGraph(true);
+    this.forEachView(function (v) {
+      v.refresh(false);
+      if (fresh._byId[result.keepId]) v.select(result.keepId, true);
+    });
+    var msg = "Узлы объединены вручную: оставлен «" + result.keepName + "» · удалён узел " + drop.id +
+      (result.retargeted ? " · перенаправлено ссылок " + result.retargeted : "") +
+      (result.reparented ? " · детей перевешено " + result.reparented : "") +
+      " · отмена: команда ‘Undo last node merge’";
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 9000); });
+    return { merged: 1, focusId: result.keepId, result: result, files: Object.keys(snapshotMap).length };
+  }
+
+  /* Автоматическое/групповое слияние дубликатов использует тот же файловый конвейер. */
+  async mergeDuplicateCaptions(keep, drops, snapshot, runOpts) {
     var keepCap = this.findCaptionFile(keep);
     var pool = [];
     if (keepCap) pool.push({ node: keep, file: keepCap });
@@ -3849,7 +4206,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
       var raw = await this.app.vault.cachedRead(item.file);
       snapshot(item.file.path, raw);
       mergedBody = mergeLooseBodies(mergedBody, core.parseFrontmatter(raw).body.trim(),
-        "Merged duplicate caption from " + ((item.node && item.node.id) || item.file.basename));
+        (runOpts && runOpts.manualMerge ? "Caption merged manually from " : "Merged duplicate caption from ") +
+          ((item.node && item.node.id) || item.file.basename));
     }
     mergedRaw = replaceNoteBody(mergedRaw, mergedBody);
     mergedRaw = core.setFrontmatterValues(mergedRaw, { node: keep.id, level: keep.type, color: keep.color || "" });
@@ -3885,6 +4243,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
 
   async mergeDuplicateGroup(graph, group, bag) {
     var opts = buildOptions(this.settings);
+    if (bag && bag.manualMerge) opts.manualMerge = true;
     var plan = core.planNodeMerge(graph, group, opts);
     if (!plan || !plan.keep || !plan.drop.length) return null;
     var keep = plan.keep;
@@ -3932,7 +4291,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
       });
     }
     var patch = core.mergedNodePatch(keepNode, plan.drop, opts);
-    var cap = await this.mergeDuplicateCaptions(keepNode, plan.drop, snapshot);
+    var cap = await this.mergeDuplicateCaptions(keepNode, plan.drop, snapshot, bag);
     if (cap && cap.captionPatch) patch[this.settings.captionKey || "caption"] = cap.captionPatch;
     var keepRewrite = core.retargetLinks(mergedRaw, replacements, { currentNode: keepNode, graph: graph });
     mergedRaw = keepRewrite.text;
@@ -4074,6 +4433,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
     this.lastMerge = {
       at: Date.now(),
+      mode: "duplicates",
       files: Object.keys(snapshotMap).map(function (p) { return { path: p, text: snapshotMap[p] }; }),
       results: merged.slice(),
     };
@@ -4102,7 +4462,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
   async undoDuplicateMerge() {
     var last = this.lastMerge;
     if (!last || !last.files || !last.files.length) {
-      new obsidian.Notice("Отменять нечего: в этой сессии слияния дубликатов не было");
+      new obsidian.Notice("Отменять нечего: в этой сессии слияния узлов не было");
       return null;
     }
     var n = 0;
@@ -4122,7 +4482,8 @@ class LectureGraphPlugin extends obsidian.Plugin {
       v.refresh(false);
       if (focus && g._byId[focus]) v.select(focus, true);
     });
-    var msg = "Слияние дубликатов отменено: восстановлено заметок — " + n;
+    var msg = (last.mode === "manual" ? "Ручное слияние отменено" : "Слияние дубликатов отменено") +
+      ": восстановлено заметок — " + n;
     new obsidian.Notice(msg);
     this.forEachView(function (v) { v.setStatus(msg, 8000); });
     return { files: n };
@@ -4831,6 +5192,7 @@ module.exports.LectureGraphView = LectureGraphView;
 module.exports.EditLabelModal = EditLabelModal;
 module.exports.CreateNodeModal = CreateNodeModal;
 module.exports.DeleteNodeModal = DeleteNodeModal;
+module.exports.ManualMergeModal = ManualMergeModal;
 module.exports.VIEW_TYPE = VIEW_TYPE;
 module.exports.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
 module.exports.buildOptions = buildOptions;

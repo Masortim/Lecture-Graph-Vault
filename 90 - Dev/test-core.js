@@ -1728,6 +1728,63 @@ ok("сценарий удаления: после снятия ссылок и �
   assert.strictEqual(g2.stats.byType.heading, N.heading - 1, "заголовков: " + g2.stats.byType.heading);
 });
 
+console.log("\n== раунд 22: ручное и автоматическое слияние узлов ==");
+
+ok("findMergeCandidates: список совместим по типу, ищется по EN/中文/id/path/aliases/keywords", () => {
+  const mini = [
+    { path: "30 - Blocks/Ch01/MN-90 - Source.md", text: `---
+type: block
+id: MN-90
+name: "Source node"
+name_zh: "源节点"
+chapter: Ch01
+---
+
+Source. ^inline-source
+` },
+    { path: "30 - Blocks/Ch07/MN-91 - Banach Candidate.md", text: `---
+type: block
+id: MN-91
+name: "Banach Candidate"
+name_zh: "巴拿赫候选"
+aliases: ["Completion target"]
+keywords_en: "uniform boundedness; closed graph"
+chapter: Ch07
+---
+
+Target.
+` },
+    { path: "25 - Headings/Ch07-H01.md", text: `---
+type: heading
+id: Ch07-H01
+name: "Banach heading"
+chapter: Ch07
+---
+
+Heading.
+` },
+  ];
+  const g = core.buildGraph(mini, { includeInlineAnchors: true });
+  const all = core.findMergeCandidates(g, "MN-90", "");
+  assert.deepStrictEqual(all.map((n) => n.id), ["MN-91"], "в список попали source, inline или другой тип");
+  ["banach", "巴拿赫", "MN-91", "Ch07/MN-91", "completion target", "closed graph"].forEach((q) => {
+    assert.deepStrictEqual(core.findMergeCandidates(g, "MN-90", q).map((n) => n.id), ["MN-91"], "не найдено по запросу: " + q);
+  });
+  assert.deepStrictEqual(core.findMergeCandidates(g, "MN-90", "нет такого"), []);
+  assert.ok(core.findMergeCandidates(g, "MN-90", "", { sameType: false }).some((n) => n.id === "Ch07-H01"), "sameType:false не вернул другой уровень");
+});
+
+ok("mergeNodeBodies: ручное слияние явно помечает источник и не называет его автодубликатом", () => {
+  const keep = { id: "KEEP", name: "Main topic", stem: "KEEP - Main topic", body: "# Main topic\n\nMain material.\n" };
+  const drop = { id: "DROP", name: "Related topic", stem: "DROP - Related topic", path: "30 - Blocks/DROP.md", body: "# Related topic\n\nDifferent material.\n\n## Related topics\n\n- [[OTHER - Linked note|Linked note]] — added via graph\n" };
+  const res = core.mergeNodeBodies(keep, drop, { manualMerge: true });
+  assert.ok(res.body.indexOf("## Material merged manually from DROP") >= 0, "нет явной пометки ручного слияния");
+  assert.ok(res.body.indexOf("merged manually from note") >= 0, "источник не описан");
+  assert.ok(res.body.indexOf("### Related topics carried from DROP") >= 0 && res.body.indexOf("[[OTHER - Linked note|Linked note]]") >= 0,
+    "исходящие ручные связи удаляемого узла потеряны");
+  assert.strictEqual(res.body.indexOf("merged automatically from duplicate"), -1, "ручная операция названа автоматической");
+});
+
 console.log("\n== раунд 22: слияние дубликатов ==");
 
 ok("findDuplicateGroups: одинаковые названия/содержимое схлопываются, keeper выбирается по насыщенности", () => {
