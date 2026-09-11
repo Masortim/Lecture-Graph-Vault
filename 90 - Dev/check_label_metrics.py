@@ -35,8 +35,12 @@ core.initPositions(g.nodes,{width:1400,height:900,graph:g,layout:settings.layout
 core.run(g,{layout:settings.layout,width:1400,height:900});
 if(R){core.applySizes(g.nodes,settings);g.nodes.forEach(n=>{n.tx=n.x;n.ty=n.y;});
   core.packAroundAnchors(g,{layout:settings.layout,passes:24,pull:0.6});}
+// меряем ОБРЕЗАННЫЕ по бюджету строки: ровно столько места метка и занимает на экране,
+// хвост длинного названия за этой границей уже прозрачен (затухание вместо многоточия)
 const out=g.nodes.filter(n=>n.labelShown&&(n.labelEn||n.labelZh)).map(n=>({
-  id:n.id,type:n.type,x:n.x,y:n.y,r:n.r,font:n.font,lw:n.lw,lh:n.lh,en:n.labelEn,zh:n.labelZh}));
+  id:n.id,type:n.type,x:n.x,y:n.y,r:n.r,font:n.font,lw:n.lw,lh:n.lh,
+  en:n.labelEnClipped===undefined?n.labelEn:n.labelEnClipped,
+  zh:n.labelZhClipped===undefined?n.labelZh:n.labelZhClipped}));
 process.stdout.write(JSON.stringify(out));
 """
 

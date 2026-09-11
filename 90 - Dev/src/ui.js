@@ -38,6 +38,13 @@ const ZOOM_MIN = 0.02;
 const ZOOM_MAX = 24;
 const ZOOM_STEP = 1.3; // шаг кнопок «+» и «−»
 const FONT_STEP = 1.15; // шаг кнопок A−/A+ (множитель кегля)
+/* Подпись, которая не влезла в свой бюджет, не обрезается многоточием, а плавно гаснет
+   к правому краю (маска с линейным градиентом). Масок не по одной на вершину, а FADE_STEPS
+   штук на весь граф: доля видимого текста округляется до ближайшей ступени и вершины
+   переиспользуют общий <mask>. Иначе на 1017 вершинах в defs жило бы 1017 градиентов,
+   которые пересчитывались бы на каждый зум. */
+const FADE_STEPS = 12; // ступеней затухания (0.34…1 с шагом ~0.055)
+const FADE_TAIL = 0.26; // какая доля ширины метки уходит под сам градиент (мягкость края)
 // сколько ждём «устоявшегося» размера сцены при входе/выходе из полноэкранного режима:
 // переход Chromium и перекладка Obsidian длятся сотни миллисекунд
 const FULLSCREEN_SETTLE_MS = 450;
@@ -528,6 +535,10 @@ class LectureGraphView extends obsidian.ItemView {
     var stage = root.createDiv({ cls: "lg-stage" });
     this.stageEl = stage;
     this.svg = svgEl("svg", { class: "lg-svg" });
+    // маски затухания подписей: общие на весь граф (см. ensureFadeDefs)
+    this.defs = svgEl("defs", { class: "lg-defs" });
+    this.svg.appendChild(this.defs);
+    this.ensureFadeDefs();
     this.layer = svgEl("g", { class: "lg-layer" });
     this.edgesStruct = svgEl("path", { class: "lg-edges lg-edges--struct" });
     this.edgesRef = svgEl("path", { class: "lg-edges lg-edges--ref" });
@@ -976,6 +987,7 @@ class LectureGraphView extends obsidian.ItemView {
       g.__c = c;
       g.appendChild(c);
       var t = svgEl("text", { class: "lg-label", "text-anchor": "middle", y: n.r + 11 });
+      // текст пишется целиком; «не влезло» гасит маска, которую вешает updateLabels()
       var l1 = svgEl("tspan", { x: 0, class: "lg-label-en" });
       l1.textContent = n.labelEn === undefined ? n.name : n.labelEn;
       var l2 = svgEl("tspan", { x: 0, dy: 11, class: "lg-label-zh" });
@@ -1119,6 +1131,69 @@ class LectureGraphView extends obsidian.ItemView {
   }
 
   /**
+   * Маски «затухающей подписи»: FADE_STEPS штук на весь граф, а не по одной на вершину.
+   * Каждая — прямоугольник в долях ширины метки (maskContentUnits: objectBoundingBox),
+   * залитый линейным градиентом «белое → прозрачное». Белое = текст виден, прозрачное =
+   * текст растворился. Ступень выбирается по n.labelFade, поэтому 1017 вершин делят
+   * между собой десяток градиентов, а не заводят по своему.
+   *
+   * ВАЖНО: маска строится в координатах ОБЪЕКТА, поэтому она не зависит ни от зума, ни
+   * от кегля — при любом масштабе гаснет одна и та же доля строки, и пересчитывать defs
+   * на каждое движение камеры не нужно.
+   */
+  ensureFadeDefs() {
+    if (!this.defs || this._fadeReady) return;
+    var ns = "http://www.w3.org/2000/svg";
+    for (var i = 0; i < FADE_STEPS; i++) {
+      // frac — доля строки, видимая в полную силу; последняя ступень (frac=1) не нужна:
+      // подпись, которая влезла целиком, рисуется вообще без маски
+      var frac = core.LABEL_FADE_MIN + ((1 - core.LABEL_FADE_MIN) * i) / (FADE_STEPS - 1);
+      if (frac >= 0.999) continue;
+      var id = "lg-fade-" + i;
+      var grad = svgEl("linearGradient", { id: id + "-g", x1: "0", y1: "0", x2: "1", y2: "0" });
+      // Гаснет ТОЛЬКО правый край: читают слева направо, и начало названия обязано
+      // остаться в полную силу (иначе вместо «Setup and Notation — Metric…» видно
+      // огрызок «…tation — Metric…», что хуже прежнего многоточия). Поэтому такие
+      // подписи ещё и выравниваются по левому краю своего бюджета (см. updateLabels).
+      // frac — доля ширины текста, помещающаяся в бюджет; на ней метка уже прозрачна,
+      // а переход начинается за tail до неё.
+      var tail = Math.min(FADE_TAIL, frac * 0.5);
+      [
+        [0, 1], [Math.max(0.001, frac - tail), 1], [Math.min(0.999, frac), 0], [1, 0],
+      ].forEach(function (s) {
+        var stop = document.createElementNS(ns, "stop");
+        stop.setAttribute("offset", String(Math.round(s[0] * 1000) / 1000));
+        stop.setAttribute("stop-color", "#fff");
+        stop.setAttribute("stop-opacity", String(s[1]));
+        grad.appendChild(stop);
+      });
+      var mask = svgEl("mask", { id: id, maskContentUnits: "objectBoundingBox" });
+      // прямоугольник шире единицы: у текста с обводкой (paint-order: stroke) реальный
+      // bbox чуть больше глифов, и по краям маски не должно возникать среза
+      mask.appendChild(svgEl("rect", { x: "-0.1", y: "-0.6", width: "1.2", height: "2.2", fill: "url(#" + id + "-g)" }));
+      this.defs.appendChild(grad);
+      this.defs.appendChild(mask);
+    }
+    this._fadeReady = true;
+  }
+
+  /**
+   * Какую маску повесить на подпись: null — текст влез целиком (маска не нужна и не
+   * ставится, это ещё и быстрее), иначе id ближайшей ступени затухания.
+   * Наведённая/выбранная вершина показывает название ЦЕЛИКОМ, поэтому для неё маски нет
+   * никогда — за это отвечает вызывающий код (updateLabels), а не эта функция.
+   */
+  fadeMaskFor(frac) {
+    var f = Number(frac);
+    if (!isFinite(f) || f >= 0.999) return null;
+    var lo = core.LABEL_FADE_MIN;
+    var idx = Math.round(((clamp(f, lo, 1) - lo) / (1 - lo)) * (FADE_STEPS - 1));
+    idx = clamp(idx, 0, FADE_STEPS - 1);
+    if (idx >= FADE_STEPS - 1) return null;
+    return "lg-fade-" + idx;
+  }
+
+  /**
    * Какие подписи реально рисовать. Кегль на экране фиксирован, значит при отдалении
    * влезет меньше меток — место на экране не резиновое. Поэтому метки расставляются
    * жадно в ЭКРАННЫХ координатах: кто не влез, тот не рисуется вовсе (а не наезжает).
@@ -1220,25 +1295,39 @@ class LectureGraphView extends obsidian.ItemView {
     var k = this.view.k || 1;
     var comp = this.labelComp(k);
     var plan = this.planLabels(k, comp);
+    // подпись под курсором разворачивается на полную длину, поэтому её вершина обязана
+    // лежать ПОВЕРХ соседей: в SVG z-order — это порядок в документе
+    var focusId = this.hoverId || this.selected;
+    if (focusId && this.nodeEls[focusId]) this.raiseNode(focusId);
     for (var id in this.nodeEls) {
       var n = this.byId[id];
       var el = this.nodeEls[id];
       var t = el.__t;
       if (!n || !t) continue;
       var on = !!plan[id];
-      // для наведённой/выбранной вершины показываем название целиком; для остальных —
-      // обрезанную подпись, для которой уже оставлено место при упаковке.
+      // Текст рисуется ЦЕЛИКОМ и в обычном состоянии, и под курсором — разница только
+      // в затухании: если название шире отведённого бюджета, его хвост гаснет к краю
+      // (маска), а у наведённой/выбранной вершины маска снимается и название читается
+      // полностью. Обрезки многоточием в живом виде нет вообще.
       var focus = this.hoverId === id || this.selected === id;
-      var en = focus ? n.name : (n.labelEn === undefined ? n.name : n.labelEn);
-      var zh = focus ? n.nameZh : (n.labelZh === undefined ? n.nameZh : n.labelZh);
+      var en = n.labelEn === undefined ? n.name : n.labelEn;
+      var zh = (n.labelZh === undefined ? n.nameZh : n.labelZh) || "";
+      var fade = this.fadeMaskFor(n.labelFade); // null — название влезло целиком
+      var mask = focus ? null : fade;
       var p = plan[id];
       var fs = p ? p.fsA : (n.font || this.plugin.settings.labelFontSize || 10) * comp;
       var rM = p ? p.rM : this.radiusModel(n, k);
       var y = rM + fs * (0.95 + (p ? p.shift : 0));
       var dy = fs * 1.12;
       var lw = p ? p.wM : (Math.max(0, (n.lw || 0) - 8)) * comp + 8;
+      // Подпись, которая не влезла, прижимается к ЛЕВОМУ краю своего бюджета: гаснет
+      // хвост, а начало названия читается в полную силу. Выравнивание зависит от fade,
+      // а не от mask, поэтому при наведении текст не прыгает — снимается только маска.
+      var x0 = fade ? -lw / 2 : 0;
+      var anchor = fade ? "start" : "middle";
       var state = (on ? "1" : "0") + "|" + fs.toFixed(1) + "|" + y.toFixed(1) + "|" + dy.toFixed(1) +
-        "|" + lw.toFixed(1) + "|" + en + "\u0000" + (zh || "");
+        "|" + lw.toFixed(1) + "|" + (mask || "-") + "|" + anchor + "|" + x0.toFixed(1) +
+        "|" + en + "\u0000" + (zh || "");
       // Hover / zoom генерируют много событий. Не трогаем SVG-атрибуты, если результат
       // не поменялся: это исключает тысячи style/layout invalidations за один жест.
       if (t.__lgLabelState === state) continue;
@@ -1250,6 +1339,18 @@ class LectureGraphView extends obsidian.ItemView {
       // задана в модельных единицах, поэтому следует за кеглем
       t.setAttribute("stroke-width", (fs * 0.2).toFixed(2));
       t.setAttribute("style", on ? "display:block" : "display:none");
+      // затухание длинного названия: маска ставится только тем, кто не влез в бюджет,
+      // и снимается под курсором — так название читается целиком без «прыжка» текста
+      if (mask) {
+        t.setAttribute("mask", "url(#" + mask + ")");
+        t.setAttribute("data-fade", mask);
+      } else if (t.hasAttribute("mask")) {
+        t.removeAttribute("mask");
+        t.removeAttribute("data-fade");
+      }
+      t.setAttribute("text-anchor", anchor);
+      t.childNodes[0].setAttribute("x", x0.toFixed(1));
+      t.childNodes[1].setAttribute("x", x0.toFixed(1));
       if (t.childNodes[0].textContent !== (en || "")) t.childNodes[0].textContent = en || "";
       if (t.childNodes[1].textContent !== (zh || "")) t.childNodes[1].textContent = zh || "";
       t.childNodes[1].setAttribute("dy", dy.toFixed(1));
@@ -1904,7 +2005,21 @@ class LectureGraphView extends obsidian.ItemView {
     this.hoverId = id;
     if (n) this.svg.setAttribute("style", "cursor:pointer");
     else this.svg.removeAttribute("style");
-    if ((this.plugin.settings.labelMode || "size") === "hover" || this.plugin.settings.labelMode === "size") this.updateLabels();
+    // наведение снимает затухание с подписи (название читается целиком) — это работает
+    // в ЛЮБОМ режиме подписей, поэтому пересчёт нужен всегда, а не только в size/hover
+    this.updateLabels();
+  }
+
+  /**
+   * Поднимает вершину над остальными: её группа переезжает в конец слоя, а в SVG
+   * порядок документа — это и есть z-order. Нужно для наведения: подпись под курсором
+   * разворачивается на полную длину и иначе уходила бы под круги и метки соседей.
+   * Дешёвая операция (перенос одного узла), и делается только при смене hover.
+   */
+  raiseNode(id) {
+    var el = this.nodeEls && this.nodeEls[id];
+    if (!el || !this.nodesLayer || el === this.nodesLayer.lastChild) return;
+    this.nodesLayer.appendChild(el);
   }
 
   onDblClick(ev) {
@@ -2202,7 +2317,7 @@ class CreateNodeModal extends obsidian.Modal {
     content.createEl("h2", { text: "Новый узел графа" });
     content.createDiv({
       cls: "lg-modal-hint",
-      text: "Заметка создаётся в папке своего уровня (глава/секция/заголовок/блок) рядом с соседями. После создания плагин сам ищет связанные темы: по ключевым фразам — в корпусе аннотаций, по названиям — среди вершин графа, и сразу строит связи.",
+      text: "Заметка создаётся в папке своего уровня (глава/секция/заголовок/блок) рядом с соседями. После создания плагин сам ищет связанные темы: по ключевым фразам — в корпусе аннотаций, по названиям — среди вершин графа, и сразу строит связи, в том числе со всеми главами, в которых встречаются эти фразы.",
     });
 
     var fType = content.createDiv({ cls: "lg-field" });
@@ -2232,7 +2347,9 @@ class CreateNodeModal extends obsidian.Modal {
     content.createDiv({
       cls: "lg-modal-hint",
       text: "Фразы через «;», запятую или с новой строки. По ним плагин ищет вхождения в аннотациях «" +
-        (this.plugin.settings.keywordFolder || "35 - Abstracts") + "» и превращает найденное в связи с секциями и заголовками; число вхождений становится весом (размером) вершины.",
+        (this.plugin.settings.keywordFolder || "35 - Abstracts") + "» и превращает найденное в связи с секциями и заголовками; " +
+        "число вхождений становится весом (размером) вершины. Связи строятся со ВСЕМИ главами, где встретились фразы, " +
+        "а не только с той, в чью папку ляжет заметка.",
     });
 
     var fParent = content.createDiv({ cls: "lg-field" });
@@ -4085,7 +4202,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
    *      (рёбра «keyword»), число вхождений пишется в weight: и задаёт размер вершины;
    *   2) название и фразы, ТОЧНО совпадающие с именем другой вершины, дают раздел
    *      «Related topics» в теле заметки (обычные рёбра «reference») — так находятся
-   *      и главы, и блоки, которых в текстах аннотаций нет.
+   *      и главы, и блоки, которых в текстах аннотаций нет;
+   *   3) ВСЕ главы, в аннотациях которых встретились ключевые фразы, дают раздел
+   *      «Related chapters» (core.relatedChapters по plan.byChapter). Раньше из этой
+   *      разбивки использовалась одна «доминирующая» глава — только чтобы выбрать
+   *      папку и цвет, — и связи с остальными главами в графе не появлялось вовсе,
+   *      хотя сквозная тема почти всегда цитируется в нескольких главах сразу.
    * Глава без родителя берётся у главы-лидера по вхождениям (plan.dominant), поэтому
    * заметка ложится в папку той главы, о которой больше всего говорит её содержимое.
    */
@@ -4141,6 +4263,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
       .map(function (r) {
         return { stem: r.node.stem, name: r.node.name, phrase: r.phrase, type: r.node.type, id: r.node.id };
       });
+    // 4b. Связи со ВСЕМИ главами, где нашлись ключевые фразы. Раньше из plan.byChapter
+    // бралась только «доминирующая» глава (папка + цвет), а остальные пропадали — хотя
+    // именно они и показывают, что тема сквозная. Исключаем то, что уже связано иначе:
+    // родителя, свою главу (с ней есть структурная связь через chapter:) и главы,
+    // попавшие в «Related topics» по точному совпадению названия — дубля ссылок не будет.
+    var chapterExclude = exclude.concat(related.map(function (r) { return r.id; }));
+    if (chapter) chapterExclude.push(chapter);
+    if (parentNode) chapterExclude.push(parentNode.chapter || parentNode.id);
+    var chapters = core.relatedChapters(g, plan, { exclude: chapterExclude });
     // 5. Папка и путь без коллизий: перезаписывать чужую заметку нельзя.
     var dir = this.folderForNewNode(g, type, chapter, parentNode);
     var base = id + " - " + this.safeNoteName(nameEn);
@@ -4164,6 +4295,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
         weight: plan ? plan.weight : null,
         region: plan ? core.keywordRegionText(plan, opts) : "",
         related: related,
+        chapters: chapters,
       },
       opts
     );
@@ -4194,11 +4326,15 @@ class LectureGraphPlugin extends obsidian.Plugin {
       (nameZh ? " · " + nameEn + " / " + nameZh : "") +
       (chapter ? " · глава " + chapter : "") +
       (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
+      // главы показываем поимённо: их немного, а увидеть, что тема сквозная, важнее
+      // очередного числа в строке
+      (chapters.length ? " · главы (" + chapters.length + "): " +
+        chapters.map(function (c) { return c.id + "×" + c.count; }).join(", ") : "") +
       (related.length ? " · по названиям: " + related.length : "") +
       (autoMerge && autoMerge.merged ? " · автослияние дубликата: сохранена вершина " + finalId : "") +
       (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
     new obsidian.Notice(msg);
-    return { file: file, path: node ? node.path : file.path, node: node, id: finalId, createdId: id, plan: plan, related: related, chapter: chapter, merged: autoMerge };
+    return { file: file, path: node ? node.path : file.path, node: node, id: finalId, createdId: id, plan: plan, related: related, chapters: chapters, chapter: chapter, merged: autoMerge };
   }
 
   /**
