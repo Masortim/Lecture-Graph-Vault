@@ -822,6 +822,75 @@ const plugin = new PluginClass(app, manifest);
     view.updateLabels();
   });
 
+  await ok("затухание динамическое: где свободно — название целиком, где тесно — гаснет хвост", async () => {
+    const core = require("./src/graph-core.js");
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    view.select(null);
+    view.neigh = null;
+    view.hoverId = null;
+    plugin.settings.labelMode = "always";
+    view.applySizesNow();
+
+    // 1) модель знает не только бюджет уровня (lw), но и ширину ПОЛНОГО названия (lwFull)
+    const wide = view.graph.nodes.filter((n) => n.lwFull > n.lw + 0.01);
+    assert.ok(wide.length > 0, "ни у одной вершины не посчитана полная ширина названия");
+    view.graph.nodes.forEach((n) => {
+      assert.ok(n.lwFull >= n.lw - 0.01, "lwFull меньше бюджета у " + n.id);
+    });
+
+    // 2) на СИЛЬНОМ приближении вокруг метки пусто -> ширина = полная, маски нет
+    const target = wide.sort((a, b) => b.lwFull - a.lwFull)[0];
+    view.view.k = 8;
+    view.view.x = view.width() / 2 - target.x * view.view.k;
+    view.view.y = view.height() / 2 - target.y * view.view.k;
+    view.applyViewTransform();
+    view.updateLabels();
+    let plan = view.planLabels(view.view.k, view.labelComp(view.view.k));
+    const near = plan[target.id];
+    assert.ok(near, "на приближении подпись выбранной вершины не попала в план");
+    assert.strictEqual(near.fade, 1,
+      "рядом свободно, но название всё равно гасится: fade=" + near.fade);
+    assert.strictEqual(view.nodeEls[target.id].__t.getAttribute("mask"), null,
+      "на свободном месте на подписи осталась маска затухания");
+    assert.strictEqual(view.nodeEls[target.id].querySelectorAll("tspan")[0].textContent, target.name,
+      "в DOM лежит не полное название");
+
+    // 3) статическая оценка ядра для той же вершины была пессимистичнее — значит
+    //    затухание действительно пересчитывается по обстановке, а не берётся из модели
+    assert.ok(target.labelFade < 0.999,
+      "для проверки нужна вершина, которая по бюджету уровня не влезает");
+
+    // 4) после Fit та же сцена плотная: хоть одна метка обязана сжаться и получить маску
+    view.fit();
+    await wait(80);
+    view.updateLabels();
+    plan = view.planLabels(view.view.k, view.labelComp(view.view.k));
+    const ids = Object.keys(plan);
+    assert.ok(ids.length > 0, "после fit() не показана ни одна подпись");
+    const faded = ids.filter((id) => plan[id].fade < 0.999);
+    assert.ok(faded.length > 0, "в плотной сцене ни одна подпись не гасится — значит метки наезжают");
+    faded.forEach((id) => {
+      assert.ok(plan[id].fade >= core.LABEL_FADE_MIN,
+        "доля видимого текста ниже допустимой у " + id + ": " + plan[id].fade);
+      const el = view.nodeEls[id];
+      if (el && el.__t.style.display !== "none" && id !== view.hoverId && id !== view.selected) {
+        assert.ok(el.__t.getAttribute("mask"),
+          "подпись сжата, но затухания на ней нет: " + id);
+      }
+    });
+    // и ширина каждой метки в плане никогда не превышает полную ширину названия
+    ids.forEach((id) => {
+      const n = view.byId[id];
+      const comp = view.labelComp(view.view.k);
+      const full = Math.max(0, (n.lwFull || n.lw || 0) - 8) * comp + 8;
+      assert.ok(plan[id].wM <= full + 0.01,
+        "метке отведено больше места, чем нужно названию: " + id);
+    });
+
+    plugin.settings.labelMode = "size";
+    view.updateLabels();
+  });
+
   await ok("раскладка: движки в панели и в настройках, чистые метки в каждом режиме (раунд 16)", async () => {
     const core = require("./src/graph-core.js");
     const sel = view.layoutSel;

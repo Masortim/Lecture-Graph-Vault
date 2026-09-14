@@ -1359,11 +1359,12 @@ var __LG_CORE__ = (function () {
       // 3) габариты подписи -> «упаковочный» радиус: метки не должны наезжать друг на друга
       var lines = labelLines(n, cfg);
       var per = n.labelChars;
-      // рисуем ровно две строки (EN и перевод) ЦЕЛИКОМ: то, что не влезает в бюджет
-      // уровня, гаснет к правому краю (n.labelFade — доля подписи в полную силу),
-      // а не отрезается многоточием. Упаковка считается по бюджету, а не по полному
-      // тексту: место под метку отведено то же, что и при обрезке, поэтому нулевые
-      // наложения меток сохраняются, а прочитать название целиком можно наведением.
+      // рисуем ровно две строки (EN и перевод) ЦЕЛИКОМ: то, что не влезает, гаснет
+      // к правому краю, а не отрезается многоточием. Здесь считается КОНСЕРВАТИВНАЯ
+      // оценка «по бюджету уровня» (n.labelFade): упаковка резервирует ровно столько
+      // же места, сколько при обрезке, поэтому нулевые наложения меток сохраняются.
+      // Живой рендер поверх этого расширяет метку до n.lwFull там, где рядом свободно,
+      // и пересчитывает долю затухания по фактической обстановке (ui.planLabels).
       n.labelEn = fadeLabel(lines[0]);
       n.labelZh = lines[1] ? fadeLabel(lines[1]) : "";
       n.labelFade = labelFadeFrac(n.labelEn, n.labelZh, per);
@@ -1376,6 +1377,12 @@ var __LG_CORE__ = (function () {
       // наезжали друг на друга, хотя «по оценке» всё чисто). Берём ОБРЕЗАННЫЕ строки:
       // ровно столько места метка и занимает, хвост за бюджетом уже прозрачен
       n.lw = Math.max(textUnits(n.labelEnClipped), textUnits(n.labelZhClipped)) * n.font + 8;
+      // ...а рядом держим ширину ПОЛНОГО названия: столько места метке нужно, чтобы
+      // обойтись вовсе без затухания. Упаковка по-прежнему резервирует только n.lw
+      // (бюджет уровня), но живой рендер, когда рядом свободно, расширяет метку до
+      // n.lwFull и показывает название целиком (см. ui.planLabels).
+      n.lwFull = Math.max(textUnits(n.labelEn), textUnits(n.labelZh)) * n.font + 8;
+      if (!(n.lwFull >= n.lw)) n.lwFull = n.lw;
       n.lh = n.font * (n.labelZh ? 2.4 : 1.25) + 5;
       n.labelShown = labelShown(n, cfg);
       // «след» вершины: сколько места ей нужно по дуге кольца и сколько по радиусу.
@@ -5576,6 +5583,10 @@ const FONT_STEP = 1.15; // шаг кнопок A−/A+ (множитель ке�
    которые пересчитывались бы на каждый зум. */
 const FADE_STEPS = 12; // ступеней затухания (0.34…1 с шагом ~0.055)
 const FADE_TAIL = 0.26; // какая доля ширины метки уходит под сам градиент (мягкость края)
+/* Метка сначала просится на ПОЛНУЮ ширину названия и сжимается к бюджету уровня только
+   тогда, когда рядом действительно тесно. Ступеней столько: больше — дороже поиск места
+   на 1000+ вершинах, меньше — заметны скачки ширины при панорамировании. */
+const LABEL_WIDTH_STEPS = 4;
 // сколько ждём «устоявшегося» размера сцены при входе/выходе из полноэкранного режима:
 // переход Chromium и перекладка Obsidian длятся сотни миллисекунд
 const FULLSCREEN_SETTLE_MS = 450;
@@ -6726,6 +6737,23 @@ class LectureGraphView extends obsidian.ItemView {
   }
 
   /**
+   * Ширины-кандидаты для одной метки: от полного названия (`full`) вниз к бюджету
+   * уровня (`budget`). Первая, которая не задевает соседей, и станет шириной метки.
+   * Ступеней немного (LABEL_WIDTH_STEPS) — иначе на 1017 вершинах поиск места стоил бы
+   * в разы дороже, а на глаз разница между соседними ступенями незаметна.
+   */
+  labelWidthLadder(full, budget) {
+    var f = Math.max(0, Number(full) || 0);
+    var b = Math.max(0, Number(budget) || 0);
+    if (!(f > b + 0.01)) return [f || b];
+    var out = [f];
+    for (var i = 1; i < LABEL_WIDTH_STEPS; i++) {
+      out.push(f + (b - f) * (i / (LABEL_WIDTH_STEPS - 1)));
+    }
+    return out;
+  }
+
+  /**
    * Какие подписи реально рисовать. Кегль на экране фиксирован, значит при отдалении
    * влезет меньше меток — место на экране не резиновое. Поэтому метки расставляются
    * жадно в ЭКРАННЫХ координатах: кто не влез, тот не рисуется вовсе (а не наезжает).
@@ -6772,12 +6800,17 @@ class LectureGraphView extends obsidian.ItemView {
       var n2 = cands[i];
       var font = n2.font || this.plugin.settings.labelFontSize || 10;
       var fsA = font * comp;
-      var wM = (Math.max(0, (n2.lw || 0) - 8)) * comp + 8; // lw считан на font -> масштабируем
+      var wBud = (Math.max(0, (n2.lw || 0) - 8)) * comp + 8; // lw считан на font -> масштабируем
+      // ширина ПОЛНОГО названия: сначала пробуем её, и только если рядом тесно —
+      // откатываемся к бюджету уровня с затуханием хвоста
+      var wFull = (Math.max(0, ((n2.lwFull || n2.lw) || 0) - 8)) * comp + 8;
+      if (wFull < wBud) wFull = wBud;
       var rM = this.radiusModel(n2, k);
       var cx = n2.x * k + v.x, cy = n2.y * k + v.y;
       var rS = rM * k;              // радиус круга на экране
       var fsS = fsA * k;            // кегль на экране
-      var halfW = (wM * k) / 2 + LABEL_PAD_PX;
+      var wM = wFull;
+      var halfW = (wFull * k) / 2 + LABEL_PAD_PX;
       var x0 = cx - halfW, x1 = cx + halfW;
       if (x1 < -LABEL_OFF_MARGIN || x0 > W + LABEL_OFF_MARGIN) continue; // метка за экраном
       // метку можно чуть опустить, а в крайнем случае — поставить НАД вершиной: две
@@ -6787,28 +6820,40 @@ class LectureGraphView extends obsidian.ItemView {
       var shifts = LABEL_SHIFTS.slice();
       var up = (-2 * rS - 2) / fsS - 2.32; // блок текста целиком над кругом
       shifts.push(up, up - 1.1, up - 2.4);
-      var box = null, shift = 0;
-      for (var si = 0; si < shifts.length && !box; si++) {
-        shift = shifts[si];
-        // габарит метки: чуть шире и выше настоящего текста — этот же прямоугольник
-        // проверяет живой рендер (test-view.js), поэтому запас здесь = гарантия «0 наездов»
-        var y0 = cy + rS + (shift - 0.6) * fsS - LABEL_PAD_PX;
-        var y1 = cy + rS + (shift + 2.4) * fsS + LABEL_PAD_PX;
-        if (y1 < -LABEL_OFF_MARGIN || y0 > H + LABEL_OFF_MARGIN) continue;
-        var i0 = Math.floor(x0 / cell), i1 = Math.floor(x1 / cell);
-        var j0 = Math.floor(y0 / cell), j1 = Math.floor(y1 / cell);
-        var busy = false;
-        for (var gi = i0; gi <= i1 && !busy; gi++) {
-          for (var gj = j0; gj <= j1 && !busy; gj++) {
-            var bucket = grid[gi + ":" + gj];
-            if (!bucket) continue;
-            for (var bi = 0; bi < bucket.length; bi++) {
-              var o = bucket[bi];
-              if (x0 < o[2] && o[0] < x1 && y0 < o[3] && o[1] < y1) { busy = true; break; }
+      // Ширины-кандидаты: от ПОЛНОГО названия вниз к бюджету уровня. Берём самую
+      // широкую, которая не задевает уже расставленные метки, — поэтому в разреженной
+      // части графа название видно целиком, а в плотной хвост гаснет ровно настолько,
+      // насколько мешает соседям. Ширина влияет только на отрисовку: модель и экспорт
+      // по-прежнему живут на n.lw.
+      var widths = this.labelWidthLadder(wFull, wBud);
+      var box = null, shift = 0, wM = wFull;
+      for (var wi = 0; wi < widths.length && !box; wi++) {
+        var wTry = widths[wi];
+        var halfTry = (wTry * k) / 2 + LABEL_PAD_PX;
+        var xa = cx - halfTry, xb = cx + halfTry;
+        if (xb < -LABEL_OFF_MARGIN || xa > W + LABEL_OFF_MARGIN) continue;
+        for (var si = 0; si < shifts.length && !box; si++) {
+          shift = shifts[si];
+          // габарит метки: чуть шире и выше настоящего текста — этот же прямоугольник
+          // проверяет живой рендер (test-view.js), поэтому запас здесь = гарантия «0 наездов»
+          var y0 = cy + rS + (shift - 0.6) * fsS - LABEL_PAD_PX;
+          var y1 = cy + rS + (shift + 2.4) * fsS + LABEL_PAD_PX;
+          if (y1 < -LABEL_OFF_MARGIN || y0 > H + LABEL_OFF_MARGIN) continue;
+          var i0 = Math.floor(xa / cell), i1 = Math.floor(xb / cell);
+          var j0 = Math.floor(y0 / cell), j1 = Math.floor(y1 / cell);
+          var busy = false;
+          for (var gi = i0; gi <= i1 && !busy; gi++) {
+            for (var gj = j0; gj <= j1 && !busy; gj++) {
+              var bucket = grid[gi + ":" + gj];
+              if (!bucket) continue;
+              for (var bi = 0; bi < bucket.length; bi++) {
+                var o = bucket[bi];
+                if (xa < o[2] && o[0] < xb && y0 < o[3] && o[1] < y1) { busy = true; break; }
+              }
             }
           }
+          if (!busy) { box = [xa, y0, xb, y1]; wM = wTry; }
         }
-        if (!busy) box = [x0, y0, x1, y1];
       }
       if (!box) continue;
       for (var gi2 = Math.floor(box[0] / cell); gi2 <= Math.floor(box[2] / cell); gi2++) {
@@ -6817,7 +6862,10 @@ class LectureGraphView extends obsidian.ItemView {
           (grid[key] || (grid[key] = [])).push(box);
         }
       }
-      shown[n2.id] = { fsA: fsA, wM: wM, rM: rM, shift: shift };
+      // сколько названия помещается в реально выделенную ширину: 1 — целиком, меньше —
+      // во столько раз раньше начинается градиент прозрачности (динамическое затухание)
+      var fade = wFull > wM + 0.01 ? clamp(wM / wFull, core.LABEL_FADE_MIN, 1) : 1;
+      shown[n2.id] = { fsA: fsA, wM: wM, rM: rM, shift: shift, fade: fade };
     }
     return shown;
   }
@@ -6844,9 +6892,15 @@ class LectureGraphView extends obsidian.ItemView {
       var focus = this.hoverId === id || this.selected === id;
       var en = n.labelEn === undefined ? n.name : n.labelEn;
       var zh = (n.labelZh === undefined ? n.nameZh : n.labelZh) || "";
-      var fade = this.fadeMaskFor(n.labelFade); // null — название влезло целиком
-      var mask = focus ? null : fade;
       var p = plan[id];
+      // Затухание считается ДИНАМИЧЕСКИ: планировщик выдал метке столько ширины,
+      // сколько нашлось свободного места, и гасим ровно тот хвост, что в неё не влез.
+      // Если рядом никого — p.fade === 1 и название читается целиком без всякой маски.
+      // n.labelFade (статическая оценка по бюджету уровня) остаётся запасным вариантом
+      // для меток вне плана и для модельного экспорта.
+      var fadeFrac = p && p.fade !== undefined ? p.fade : n.labelFade;
+      var fade = this.fadeMaskFor(fadeFrac); // null — название влезло целиком
+      var mask = focus ? null : fade;
       var fs = p ? p.fsA : (n.font || this.plugin.settings.labelFontSize || 10) * comp;
       var rM = p ? p.rM : this.radiusModel(n, k);
       var y = rM + fs * (0.95 + (p ? p.shift : 0));
