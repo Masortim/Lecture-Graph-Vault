@@ -30,18 +30,16 @@ $$
 
 Used together with: [[Ch04-S01-H02-B02 - Estimate 4.1.2b|Estimate 4.1.2b]], [[Ch05-S02-H01-B02 - Identity 5.2.1b|Identity 5.2.1b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (vector space) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H01 - Definition Vector Space|vector space ×3]] — заголовок `Ch01-S01-H01`, 3 вхождения в корпусе
-- [[Ch02-S03-H05 - Main Theorem Vector Space|vector space ×3]] — заголовок `Ch02-S03-H05`, 3 вхождения в корпусе
-- [[Ch04-S02-H03 - Basic Properties Vector Space|vector space ×3]] — заголовок `Ch04-S02-H03`, 3 вхождения в корпусе
+- [[Ch01-S01-H01 - Definition Vector Space|vector space]] — заголовок `Ch01-S01-H01`, 1 вхождение в корпусе
+- [[Ch02-S03-H05 - Main Theorem Vector Space|vector space ×2]] — заголовок `Ch02-S03-H05`, 2 вхождения в корпусе
+- [[Ch04-S02-H03 - Basic Properties Vector Space|vector space]] — заголовок `Ch04-S02-H03`, 1 вхождение в корпусе
+- [[Ch06-S01-H01 - Definition Vector Space|vector space ×2]] — заголовок `Ch06-S01-H01`, 2 вхождения в корпусе
+- [[Ch07-S03-H05 - Main Theorem Vector Space|vector space]] — заголовок `Ch07-S03-H05`, 1 вхождение в корпусе
+- [[Ch09-S02-H03 - Basic Properties Vector Space|vector space ×2]] — заголовок `Ch09-S02-H03`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 9 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

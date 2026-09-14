@@ -30,28 +30,25 @@ $$
 
 Used together with: [[Ch05-S03-H06-B03 - Example 5.3.6c|Example 5.3.6c]], [[Ch06-S04-H05-B03 - Estimate 6.4.5c|Estimate 6.4.5c]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (generalization bound, hilbert decomposition) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch01-S03-H02`, 3 вхождения в корпусе
-- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound ×3]] — заголовок `Ch02-S03-H02`, 3 вхождения в корпусе
+- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch01-S03-H02`, 2 вхождения в корпусе
+- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound]] — заголовок `Ch02-S03-H02`, 1 вхождение в корпусе
 - [[Ch03-S01 - Setup and Notation|hilbert decomposition]] — секция `Ch03-S01`, 1 вхождение в корпусе
 - [[Ch03-S01-H01 - Definition Spectral Theorem|hilbert decomposition]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch03-S01-H06`, 3 вхождения в корпусе
-- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×3]] — заголовок `Ch04-S01-H06`, 3 вхождения в корпусе
-- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch04-S04-H04`, 3 вхождения в корпусе
+- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch03-S01-H06`, 2 вхождения в корпусе
+- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound]] — заголовок `Ch04-S01-H06`, 1 вхождение в корпусе
+- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch04-S04-H04`, 2 вхождения в корпусе
 - [[Ch05-S01-H01 - Definition Kernel and Range|generalization bound]] — заголовок `Ch05-S01-H01`, 1 вхождение в корпусе
 - [[Ch05-S04-H04 - Key Lemma Generalization Bound|generalization bound]] — заголовок `Ch05-S04-H04`, 1 вхождение в корпусе
+- [[Ch06-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch06-S03-H02`, 1 вхождение в корпусе
+- [[Ch07-S03-H02 - Notation Generalization Bound|generalization bound ×2]] — заголовок `Ch07-S03-H02`, 2 вхождения в корпусе
+- [[Ch08-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch08-S01-H06`, 1 вхождение в корпусе
 - [[Ch09-S01 - Setup and Notation|generalization bound]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×2]] — заголовок `Ch09-S01-H06`, 2 вхождения в корпусе
+- [[Ch09-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch09-S04-H04`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 20 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 20 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

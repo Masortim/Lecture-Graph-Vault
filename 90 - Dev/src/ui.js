@@ -2535,7 +2535,7 @@ class CreateNodeModal extends obsidian.Modal {
     content.createEl("h2", { text: "Новый узел графа" });
     content.createDiv({
       cls: "lg-modal-hint",
-      text: "Заметка создаётся в папке своего уровня (глава/секция/заголовок/блок) рядом с соседями. После создания плагин сам ищет связанные темы: по ключевым фразам — в корпусе аннотаций, по названиям — среди вершин графа, и сразу строит связи, в том числе со всеми главами, в которых встречаются эти фразы.",
+      text: "Заметка создаётся в папке своего уровня (глава/секция/заголовок/блок) рядом с соседями. После создания плагин сам ищет связанные темы: по ключевым фразам — во всех аннотациях корпуса, по названиям — среди вершин графа, и сразу связывает её с каждой совпавшей секцией и заголовком.",
     });
 
     var fType = content.createDiv({ cls: "lg-field" });
@@ -2566,8 +2566,8 @@ class CreateNodeModal extends obsidian.Modal {
       cls: "lg-modal-hint",
       text: "Фразы через «;», запятую или с новой строки. По ним плагин ищет вхождения в аннотациях «" +
         (this.plugin.settings.keywordFolder || "35 - Abstracts") + "» и превращает найденное в связи с секциями и заголовками; " +
-        "число вхождений становится весом (размером) вершины. Связи строятся со ВСЕМИ главами, где встретились фразы, " +
-        "а не только с той, в чью папку ляжет заметка.",
+        "число вхождений становится весом (размером) вершины. Связи ставятся со всеми совпавшими секциями и заголовками, " +
+        "а глава с наибольшим числом вхождений определяет цвет вершины.",
     });
 
     var fParent = content.createDiv({ cls: "lg-field" });
@@ -4514,16 +4514,14 @@ class LectureGraphPlugin extends obsidian.Plugin {
    * keywords:begin/end) и в свойство weight:. Работает для вершины любого уровня —
    * регион ключевых фраз читается графом у всех заметок, не только у блоков.
    *
-   * Кроме региона фраз пересчёт держит в актуальном состоянии раздел
-   * «## Related chapters» — связи со ВСЕМИ главами, в аннотациях которых встретились
-   * ключевые фразы вершины, а не с одной «доминирующей». Раньше эти связи ставились
-   * лишь один раз, при создании узла (createNewNode), и устаревали при любой правке
-   * списка фраз; теперь та же логика (core.relatedChapters) применяется ко всему
-   * хранилищу при каждом пересчёте. Раздел живёт ВНЕ региона keywords:begin/end и
-   * снимается целиком, если подходящих глав не осталось.
+   * Каждое попадание в аннотации даёт связь именно с соответствующей секцией или
+   * заголовком — по всем главам, без отсечения по главе-лидеру. Лидер нужен только
+   * для цвета (core.resolveColors читает n.kwChapter), а не для выбора ссылок.
+   * При пересчёте удаляется только оставшийся от старых версий машинный раздел
+   * «Related chapters»: его ссылки на главы не являются прямыми попаданиями корпуса.
    *
-   * Свойства и тело вне региона/раздела глав не трогаются, второй прогон байт-в-байт
-   * идемпотентен; заметки без списка фраз теряют и регион, и раздел глав.
+   * Свойства и тело вне региона/устаревшего раздела не трогаются; второй прогон
+   * байт-в-байт идемпотентен.
    */
   async recomputeKeywords(runOpts) {
     runOpts = runOpts || {};
@@ -4538,7 +4536,7 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
     var corpus = core.buildKeywordCorpus(abs, g, opts);
     var weightKey = opts.weightKey || "weight";
-    var touched = 0, planned = 0, sumWeight = 0, flipped = 0, cleaned = 0, chapterEdges = 0;
+    var touched = 0, planned = 0, sumWeight = 0, cleaned = 0;
     var marks = core.keywordMarkers();
     var only = {};
     (runOpts.only || []).forEach(function (p) { if (p) only[String(p)] = true; });
@@ -4549,12 +4547,11 @@ class LectureGraphPlugin extends obsidian.Plugin {
       var file = this.app.vault.getAbstractFileByPath(n.path);
       if (!(file instanceof obsidian.TFile)) continue;
       var hasRegion = String(n.body || "").indexOf(marks.begin) >= 0;
-      var hasChapters = String(n.body || "").indexOf(core.CHAPTER_HEADING) >= 0;
+      var hasLegacyChapters = String(n.body || "").indexOf(core.CHAPTER_HEADING) >= 0;
       if (!(n.keywords && n.keywords.length)) {
-        // заметка без ключевых фраз: снимаем и материализованный регион, и раздел
-        // глав (он строится по тем же фразам). Если нет ни того, ни другого — она
-        // живёт только на ручных ссылках, не трогаем.
-        if (!hasRegion && !hasChapters) continue;
+        // Снимаем материализованные связи; legacy-раздел глав тоже должен уйти,
+        // чтобы после удаления фраз не остались ложные тематические рёбра.
+        if (!hasRegion && !hasLegacyChapters) continue;
         await this.processInternal(file, (data) => {
           var off = {};
           off[weightKey] = "";
@@ -4566,28 +4563,20 @@ class LectureGraphPlugin extends obsidian.Plugin {
         });
         continue;
       }
+      // plan.targets содержит ВСЕ совпавшие области корпуса; dominant здесь
+      // намеренно не участвует в отборе — он используется только при окрашивании.
       var plan = core.planBlockKeywords(n.data, corpus, n.chapter, opts);
       planned++;
       sumWeight += plan.weight;
-      if (plan.dominant && n.chapter && plan.dominant !== n.chapter) flipped++;
       var want = core.keywordRegionText(plan, opts);
-      // Связи со ВСЕМИ главами, в аннотациях которых встретились ключевые фразы —
-      // не только со «своей». Раньше эти связи ставились лишь при создании узла и
-      // устаревали при правке ключевых фраз; теперь пересчёт держит их актуальными.
-      // Исключаем главы, с которыми связь уже есть структурно: свою (chapter:) и
-      // главу родителя — дубля рёбер не будет.
-      var chExclude = [];
-      if (n.chapter) chExclude.push(n.chapter);
-      var parent = n.parent && g._byId ? g._byId[n.parent] : null;
-      if (parent) chExclude.push(parent.chapter || parent.id);
-      var chapters = core.relatedChapters(g, plan, { exclude: chExclude });
-      chapterEdges += chapters.length;
       await this.processInternal(file, (data) => {
         var patch = {};
         patch[weightKey] = plan.weight;
         var withRegion = core.applyKeywordRegion(data, want);
-        var withChapters = core.applyRelatedChapters(withRegion, chapters, opts);
-        var next = core.setFrontmatterValues(withChapters, patch);
+        // Убираем лишь машинный legacy-раздел из прежних версий. Новый код не
+        // создаёт ссылки на главы: ссылки должны вести к реально совпавшим узлам.
+        var withoutLegacyChapters = core.applyRelatedChapters(withRegion, [], opts);
+        var next = core.setFrontmatterValues(withoutLegacyChapters, patch);
         if (next === data) return data;
         touched++;
         return next;
@@ -4598,14 +4587,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
     var kw = fresh.edges.filter(function (e) { return e.kind === "keyword"; }).length;
     var msg =
       "Ключевые фразы: вершин с весом " + fresh.stats.keywordNodes + " · ссылок " + kw +
-      " · связей с главами " + chapterEdges +
       " · записей обновлено " + touched + (cleaned ? " · снято " + cleaned : "") +
-      (flipped ? " · окрашено по чужой главе " + flipped : "") +
       (corpus.stats.unmatched ? " · НЕ СОПОСТАВЛЕНО заголовков в корпусе: " + corpus.stats.unmatched : "");
     if (!runOpts.silent) new obsidian.Notice(msg);
     // getGraph(true) выше уже обновил cache и все View; повторный changed() только
     // запустил бы ещё одну полную пересборку через debounce.
-    return { planned: planned, touched: touched, cleaned: cleaned, flipped: flipped, weight: sumWeight, edges: kw, chapterEdges: chapterEdges };
+    return { planned: planned, touched: touched, cleaned: cleaned, weight: sumWeight, edges: kw };
   }
 
   /* -------------------------------------------------- слияние узлов */
@@ -5090,19 +5077,17 @@ class LectureGraphPlugin extends obsidian.Plugin {
    * Создание вершины из окна графа: заметка с двустрочной подписью (EN + 中文),
    * списком ключевых фраз и — сразу после записи — автоматическим поиском связанных
    * тем. Поиск двухъярусный:
-   *   1) ключевые фразы ищутся в корпусе аннотаций (buildKeywordCorpus): найденные
-   *      секции/заголовки материализуются wiki-ссылками между keywords:begin/end
-   *      (рёбра «keyword»), число вхождений пишется в weight: и задаёт размер вершины;
+   *   1) ключевые фразы ищутся в корпусе аннотаций (buildKeywordCorpus): КАЖДАЯ
+   *      совпавшая секция/заголовок материализуется wiki-ссылкой между
+   *      keywords:begin/end (ребро «keyword»), число вхождений пишется в weight: и
+   *      задаёт размер вершины. Глава-лидер из этого же плана служит только цветом;
    *   2) название и фразы, ТОЧНО совпадающие с именем другой вершины, дают раздел
    *      «Related topics» в теле заметки (обычные рёбра «reference») — так находятся
-   *      и главы, и блоки, которых в текстах аннотаций нет;
-   *   3) ВСЕ главы, в аннотациях которых встретились ключевые фразы, дают раздел
-   *      «Related chapters» (core.relatedChapters по plan.byChapter). Раньше из этой
-   *      разбивки использовалась одна «доминирующая» глава — только чтобы выбрать
-   *      папку и цвет, — и связи с остальными главами в графе не появлялось вовсе,
-   *      хотя сквозная тема почти всегда цитируется в нескольких главах сразу.
-   * Глава без родителя берётся у главы-лидера по вхождениям (plan.dominant), поэтому
-   * заметка ложится в папку той главы, о которой больше всего говорит её содержимое.
+   *      и главы, и блоки, которых в текстах аннотаций нет.
+   *
+   * У ручной вершины без родителя глава-лидер используется только чтобы выбрать
+   * удобную папку. `chapter:` ей не приписывается: это свойство структуры, а не
+   * цвета, и оно не должно превращать много-темный узел в ребёнка одной главы.
    */
   async createNewNode(input) {
     input = input || {};
@@ -5129,8 +5114,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
     }
     // 2. Id по конвенции курса (родитель + суффикс уровня) или из серии MN-… .
     var id = core.nextNodeId(g, type, parentNode ? parentNode.id : null);
-    // 3. Своя глава: у родителя она известна, без родителя решит поиск по корпусу.
-    var chapter = parentNode
+    // 3. Структурная глава известна только у родителя. Не подменяем ею главу-лидера
+    // из корпуса: последняя определяет цвет, но не должна становиться chapter:.
+    var structuralChapter = parentNode
       ? parentNode.chapter || (parentNode.type === "chapter" ? parentNode.id : null)
       : null;
     var plan = null;
@@ -5142,10 +5128,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
         var corpus = core.buildKeywordCorpus(abs, g, opts);
         var kwData = {};
         kwData[opts.keywordsKey || "keywords_en"] = keywords;
-        plan = core.planBlockKeywords(kwData, corpus, chapter, opts);
+        plan = core.planBlockKeywords(kwData, corpus, structuralChapter, opts);
       }
     }
-    if (!chapter && plan && plan.dominant) chapter = plan.dominant;
+    // По plan.dominant выбираем лишь папку для самостоятельной заметки. Цвет
+    // вычислит resolveColors из всех keyword-связей, а chapter: останется пустым.
+    var placementChapter = structuralChapter || (plan && plan.dominant) || null;
     // 4. Второй ярус: темы, чьё название совпало с названием/фразой новой вершины.
     var exclude = parentNode ? [parentNode.id] : [];
     if (plan) {
@@ -5158,17 +5146,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
       .map(function (r) {
         return { stem: r.node.stem, name: r.node.name, phrase: r.phrase, type: r.node.type, id: r.node.id };
       });
-    // 4b. Связи со ВСЕМИ главами, где нашлись ключевые фразы. Раньше из plan.byChapter
-    // бралась только «доминирующая» глава (папка + цвет), а остальные пропадали — хотя
-    // именно они и показывают, что тема сквозная. Исключаем то, что уже связано иначе:
-    // родителя, свою главу (с ней есть структурная связь через chapter:) и главы,
-    // попавшие в «Related topics» по точному совпадению названия — дубля ссылок не будет.
-    var chapterExclude = exclude.concat(related.map(function (r) { return r.id; }));
-    if (chapter) chapterExclude.push(chapter);
-    if (parentNode) chapterExclude.push(parentNode.chapter || parentNode.id);
-    var chapters = core.relatedChapters(g, plan, { exclude: chapterExclude });
-    // 5. Папка и путь без коллизий: перезаписывать чужую заметку нельзя.
-    var dir = this.folderForNewNode(g, type, chapter, parentNode);
+    // 5. Папка и путь без коллизий: перезаписывать чужую заметку нельзя. Удобное
+    // размещение по главе-лидеру не создаёт структурной принадлежности к этой главе.
+    var dir = this.folderForNewNode(g, type, placementChapter, parentNode);
     var base = id + " - " + this.safeNoteName(nameEn);
     var rel = (dir ? dir + "/" : "") + base + ".md";
     var bump = 2;
@@ -5185,13 +5165,12 @@ class LectureGraphPlugin extends obsidian.Plugin {
         nameZh: nameZh,
         status: "draft",
         parent: parentNode ? parentNode.id : null,
-        chapter: chapter,
+        chapter: structuralChapter,
         color: color,
         keywords: keywords,
         weight: plan ? plan.weight : null,
         region: plan ? core.keywordRegionText(plan, opts) : "",
         related: related,
-        chapters: chapters,
       },
       opts
     );
@@ -5220,18 +5199,27 @@ class LectureGraphPlugin extends obsidian.Plugin {
     var msg =
       "Узел создан: " + (node ? node.path : file.path) +
       (nameZh ? " · " + nameEn + " / " + nameZh : "") +
-      (chapter ? " · глава " + chapter : "") +
-      (color ? " · цвет " + color : "") +
+      (structuralChapter ? " · структура " + structuralChapter : "") +
+      (plan && plan.dominant ? " · цвет главы " + plan.dominant : "") +
+      (color ? " · свой цвет " + color : "") +
       (plan ? " · связей по корпусу: " + kwLinks + " (вес " + plan.weight + ")" : "") +
-      // главы показываем поимённо: их немного, а увидеть, что тема сквозная, важнее
-      // очередного числа в строке
-      (chapters.length ? " · главы (" + chapters.length + "): " +
-        chapters.map(function (c) { return c.id + "×" + c.count; }).join(", ") : "") +
       (related.length ? " · по названиям: " + related.length : "") +
       (autoMerge && autoMerge.merged ? " · автослияние дубликата: сохранена вершина " + finalId : "") +
       (plan && plan.unmatched.length ? " · НЕ НАЙДЕНО в корпусе: " + plan.unmatched.join(", ") : "");
     new obsidian.Notice(msg);
-    return { file: file, path: node ? node.path : file.path, node: node, id: finalId, createdId: id, plan: plan, related: related, chapters: chapters, chapter: chapter, merged: autoMerge };
+    return {
+      file: file,
+      path: node ? node.path : file.path,
+      node: node,
+      id: finalId,
+      createdId: id,
+      plan: plan,
+      related: related,
+      structuralChapter: structuralChapter,
+      placementChapter: placementChapter,
+      dominantChapter: plan ? plan.dominant : null,
+      merged: autoMerge,
+    };
   }
 
   /**

@@ -29,26 +29,24 @@ $$
 
 Used together with: [[Ch05-S01-H02-B02 - Estimate 5.1.2b|Estimate 5.1.2b]], [[Ch06-S02-H01-B02 - Identity 6.2.1b|Identity 6.2.1b]].
 
-## Related chapters
-
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (hilbert decomposition, spectral gap) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch01-S03-H02`, 3 вхождения в корпусе
-- [[Ch02-S03-H03 - Basic Properties Spectral Gap|spectral gap ×3]] — заголовок `Ch02-S03-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch01-S03-H02`, 2 вхождения в корпусе
+- [[Ch02-S03-H03 - Basic Properties Spectral Gap|spectral gap ×2]] — заголовок `Ch02-S03-H03`, 2 вхождения в корпусе
 - [[Ch03-S01 - Setup and Notation|hilbert decomposition]] — секция `Ch03-S01`, 1 вхождение в корпусе
 - [[Ch03-S01-H01 - Definition Spectral Theorem|hilbert decomposition]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch03-S01-H06`, 3 вхождения в корпусе
+- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch03-S01-H06`, 2 вхождения в корпусе
 - [[Ch04-S02 - Core Theory|spectral gap]] — секция `Ch04-S02`, 1 вхождение в корпусе
-- [[Ch04-S02-H01 - Definition Spectral Gap|spectral gap ×3]] — заголовок `Ch04-S02-H01`, 3 вхождения в корпусе
-- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch04-S04-H04`, 3 вхождения в корпусе
+- [[Ch04-S02-H01 - Definition Spectral Gap|spectral gap]] — заголовок `Ch04-S02-H01`, 1 вхождение в корпусе
+- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch04-S04-H04`, 2 вхождения в корпусе
 - [[Ch05-S04-H05 - Main Theorem Spectral Gap|spectral gap ×2]] — заголовок `Ch05-S04-H05`, 2 вхождения в корпусе
+- [[Ch06-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch06-S03-H02`, 1 вхождение в корпусе
+- [[Ch07-S03-H03 - Basic Properties Spectral Gap|spectral gap]] — заголовок `Ch07-S03-H03`, 1 вхождение в корпусе
+- [[Ch08-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch08-S01-H06`, 1 вхождение в корпусе
+- [[Ch09-S02-H01 - Definition Spectral Gap|spectral gap ×2]] — заголовок `Ch09-S02-H01`, 2 вхождения в корпусе
+- [[Ch09-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch09-S04-H04`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 20 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 20 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -30,28 +30,25 @@ $$
 
 Used together with: [[Ch02-S03-H05-B02 - Identity 2.3.5b|Identity 2.3.5b]], [[Ch03-S04-H04-B01 - Example 3.4.4a|Example 3.4.4a]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (approximation error, density argument) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02-H01 - Definition Dual Space|density argument]] — заголовок `Ch01-S02-H01`, 1 вхождение в корпусе
-- [[Ch01-S03-H04 - Key Lemma Density Argument|density argument ×3]] — заголовок `Ch01-S03-H04`, 3 вхождения в корпусе
-- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×3]] — заголовок `Ch02-S01-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H04 - Key Lemma Density Argument|density argument ×2]] — заголовок `Ch01-S03-H04`, 2 вхождения в корпусе
+- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×2]] — заголовок `Ch02-S01-H03`, 2 вхождения в корпусе
 - [[Ch03-S02-H01 - Definition Weak Convergence|density argument]] — заголовок `Ch03-S02-H01`, 1 вхождение в корпусе
-- [[Ch03-S02-H02 - Notation Density Argument|density argument ×3]] — заголовок `Ch03-S02-H02`, 3 вхождения в корпусе
-- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×3]] — заголовок `Ch03-S04-H01`, 3 вхождения в корпусе
+- [[Ch03-S02-H02 - Notation Density Argument|density argument]] — заголовок `Ch03-S02-H02`, 1 вхождение в корпусе
+- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×2]] — заголовок `Ch03-S04-H01`, 2 вхождения в корпусе
 - [[Ch04-S04 - Applications and Limits|density argument]] — секция `Ch04-S04`, 1 вхождение в корпусе
-- [[Ch04-S04-H06 - Proof and Consequences Density Argument|density argument ×3]] — заголовок `Ch04-S04-H06`, 3 вхождения в корпусе
+- [[Ch04-S04-H06 - Proof and Consequences Density Argument|density argument ×2]] — заголовок `Ch04-S04-H06`, 2 вхождения в корпусе
 - [[Ch05-S02-H05 - Main Theorem Approximation Error|approximation error ×2]] — заголовок `Ch05-S02-H05`, 2 вхождения в корпусе
+- [[Ch06-S03-H04 - Key Lemma Density Argument|density argument]] — заголовок `Ch06-S03-H04`, 1 вхождение в корпусе
+- [[Ch07-S01-H03 - Basic Properties Approximation Error|approximation error]] — заголовок `Ch07-S01-H03`, 1 вхождение в корпусе
+- [[Ch08-S02-H02 - Notation Density Argument|density argument ×2]] — заголовок `Ch08-S02-H02`, 2 вхождения в корпусе
+- [[Ch08-S04-H01 - Definition Approximation Error|approximation error]] — заголовок `Ch08-S04-H01`, 1 вхождение в корпусе
 - [[Ch09-S04 - Applications and Limits|density argument]] — секция `Ch09-S04`, 1 вхождение в корпусе
+- [[Ch09-S04-H06 - Proof and Consequences Density Argument|density argument]] — заголовок `Ch09-S04-H06`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 21 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

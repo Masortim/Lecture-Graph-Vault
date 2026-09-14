@@ -30,33 +30,31 @@ $$
 
 Used together with: [[Ch08-S01-H02-B02 - Estimate 8.1.2b|Estimate 8.1.2b]], [[Ch09-S02-H01-B02 - Identity 9.2.1b|Identity 9.2.1b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×14]] — глава `Ch01`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (spectral theorem, density argument) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|spectral theorem]] — секция `Ch01-S02`, 1 вхождение в корпусе
 - [[Ch01-S02-H01 - Definition Dual Space|density argument]] — заголовок `Ch01-S02-H01`, 1 вхождение в корпусе
-- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×3]] — заголовок `Ch01-S02-H03`, 3 вхождения в корпусе
-- [[Ch01-S03-H04 - Key Lemma Density Argument|density argument ×3]] — заголовок `Ch01-S03-H04`, 3 вхождения в корпусе
+- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×2]] — заголовок `Ch01-S02-H03`, 2 вхождения в корпусе
+- [[Ch01-S03-H04 - Key Lemma Density Argument|density argument ×2]] — заголовок `Ch01-S03-H04`, 2 вхождения в корпусе
 - [[Ch03-S01 - Setup and Notation|spectral theorem]] — секция `Ch03-S01`, 1 вхождение в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem ×3]] — заголовок `Ch03-S01-H01`, 3 вхождения в корпусе
+- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
 - [[Ch03-S02-H01 - Definition Weak Convergence|density argument]] — заголовок `Ch03-S02-H01`, 1 вхождение в корпусе
-- [[Ch03-S02-H02 - Notation Density Argument|density argument ×3]] — заголовок `Ch03-S02-H02`, 3 вхождения в корпусе
-- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×3]] — заголовок `Ch04-S03-H05`, 3 вхождения в корпусе
+- [[Ch03-S02-H02 - Notation Density Argument|density argument]] — заголовок `Ch03-S02-H02`, 1 вхождение в корпусе
+- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×2]] — заголовок `Ch04-S03-H05`, 2 вхождения в корпусе
 - [[Ch04-S04 - Applications and Limits|density argument]] — секция `Ch04-S04`, 1 вхождение в корпусе
-- [[Ch04-S04-H06 - Proof and Consequences Density Argument|density argument ×3]] — заголовок `Ch04-S04-H06`, 3 вхождения в корпусе
+- [[Ch04-S04-H06 - Proof and Consequences Density Argument|density argument ×2]] — заголовок `Ch04-S04-H06`, 2 вхождения в корпусе
 - [[Ch06-S02 - Core Theory|spectral theorem]] — секция `Ch06-S02`, 1 вхождение в корпусе
+- [[Ch06-S02-H03 - Basic Properties Spectral Theorem|spectral theorem]] — заголовок `Ch06-S02-H03`, 1 вхождение в корпусе
+- [[Ch06-S03-H04 - Key Lemma Density Argument|density argument]] — заголовок `Ch06-S03-H04`, 1 вхождение в корпусе
 - [[Ch08-S01 - Setup and Notation|spectral theorem]] — секция `Ch08-S01`, 1 вхождение в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|spectral theorem ×2]] — заголовок `Ch08-S01-H01`, 2 вхождения в корпусе
+- [[Ch08-S02-H02 - Notation Density Argument|density argument ×2]] — заголовок `Ch08-S02-H02`, 2 вхождения в корпусе
 - [[Ch09-S03 - Main Results|spectral theorem]] — секция `Ch09-S03`, 1 вхождение в корпусе
+- [[Ch09-S03-H05 - Main Theorem Spectral Theorem|spectral theorem]] — заголовок `Ch09-S03-H05`, 1 вхождение в корпусе
 - [[Ch09-S04 - Applications and Limits|density argument]] — секция `Ch09-S04`, 1 вхождение в корпусе
+- [[Ch09-S04-H06 - Proof and Consequences Density Argument|density argument]] — заголовок `Ch09-S04-H06`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 27 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

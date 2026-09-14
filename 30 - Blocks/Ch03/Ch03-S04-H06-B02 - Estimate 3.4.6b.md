@@ -30,23 +30,18 @@ $$
 
 Used together with: [[Ch04-S01-H03-B02 - Example 4.1.3b|Example 4.1.3b]], [[Ch05-S02-H02-B01 - Identity 5.2.2a|Identity 5.2.2a]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (lipschitz continuity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S02-H01 - Definition Dual Space|lipschitz continuity]] — заголовок `Ch01-S02-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity ×3]] — заголовок `Ch02-S02-H02`, 3 вхождения в корпусе
-- [[Ch03-S02-H01 - Definition Weak Convergence|lipschitz continuity]] — заголовок `Ch03-S02-H01`, 1 вхождение в корпусе
-- [[Ch03-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity ×3]] — заголовок `Ch03-S04-H06`, 3 вхождения в корпусе
+- [[Ch02-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch02-S02-H02`, 2 вхождения в корпусе
+- [[Ch03-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity]] — заголовок `Ch03-S04-H06`, 1 вхождение в корпусе
 - [[Ch05-S03-H04 - Key Lemma Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch05-S03-H04`, 2 вхождения в корпусе
+- [[Ch06-S02-H01 - Definition Dual Space|lipschitz continuity]] — заголовок `Ch06-S02-H01`, 1 вхождение в корпусе
 - [[Ch07-S02 - Core Theory|lipschitz continuity]] — секция `Ch07-S02`, 1 вхождение в корпусе
+- [[Ch07-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity]] — заголовок `Ch07-S02-H02`, 1 вхождение в корпусе
+- [[Ch08-S02-H01 - Definition Weak Convergence|lipschitz continuity]] — заголовок `Ch08-S02-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch08-S04-H06`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 11 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 11 · глава Ch08 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

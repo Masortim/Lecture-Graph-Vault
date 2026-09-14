@@ -30,23 +30,21 @@ $$
 
 Used together with: [[Ch02-S02-H05-B02 - Identity 2.2.5b|Identity 2.2.5b]], [[Ch03-S03-H04-B01 - Example 3.3.4a|Example 3.3.4a]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (concentration inequality, approximation error) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×3]] — заголовок `Ch02-S01-H03`, 3 вхождения в корпусе
-- [[Ch02-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality ×3]] — заголовок `Ch02-S01-H06`, 3 вхождения в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|concentration inequality]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×3]] — заголовок `Ch03-S04-H01`, 3 вхождения в корпусе
-- [[Ch03-S04-H04 - Key Lemma Concentration Inequality|concentration inequality ×3]] — заголовок `Ch03-S04-H04`, 3 вхождения в корпусе
+- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×2]] — заголовок `Ch02-S01-H03`, 2 вхождения в корпусе
+- [[Ch02-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality]] — заголовок `Ch02-S01-H06`, 1 вхождение в корпусе
+- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×2]] — заголовок `Ch03-S04-H01`, 2 вхождения в корпусе
+- [[Ch03-S04-H04 - Key Lemma Concentration Inequality|concentration inequality]] — заголовок `Ch03-S04-H04`, 1 вхождение в корпусе
 - [[Ch05-S02-H05 - Main Theorem Approximation Error|approximation error ×2]] — заголовок `Ch05-S02-H05`, 2 вхождения в корпусе
 - [[Ch05-S03-H02 - Notation Concentration Inequality|concentration inequality ×2]] — заголовок `Ch05-S03-H02`, 2 вхождения в корпусе
+- [[Ch07-S01-H03 - Basic Properties Approximation Error|approximation error]] — заголовок `Ch07-S01-H03`, 1 вхождение в корпусе
+- [[Ch07-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality ×2]] — заголовок `Ch07-S01-H06`, 2 вхождения в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|concentration inequality]] — заголовок `Ch08-S01-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H01 - Definition Approximation Error|approximation error]] — заголовок `Ch08-S04-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H04 - Key Lemma Concentration Inequality|concentration inequality ×2]] — заголовок `Ch08-S04-H04`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 17 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 17 · глава Ch08 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

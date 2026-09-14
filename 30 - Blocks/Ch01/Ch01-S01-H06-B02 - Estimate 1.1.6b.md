@@ -30,20 +30,18 @@ $$
 
 Used together with: [[Ch02-S03-H06-B03 - Example 2.3.6c|Example 2.3.6c]], [[Ch03-S04-H05-B03 - Estimate 3.4.5c|Estimate 3.4.5c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (basis and coordinates) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H01 - Definition Vector Space|basis and coordinates]] — заголовок `Ch01-S01-H01`, 1 вхождение в корпусе
-- [[Ch01-S01-H06 - Proof and Consequences Basis and Coordinates|basis and coordinates ×3]] — заголовок `Ch01-S01-H06`, 3 вхождения в корпусе
+- [[Ch01-S01-H06 - Proof and Consequences Basis and Coordinates|basis and coordinates ×2]] — заголовок `Ch01-S01-H06`, 2 вхождения в корпусе
 - [[Ch02-S04 - Applications and Limits|basis and coordinates]] — секция `Ch02-S04`, 1 вхождение в корпусе
-- [[Ch02-S04-H04 - Key Lemma Basis and Coordinates|basis and coordinates ×3]] — заголовок `Ch02-S04-H04`, 3 вхождения в корпусе
-- [[Ch04-S03-H02 - Notation Basis and Coordinates|basis and coordinates ×3]] — заголовок `Ch04-S03-H02`, 3 вхождения в корпусе
+- [[Ch02-S04-H04 - Key Lemma Basis and Coordinates|basis and coordinates ×2]] — заголовок `Ch02-S04-H04`, 2 вхождения в корпусе
+- [[Ch04-S03-H02 - Notation Basis and Coordinates|basis and coordinates]] — заголовок `Ch04-S03-H02`, 1 вхождение в корпусе
+- [[Ch06-S01-H01 - Definition Vector Space|basis and coordinates]] — заголовок `Ch06-S01-H01`, 1 вхождение в корпусе
+- [[Ch06-S01-H06 - Proof and Consequences Basis and Coordinates|basis and coordinates]] — заголовок `Ch06-S01-H06`, 1 вхождение в корпусе
+- [[Ch07-S04-H04 - Key Lemma Basis and Coordinates|basis and coordinates]] — заголовок `Ch07-S04-H04`, 1 вхождение в корпусе
+- [[Ch09-S03-H02 - Notation Basis and Coordinates|basis and coordinates ×2]] — заголовок `Ch09-S03-H02`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 11 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 11 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

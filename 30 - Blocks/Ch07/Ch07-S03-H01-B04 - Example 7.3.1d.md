@@ -30,26 +30,23 @@ $$
 
 Used together with: [[Ch01-S04-H06-B02 - Estimate 1.4.6b|Estimate 1.4.6b]], [[Ch03-S01-H05-B02 - Identity 3.1.5b|Identity 3.1.5b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×5]] — глава `Ch05`, 5 вхождений ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity, generalization bound) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×3]] — заголовок `Ch02-S03-H01`, 3 вхождения в корпусе
-- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound ×3]] — заголовок `Ch02-S03-H02`, 3 вхождения в корпусе
-- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×3]] — заголовок `Ch04-S01-H05`, 3 вхождения в корпусе
-- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×3]] — заголовок `Ch04-S01-H06`, 3 вхождения в корпусе
+- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×2]] — заголовок `Ch02-S03-H01`, 2 вхождения в корпусе
+- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound]] — заголовок `Ch02-S03-H02`, 1 вхождение в корпусе
+- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×2]] — заголовок `Ch04-S01-H05`, 2 вхождения в корпусе
+- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound]] — заголовок `Ch04-S01-H06`, 1 вхождение в корпусе
 - [[Ch05-S01-H01 - Definition Kernel and Range|generalization bound]] — заголовок `Ch05-S01-H01`, 1 вхождение в корпусе
 - [[Ch05-S04 - Applications and Limits|sample complexity]] — секция `Ch05-S04`, 1 вхождение в корпусе
 - [[Ch05-S04-H03 - Basic Properties Sample Complexity|sample complexity ×2]] — заголовок `Ch05-S04-H03`, 2 вхождения в корпусе
 - [[Ch05-S04-H04 - Key Lemma Generalization Bound|generalization bound]] — заголовок `Ch05-S04-H04`, 1 вхождение в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|sample complexity]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch07-S03-H02 - Notation Generalization Bound|generalization bound ×2]] — заголовок `Ch07-S03-H02`, 2 вхождения в корпусе
 - [[Ch09-S01 - Setup and Notation|generalization bound]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H05 - Main Theorem Sample Complexity|sample complexity]] — заголовок `Ch09-S01-H05`, 1 вхождение в корпусе
+- [[Ch09-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×2]] — заголовок `Ch09-S01-H06`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 18 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 18 · глава Ch05 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

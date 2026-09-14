@@ -28,29 +28,26 @@ $$
 
 Used together with: [[Ch09-S02-H02-B03 - Example 9.2.2c|Example 9.2.2c]], [[Ch01-S03-H01-B03 - Estimate 1.3.1c|Estimate 1.3.1c]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems]] — глава `Ch04`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, uniform boundedness) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch02-S01 - Setup and Notation|entropy bound]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch02-S01-H02`, 3 вхождения в корпусе
-- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×3]] — заголовок `Ch02-S01-H05`, 3 вхождения в корпусе
-- [[Ch02-S03-H01 - Definition Sample Complexity|uniform boundedness]] — заголовок `Ch02-S03-H01`, 1 вхождение в корпусе
-- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch03-S03-H06`, 3 вхождения в корпусе
+- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness]] — заголовок `Ch02-S01-H02`, 1 вхождение в корпусе
+- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×2]] — заголовок `Ch02-S01-H05`, 2 вхождения в корпусе
+- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch03-S03-H06`, 2 вхождения в корпусе
 - [[Ch03-S04 - Applications and Limits|entropy bound]] — секция `Ch03-S04`, 1 вхождение в корпусе
-- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×3]] — заголовок `Ch03-S04-H03`, 3 вхождения в корпусе
-- [[Ch04-S03-H01 - Definition Orthogonal Projection|uniform boundedness]] — заголовок `Ch04-S03-H01`, 1 вхождение в корпусе
+- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×2]] — заголовок `Ch03-S04-H03`, 2 вхождения в корпусе
 - [[Ch05-S02-H04 - Key Lemma Uniform Boundedness|uniform boundedness]] — заголовок `Ch05-S02-H04`, 1 вхождение в корпусе
 - [[Ch05-S03 - Main Results|entropy bound]] — секция `Ch05-S03`, 1 вхождение в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|entropy bound]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
 - [[Ch07-S01 - Setup and Notation|entropy bound]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch07-S01-H02`, 2 вхождения в корпусе
+- [[Ch07-S01-H05 - Main Theorem Entropy Bound|entropy bound]] — заголовок `Ch07-S01-H05`, 1 вхождение в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|uniform boundedness]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch08-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness]] — заголовок `Ch08-S03-H06`, 1 вхождение в корпусе
+- [[Ch08-S04-H03 - Basic Properties Entropy Bound|entropy bound]] — заголовок `Ch08-S04-H03`, 1 вхождение в корпусе
+- [[Ch09-S03-H01 - Definition Orthogonal Projection|uniform boundedness]] — заголовок `Ch09-S03-H01`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 20 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 20 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

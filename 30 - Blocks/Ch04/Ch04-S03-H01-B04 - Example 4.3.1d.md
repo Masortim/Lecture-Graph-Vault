@@ -30,28 +30,25 @@ $$
 
 Used together with: [[Ch07-S04-H06-B02 - Estimate 7.4.6b|Estimate 7.4.6b]], [[Ch09-S01-H05-B02 - Identity 9.1.5b|Identity 9.1.5b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (orthogonal projection, uniform boundedness) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S01 - Setup and Notation|orthogonal projection]] — секция `Ch01-S01`, 1 вхождение в корпусе
-- [[Ch01-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection ×3]] — заголовок `Ch01-S01-H05`, 3 вхождения в корпусе
-- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch02-S01-H02`, 3 вхождения в корпусе
-- [[Ch02-S03-H01 - Definition Sample Complexity|uniform boundedness]] — заголовок `Ch02-S03-H01`, 1 вхождение в корпусе
-- [[Ch02-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection ×3]] — заголовок `Ch02-S04-H03`, 3 вхождения в корпусе
-- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch03-S03-H06`, 3 вхождения в корпусе
+- [[Ch01-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection]] — заголовок `Ch01-S01-H05`, 1 вхождение в корпусе
+- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness]] — заголовок `Ch02-S01-H02`, 1 вхождение в корпусе
+- [[Ch02-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection]] — заголовок `Ch02-S04-H03`, 1 вхождение в корпусе
+- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch03-S03-H06`, 2 вхождения в корпусе
 - [[Ch04-S03 - Main Results|orthogonal projection]] — секция `Ch04-S03`, 1 вхождение в корпусе
-- [[Ch04-S03-H01 - Definition Orthogonal Projection|orthogonal projection · uniform boundedness ×4]] — заголовок `Ch04-S03-H01`, 4 вхождения в корпусе
+- [[Ch04-S03-H01 - Definition Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch04-S03-H01`, 2 вхождения в корпусе
 - [[Ch05-S02-H04 - Key Lemma Uniform Boundedness|uniform boundedness]] — заголовок `Ch05-S02-H04`, 1 вхождение в корпусе
 - [[Ch06-S01 - Setup and Notation|orthogonal projection]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch06-S01-H05`, 2 вхождения в корпусе
+- [[Ch07-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch07-S01-H02`, 2 вхождения в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|uniform boundedness]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch07-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch07-S04-H03`, 2 вхождения в корпусе
+- [[Ch08-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness]] — заголовок `Ch08-S03-H06`, 1 вхождение в корпусе
+- [[Ch09-S03-H01 - Definition Orthogonal Projection|orthogonal projection · uniform boundedness ×2]] — заголовок `Ch09-S03-H01`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 21 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 21 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -30,24 +30,22 @@ $$
 
 Used together with: [[Ch01-S02-H04-B02 - Proposition 1.2.4b|Proposition 1.2.4b]], [[Ch02-S03-H03-B02 - Example 2.3.3b|Example 2.3.3b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×12]] — глава `Ch01`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (hahn-banach extension, convex hull) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S04-H03 - Basic Properties Convex Hull|convex hull ×3]] — заголовок `Ch01-S04-H03`, 3 вхождения в корпусе
-- [[Ch01-S04-H05 - Main Theorem Hahn-Banach Extension|hahn-banach extension ×3]] — заголовок `Ch01-S04-H05`, 3 вхождения в корпусе
-- [[Ch03-S03-H01 - Definition Convex Hull|convex hull ×3]] — заголовок `Ch03-S03-H01`, 3 вхождения в корпусе
-- [[Ch03-S03-H03 - Basic Properties Hahn-Banach Extension|hahn-banach extension ×3]] — заголовок `Ch03-S03-H03`, 3 вхождения в корпусе
+- [[Ch01-S04-H03 - Basic Properties Convex Hull|convex hull ×2]] — заголовок `Ch01-S04-H03`, 2 вхождения в корпусе
+- [[Ch01-S04-H05 - Main Theorem Hahn-Banach Extension|hahn-banach extension ×2]] — заголовок `Ch01-S04-H05`, 2 вхождения в корпусе
+- [[Ch03-S03-H01 - Definition Convex Hull|convex hull]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
+- [[Ch03-S03-H03 - Basic Properties Hahn-Banach Extension|hahn-banach extension]] — заголовок `Ch03-S03-H03`, 1 вхождение в корпусе
 - [[Ch05-S01 - Setup and Notation|convex hull]] — секция `Ch05-S01`, 1 вхождение в корпусе
 - [[Ch05-S01-H05 - Main Theorem Convex Hull|convex hull]] — заголовок `Ch05-S01-H05`, 1 вхождение в корпусе
 - [[Ch05-S02-H01 - Definition Hahn-Banach Extension|hahn-banach extension ×2]] — заголовок `Ch05-S02-H01`, 2 вхождения в корпусе
 - [[Ch06-S04 - Applications and Limits|convex hull]] — секция `Ch06-S04`, 1 вхождение в корпусе
+- [[Ch06-S04-H03 - Basic Properties Convex Hull|convex hull]] — заголовок `Ch06-S04-H03`, 1 вхождение в корпусе
+- [[Ch06-S04-H05 - Main Theorem Hahn-Banach Extension|hahn-banach extension]] — заголовок `Ch06-S04-H05`, 1 вхождение в корпусе
+- [[Ch08-S03-H01 - Definition Convex Hull|convex hull ×2]] — заголовок `Ch08-S03-H01`, 2 вхождения в корпусе
+- [[Ch08-S03-H03 - Basic Properties Hahn-Banach Extension|hahn-banach extension ×2]] — заголовок `Ch08-S03-H03`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 17 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 17 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -30,30 +30,26 @@ $$
 
 Used together with: [[Ch09-S04-H03-B03 - Proposition 9.4.3c|Proposition 9.4.3c]], [[Ch02-S01-H02-B02 - Estimate 2.1.2b|Estimate 2.1.2b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×9]] — глава `Ch01`, 9 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (regularization, eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S03 - Main Results|eigenvalue bounds]] — секция `Ch01-S03`, 1 вхождение в корпусе
-- [[Ch01-S03-H01 - Definition Banach Limit|regularization · eigenvalue bounds ×2]] — заголовок `Ch01-S03-H01`, 2 вхождения в корпусе
-- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch01-S03-H06`, 3 вхождения в корпусе
-- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×3]] — заголовок `Ch02-S02-H04`, 3 вхождения в корпусе
+- [[Ch01-S03-H01 - Definition Banach Limit|eigenvalue bounds]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
+- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch01-S03-H06`, 2 вхождения в корпусе
+- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×2]] — заголовок `Ch02-S02-H04`, 2 вхождения в корпусе
 - [[Ch03-S02 - Core Theory|eigenvalue bounds]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch03-S02-H04`, 3 вхождения в корпусе
-- [[Ch03-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S01-H02 - Notation Regularization|regularization ×3]] — заголовок `Ch04-S01-H02`, 3 вхождения в корпусе
+- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch03-S02-H04`, 1 вхождение в корпусе
+- [[Ch04-S01-H02 - Notation Regularization|regularization]] — заголовок `Ch04-S01-H02`, 1 вхождение в корпусе
 - [[Ch05-S01-H02 - Notation Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch05-S01-H02`, 2 вхождения в корпусе
 - [[Ch05-S03-H06 - Proof and Consequences Regularization|regularization ×2]] — заголовок `Ch05-S03-H06`, 2 вхождения в корпусе
+- [[Ch06-S03-H01 - Definition Banach Limit|regularization]] — заголовок `Ch06-S03-H01`, 1 вхождение в корпусе
+- [[Ch06-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch06-S03-H06`, 1 вхождение в корпусе
+- [[Ch07-S02-H04 - Key Lemma Regularization|regularization]] — заголовок `Ch07-S02-H04`, 1 вхождение в корпусе
+- [[Ch08-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch08-S02-H04`, 2 вхождения в корпусе
+- [[Ch08-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch08-S03-H01`, 1 вхождение в корпусе
 - [[Ch09-S01 - Setup and Notation|regularization]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H02 - Notation Regularization|regularization ×2]] — заголовок `Ch09-S01-H02`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 22 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

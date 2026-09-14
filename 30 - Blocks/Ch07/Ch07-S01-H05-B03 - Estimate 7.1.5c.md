@@ -30,26 +30,24 @@ $$
 
 Used together with: [[Ch08-S02-H06-B03 - Example 8.2.6c|Example 8.2.6c]], [[Ch09-S03-H05-B03 - Estimate 9.3.5c|Estimate 9.3.5c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, closed graph) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch02-S01 - Setup and Notation|entropy bound]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×3]] — заголовок `Ch02-S01-H01`, 3 вхождения в корпусе
-- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×3]] — заголовок `Ch02-S01-H05`, 3 вхождения в корпусе
-- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph ×3]] — заголовок `Ch03-S03-H05`, 3 вхождения в корпусе
+- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×2]] — заголовок `Ch02-S01-H01`, 2 вхождения в корпусе
+- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×2]] — заголовок `Ch02-S01-H05`, 2 вхождения в корпусе
+- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph]] — заголовок `Ch03-S03-H05`, 1 вхождение в корпусе
 - [[Ch03-S04 - Applications and Limits|entropy bound]] — секция `Ch03-S04`, 1 вхождение в корпусе
-- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×3]] — заголовок `Ch03-S04-H03`, 3 вхождения в корпусе
+- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×2]] — заголовок `Ch03-S04-H03`, 2 вхождения в корпусе
 - [[Ch05-S02-H03 - Basic Properties Closed Graph|closed graph ×2]] — заголовок `Ch05-S02-H03`, 2 вхождения в корпусе
 - [[Ch05-S03 - Main Results|entropy bound]] — секция `Ch05-S03`, 1 вхождение в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|entropy bound]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
 - [[Ch07-S01 - Setup and Notation|entropy bound · closed graph ×2]] — секция `Ch07-S01`, 2 вхождения в корпусе
+- [[Ch07-S01-H01 - Definition Closed Graph|closed graph]] — заголовок `Ch07-S01-H01`, 1 вхождение в корпусе
+- [[Ch07-S01-H05 - Main Theorem Entropy Bound|entropy bound]] — заголовок `Ch07-S01-H05`, 1 вхождение в корпусе
+- [[Ch08-S03-H05 - Main Theorem Closed Graph|closed graph ×2]] — заголовок `Ch08-S03-H05`, 2 вхождения в корпусе
+- [[Ch08-S04-H03 - Basic Properties Entropy Bound|entropy bound]] — заголовок `Ch08-S04-H03`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 20 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -30,32 +30,28 @@ $$
 
 Used together with: [[Ch02-S01-H03-B02 - Example 2.1.3b|Example 2.1.3b]], [[Ch03-S02-H02-B01 - Identity 3.2.2a|Identity 3.2.2a]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, weak convergence) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S03 - Main Results|weak convergence]] — секция `Ch01-S03`, 1 вхождение в корпусе
-- [[Ch01-S03-H03 - Basic Properties Weak Convergence|weak convergence ×3]] — заголовок `Ch01-S03-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H03 - Basic Properties Weak Convergence|weak convergence]] — заголовок `Ch01-S03-H03`, 1 вхождение в корпусе
 - [[Ch02-S01 - Setup and Notation|entropy bound]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×3]] — заголовок `Ch02-S01-H05`, 3 вхождения в корпусе
+- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×2]] — заголовок `Ch02-S01-H05`, 2 вхождения в корпусе
 - [[Ch03-S02 - Core Theory|weak convergence]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H01 - Definition Weak Convergence|weak convergence ×3]] — заголовок `Ch03-S02-H01`, 3 вхождения в корпусе
+- [[Ch03-S02-H01 - Definition Weak Convergence|weak convergence ×2]] — заголовок `Ch03-S02-H01`, 2 вхождения в корпусе
 - [[Ch03-S04 - Applications and Limits|entropy bound]] — секция `Ch03-S04`, 1 вхождение в корпусе
-- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×3]] — заголовок `Ch03-S04-H03`, 3 вхождения в корпусе
-- [[Ch04-S04-H05 - Main Theorem Weak Convergence|weak convergence ×3]] — заголовок `Ch04-S04-H05`, 3 вхождения в корпусе
+- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×2]] — заголовок `Ch03-S04-H03`, 2 вхождения в корпусе
+- [[Ch04-S04-H05 - Main Theorem Weak Convergence|weak convergence]] — заголовок `Ch04-S04-H05`, 1 вхождение в корпусе
 - [[Ch05-S03 - Main Results|entropy bound]] — секция `Ch05-S03`, 1 вхождение в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|entropy bound]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
+- [[Ch06-S03-H03 - Basic Properties Weak Convergence|weak convergence ×2]] — заголовок `Ch06-S03-H03`, 2 вхождения в корпусе
 - [[Ch07-S01 - Setup and Notation|entropy bound]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H05 - Main Theorem Entropy Bound|entropy bound]] — заголовок `Ch07-S01-H05`, 1 вхождение в корпусе
 - [[Ch08-S02 - Core Theory|weak convergence]] — секция `Ch08-S02`, 1 вхождение в корпусе
+- [[Ch08-S02-H01 - Definition Weak Convergence|weak convergence]] — заголовок `Ch08-S02-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H03 - Basic Properties Entropy Bound|entropy bound]] — заголовок `Ch08-S04-H03`, 1 вхождение в корпусе
+- [[Ch09-S04-H05 - Main Theorem Weak Convergence|weak convergence ×2]] — заголовок `Ch09-S04-H05`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 23 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

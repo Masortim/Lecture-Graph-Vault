@@ -30,27 +30,23 @@ $$
 
 Used together with: [[Ch06-S01-H04-B02 - Proposition 6.1.4b|Proposition 6.1.4b]], [[Ch07-S02-H03-B02 - Example 7.2.3b|Example 7.2.3b]].
 
-## Related chapters
-
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (kernel and range, kernel matrix) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H05 - Main Theorem Kernel and Range|kernel and range ×3]] — заголовок `Ch01-S03-H05`, 3 вхождения в корпусе
-- [[Ch01-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch01-S04-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×3]] — заголовок `Ch02-S02-H06`, 3 вхождения в корпусе
-- [[Ch03-S02-H03 - Basic Properties Kernel and Range|kernel and range ×3]] — заголовок `Ch03-S02-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H05 - Main Theorem Kernel and Range|kernel and range]] — заголовок `Ch01-S03-H05`, 1 вхождение в корпусе
+- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×2]] — заголовок `Ch02-S02-H06`, 2 вхождения в корпусе
+- [[Ch03-S02-H03 - Basic Properties Kernel and Range|kernel and range ×2]] — заголовок `Ch03-S02-H03`, 2 вхождения в корпусе
 - [[Ch04-S01 - Setup and Notation|kernel matrix]] — секция `Ch04-S01`, 1 вхождение в корпусе
-- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×3]] — заголовок `Ch04-S01-H04`, 3 вхождения в корпусе
+- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix]] — заголовок `Ch04-S01-H04`, 1 вхождение в корпусе
 - [[Ch05-S01-H01 - Definition Kernel and Range|kernel and range]] — заголовок `Ch05-S01-H01`, 1 вхождение в корпусе
 - [[Ch05-S04-H02 - Notation Kernel Matrix|kernel matrix]] — заголовок `Ch05-S04-H02`, 1 вхождение в корпусе
+- [[Ch06-S03-H05 - Main Theorem Kernel and Range|kernel and range ×2]] — заголовок `Ch06-S03-H05`, 2 вхождения в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
 - [[Ch07-S02 - Core Theory|kernel matrix]] — секция `Ch07-S02`, 1 вхождение в корпусе
+- [[Ch07-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix]] — заголовок `Ch07-S02-H06`, 1 вхождение в корпусе
+- [[Ch08-S02-H03 - Basic Properties Kernel and Range|kernel and range]] — заголовок `Ch08-S02-H03`, 1 вхождение в корпусе
+- [[Ch09-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×2]] — заголовок `Ch09-S01-H04`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 17 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 17 · глава Ch06 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

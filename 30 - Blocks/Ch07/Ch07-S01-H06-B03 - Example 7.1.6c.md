@@ -30,25 +30,22 @@ $$
 
 Used together with: [[Ch08-S04-H02-B03 - Example 8.4.2c|Example 8.4.2c]], [[Ch01-S01-H01-B03 - Estimate 1.1.1c|Estimate 1.1.1c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (concentration inequality, feature map) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality ×3]] — заголовок `Ch02-S01-H06`, 3 вхождения в корпусе
-- [[Ch02-S02-H05 - Main Theorem Feature Map|feature map ×3]] — заголовок `Ch02-S02-H05`, 3 вхождения в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|concentration inequality]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S04-H04 - Key Lemma Concentration Inequality|concentration inequality ×3]] — заголовок `Ch03-S04-H04`, 3 вхождения в корпусе
-- [[Ch04-S01-H03 - Basic Properties Feature Map|feature map ×3]] — заголовок `Ch04-S01-H03`, 3 вхождения в корпусе
+- [[Ch02-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality]] — заголовок `Ch02-S01-H06`, 1 вхождение в корпусе
+- [[Ch02-S02-H05 - Main Theorem Feature Map|feature map]] — заголовок `Ch02-S02-H05`, 1 вхождение в корпусе
+- [[Ch03-S04-H04 - Key Lemma Concentration Inequality|concentration inequality]] — заголовок `Ch03-S04-H04`, 1 вхождение в корпусе
+- [[Ch04-S01-H03 - Basic Properties Feature Map|feature map ×2]] — заголовок `Ch04-S01-H03`, 2 вхождения в корпусе
 - [[Ch05-S03-H02 - Notation Concentration Inequality|concentration inequality ×2]] — заголовок `Ch05-S03-H02`, 2 вхождения в корпусе
 - [[Ch05-S04-H01 - Definition Feature Map|feature map ×2]] — заголовок `Ch05-S04-H01`, 2 вхождения в корпусе
+- [[Ch07-S01-H06 - Proof and Consequences Concentration Inequality|concentration inequality ×2]] — заголовок `Ch07-S01-H06`, 2 вхождения в корпусе
 - [[Ch07-S02 - Core Theory|feature map]] — секция `Ch07-S02`, 1 вхождение в корпусе
+- [[Ch07-S02-H05 - Main Theorem Feature Map|feature map ×2]] — заголовок `Ch07-S02-H05`, 2 вхождения в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|concentration inequality]] — заголовок `Ch08-S01-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H04 - Key Lemma Concentration Inequality|concentration inequality ×2]] — заголовок `Ch08-S04-H04`, 2 вхождения в корпусе
+- [[Ch09-S01-H03 - Basic Properties Feature Map|feature map]] — заголовок `Ch09-S01-H03`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 18 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 18 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

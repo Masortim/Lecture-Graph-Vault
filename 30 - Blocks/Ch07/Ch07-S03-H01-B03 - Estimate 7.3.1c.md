@@ -30,29 +30,24 @@ $$
 
 Used together with: [[Ch01-S04-H04-B02 - Proposition 1.4.4b|Proposition 1.4.4b]], [[Ch03-S01-H03-B02 - Example 3.1.3b|Example 3.1.3b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×5]] — глава `Ch05`, 5 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — глава `Ch03`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity, regularization) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H01 - Definition Banach Limit|regularization]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×3]] — заголовок `Ch02-S02-H04`, 3 вхождения в корпусе
-- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×3]] — заголовок `Ch02-S03-H01`, 3 вхождения в корпусе
-- [[Ch03-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S01-H02 - Notation Regularization|regularization ×3]] — заголовок `Ch04-S01-H02`, 3 вхождения в корпусе
-- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×3]] — заголовок `Ch04-S01-H05`, 3 вхождения в корпусе
+- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×2]] — заголовок `Ch02-S02-H04`, 2 вхождения в корпусе
+- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×2]] — заголовок `Ch02-S03-H01`, 2 вхождения в корпусе
+- [[Ch04-S01-H02 - Notation Regularization|regularization]] — заголовок `Ch04-S01-H02`, 1 вхождение в корпусе
+- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×2]] — заголовок `Ch04-S01-H05`, 2 вхождения в корпусе
 - [[Ch05-S03-H06 - Proof and Consequences Regularization|regularization ×2]] — заголовок `Ch05-S03-H06`, 2 вхождения в корпусе
 - [[Ch05-S04 - Applications and Limits|sample complexity]] — секция `Ch05-S04`, 1 вхождение в корпусе
 - [[Ch05-S04-H03 - Basic Properties Sample Complexity|sample complexity ×2]] — заголовок `Ch05-S04-H03`, 2 вхождения в корпусе
+- [[Ch06-S03-H01 - Definition Banach Limit|regularization]] — заголовок `Ch06-S03-H01`, 1 вхождение в корпусе
+- [[Ch07-S02-H04 - Key Lemma Regularization|regularization]] — заголовок `Ch07-S02-H04`, 1 вхождение в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|sample complexity]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch08-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch08-S03-H01`, 1 вхождение в корпусе
 - [[Ch09-S01 - Setup and Notation|regularization]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H02 - Notation Regularization|regularization ×2]] — заголовок `Ch09-S01-H02`, 2 вхождения в корпусе
+- [[Ch09-S01-H05 - Main Theorem Sample Complexity|sample complexity]] — заголовок `Ch09-S01-H05`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 20 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 20 · глава Ch05 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

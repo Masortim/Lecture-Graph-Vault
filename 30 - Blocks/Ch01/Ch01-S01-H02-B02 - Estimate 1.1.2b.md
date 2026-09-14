@@ -30,33 +30,29 @@ $$
 
 Used together with: [[Ch01-S03-H02-B03 - Example 1.3.2c|Example 1.3.2c]], [[Ch02-S04-H01-B03 - Estimate 2.4.1c|Estimate 2.4.1c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — глава `Ch03`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (linear operator, vector space) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S01 - Setup and Notation|linear operator]] — секция `Ch01-S01`, 1 вхождение в корпусе
-- [[Ch01-S01-H01 - Definition Vector Space|vector space ×3]] — заголовок `Ch01-S01-H01`, 3 вхождения в корпусе
-- [[Ch01-S01-H02 - Notation Linear Operator|linear operator ×3]] — заголовок `Ch01-S01-H02`, 3 вхождения в корпусе
+- [[Ch01-S01-H01 - Definition Vector Space|vector space]] — заголовок `Ch01-S01-H01`, 1 вхождение в корпусе
+- [[Ch01-S01-H02 - Notation Linear Operator|linear operator ×2]] — заголовок `Ch01-S01-H02`, 2 вхождения в корпусе
 - [[Ch02-S03 - Main Results|linear operator]] — секция `Ch02-S03`, 1 вхождение в корпусе
-- [[Ch02-S03-H05 - Main Theorem Vector Space|vector space ×3]] — заголовок `Ch02-S03-H05`, 3 вхождения в корпусе
-- [[Ch02-S03-H06 - Proof and Consequences Linear Operator|linear operator ×3]] — заголовок `Ch02-S03-H06`, 3 вхождения в корпусе
+- [[Ch02-S03-H05 - Main Theorem Vector Space|vector space ×2]] — заголовок `Ch02-S03-H05`, 2 вхождения в корпусе
+- [[Ch02-S03-H06 - Proof and Consequences Linear Operator|linear operator]] — заголовок `Ch02-S03-H06`, 1 вхождение в корпусе
 - [[Ch03-S03-H01 - Definition Convex Hull|linear operator]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S02-H03 - Basic Properties Vector Space|vector space ×3]] — заголовок `Ch04-S02-H03`, 3 вхождения в корпусе
-- [[Ch04-S02-H04 - Key Lemma Linear Operator|linear operator ×3]] — заголовок `Ch04-S02-H04`, 3 вхождения в корпусе
+- [[Ch04-S02-H03 - Basic Properties Vector Space|vector space]] — заголовок `Ch04-S02-H03`, 1 вхождение в корпусе
+- [[Ch04-S02-H04 - Key Lemma Linear Operator|linear operator ×2]] — заголовок `Ch04-S02-H04`, 2 вхождения в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|linear operator]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
 - [[Ch06-S01 - Setup and Notation|linear operator]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H01 - Definition Vector Space|vector space ×2]] — заголовок `Ch06-S01-H01`, 2 вхождения в корпусе
+- [[Ch06-S01-H02 - Notation Linear Operator|linear operator]] — заголовок `Ch06-S01-H02`, 1 вхождение в корпусе
 - [[Ch07-S03 - Main Results|linear operator]] — секция `Ch07-S03`, 1 вхождение в корпусе
+- [[Ch07-S03-H05 - Main Theorem Vector Space|vector space]] — заголовок `Ch07-S03-H05`, 1 вхождение в корпусе
+- [[Ch07-S03-H06 - Proof and Consequences Linear Operator|linear operator ×2]] — заголовок `Ch07-S03-H06`, 2 вхождения в корпусе
 - [[Ch09-S02 - Core Theory|linear operator]] — секция `Ch09-S02`, 1 вхождение в корпусе
+- [[Ch09-S02-H03 - Basic Properties Vector Space|vector space ×2]] — заголовок `Ch09-S02-H03`, 2 вхождения в корпусе
+- [[Ch09-S02-H04 - Key Lemma Linear Operator|linear operator]] — заголовок `Ch09-S02-H04`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 25 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

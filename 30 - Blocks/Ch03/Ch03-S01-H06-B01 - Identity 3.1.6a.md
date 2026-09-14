@@ -29,27 +29,27 @@ $$
 
 Used together with: [[Ch07-S03-H04-B03 - Identity 7.3.4c|Identity 7.3.4c]], [[Ch08-S04-H03-B03 - Proposition 8.4.3c|Proposition 8.4.3c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×13]] — глава `Ch01`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (hilbert decomposition, weak convergence) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S03 - Main Results|weak convergence]] — секция `Ch01-S03`, 1 вхождение в корпусе
-- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch01-S03-H02`, 3 вхождения в корпусе
-- [[Ch01-S03-H03 - Basic Properties Weak Convergence|weak convergence ×3]] — заголовок `Ch01-S03-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch01-S03-H02`, 2 вхождения в корпусе
+- [[Ch01-S03-H03 - Basic Properties Weak Convergence|weak convergence]] — заголовок `Ch01-S03-H03`, 1 вхождение в корпусе
 - [[Ch03-S01 - Setup and Notation|hilbert decomposition]] — секция `Ch03-S01`, 1 вхождение в корпусе
 - [[Ch03-S01-H01 - Definition Spectral Theorem|hilbert decomposition]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch03-S01-H06`, 3 вхождения в корпусе
+- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch03-S01-H06`, 2 вхождения в корпусе
 - [[Ch03-S02 - Core Theory|weak convergence]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H01 - Definition Weak Convergence|weak convergence ×3]] — заголовок `Ch03-S02-H01`, 3 вхождения в корпусе
-- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch04-S04-H04`, 3 вхождения в корпусе
-- [[Ch04-S04-H05 - Main Theorem Weak Convergence|weak convergence ×3]] — заголовок `Ch04-S04-H05`, 3 вхождения в корпусе
+- [[Ch03-S02-H01 - Definition Weak Convergence|weak convergence ×2]] — заголовок `Ch03-S02-H01`, 2 вхождения в корпусе
+- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch04-S04-H04`, 2 вхождения в корпусе
+- [[Ch04-S04-H05 - Main Theorem Weak Convergence|weak convergence]] — заголовок `Ch04-S04-H05`, 1 вхождение в корпусе
+- [[Ch06-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch06-S03-H02`, 1 вхождение в корпусе
+- [[Ch06-S03-H03 - Basic Properties Weak Convergence|weak convergence ×2]] — заголовок `Ch06-S03-H03`, 2 вхождения в корпусе
+- [[Ch08-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch08-S01-H06`, 1 вхождение в корпусе
 - [[Ch08-S02 - Core Theory|weak convergence]] — секция `Ch08-S02`, 1 вхождение в корпусе
+- [[Ch08-S02-H01 - Definition Weak Convergence|weak convergence]] — заголовок `Ch08-S02-H01`, 1 вхождение в корпусе
+- [[Ch09-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch09-S04-H04`, 1 вхождение в корпусе
+- [[Ch09-S04-H05 - Main Theorem Weak Convergence|weak convergence ×2]] — заголовок `Ch09-S04-H05`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 23 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

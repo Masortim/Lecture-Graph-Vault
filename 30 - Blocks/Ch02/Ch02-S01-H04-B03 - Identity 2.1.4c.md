@@ -29,31 +29,27 @@ $$
 
 Used together with: [[Ch09-S01-H06-B03 - Example 9.1.6c|Example 9.1.6c]], [[Ch01-S02-H05-B03 - Estimate 1.2.5c|Estimate 1.2.5c]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×13]] — глава `Ch03`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems]] — глава `Ch04`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (radon-nikodym derivative, closed graph) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch02-S01 - Setup and Notation|radon-nikodym derivative]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×3]] — заголовок `Ch02-S01-H01`, 3 вхождения в корпусе
-- [[Ch02-S01-H04 - Key Lemma Radon-Nikodym Derivative|radon-nikodym derivative ×3]] — заголовок `Ch02-S01-H04`, 3 вхождения в корпусе
-- [[Ch02-S04-H01 - Definition Compact Set|radon-nikodym derivative]] — заголовок `Ch02-S04-H01`, 1 вхождение в корпусе
-- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph ×3]] — заголовок `Ch03-S03-H05`, 3 вхождения в корпусе
+- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×2]] — заголовок `Ch02-S01-H01`, 2 вхождения в корпусе
+- [[Ch02-S01-H04 - Key Lemma Radon-Nikodym Derivative|radon-nikodym derivative]] — заголовок `Ch02-S01-H04`, 1 вхождение в корпусе
+- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph]] — заголовок `Ch03-S03-H05`, 1 вхождение в корпусе
 - [[Ch03-S04 - Applications and Limits|radon-nikodym derivative]] — секция `Ch03-S04`, 1 вхождение в корпусе
-- [[Ch03-S04-H02 - Notation Radon-Nikodym Derivative|radon-nikodym derivative ×3]] — заголовок `Ch03-S04-H02`, 3 вхождения в корпусе
-- [[Ch04-S04-H01 - Definition Contraction Mapping|radon-nikodym derivative]] — заголовок `Ch04-S04-H01`, 1 вхождение в корпусе
+- [[Ch03-S04-H02 - Notation Radon-Nikodym Derivative|radon-nikodym derivative]] — заголовок `Ch03-S04-H02`, 1 вхождение в корпусе
 - [[Ch05-S02 - Core Theory|radon-nikodym derivative]] — секция `Ch05-S02`, 1 вхождение в корпусе
 - [[Ch05-S02-H03 - Basic Properties Closed Graph|closed graph ×2]] — заголовок `Ch05-S02-H03`, 2 вхождения в корпусе
 - [[Ch05-S02-H06 - Proof and Consequences Radon-Nikodym Derivative|radon-nikodym derivative]] — заголовок `Ch05-S02-H06`, 1 вхождение в корпусе
 - [[Ch07-S01 - Setup and Notation|closed graph]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H01 - Definition Closed Graph|closed graph]] — заголовок `Ch07-S01-H01`, 1 вхождение в корпусе
+- [[Ch07-S01-H04 - Key Lemma Radon-Nikodym Derivative|radon-nikodym derivative ×2]] — заголовок `Ch07-S01-H04`, 2 вхождения в корпусе
+- [[Ch07-S04-H01 - Definition Compact Set|radon-nikodym derivative]] — заголовок `Ch07-S04-H01`, 1 вхождение в корпусе
+- [[Ch08-S03-H05 - Main Theorem Closed Graph|closed graph ×2]] — заголовок `Ch08-S03-H05`, 2 вхождения в корпусе
 - [[Ch08-S04 - Applications and Limits|radon-nikodym derivative]] — секция `Ch08-S04`, 1 вхождение в корпусе
+- [[Ch08-S04-H02 - Notation Radon-Nikodym Derivative|radon-nikodym derivative ×2]] — заголовок `Ch08-S04-H02`, 2 вхождения в корпусе
+- [[Ch09-S04-H01 - Definition Contraction Mapping|radon-nikodym derivative]] — заголовок `Ch09-S04-H01`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 22 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 22 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

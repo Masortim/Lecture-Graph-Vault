@@ -29,21 +29,17 @@ $$
 
 Used together with: [[Ch04-S01-H06-B03 - Example 4.1.6c|Example 4.1.6c]], [[Ch05-S02-H05-B03 - Estimate 5.2.5c|Estimate 5.2.5c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (duality gap) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S02-H03 - Basic Properties Duality Gap|duality gap ×3]] — заголовок `Ch02-S02-H03`, 3 вхождения в корпусе
+- [[Ch02-S02-H03 - Basic Properties Duality Gap|duality gap]] — заголовок `Ch02-S02-H03`, 1 вхождение в корпусе
 - [[Ch04-S01 - Setup and Notation|duality gap]] — секция `Ch04-S01`, 1 вхождение в корпусе
-- [[Ch04-S01-H01 - Definition Duality Gap|duality gap ×3]] — заголовок `Ch04-S01-H01`, 3 вхождения в корпусе
+- [[Ch04-S01-H01 - Definition Duality Gap|duality gap ×2]] — заголовок `Ch04-S01-H01`, 2 вхождения в корпусе
 - [[Ch05-S03-H05 - Main Theorem Duality Gap|duality gap]] — заголовок `Ch05-S03-H05`, 1 вхождение в корпусе
+- [[Ch07-S02-H03 - Basic Properties Duality Gap|duality gap ×2]] — заголовок `Ch07-S02-H03`, 2 вхождения в корпусе
 - [[Ch09-S01 - Setup and Notation|duality gap]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H01 - Definition Duality Gap|duality gap]] — заголовок `Ch09-S01-H01`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 9 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

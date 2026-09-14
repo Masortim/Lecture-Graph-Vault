@@ -30,23 +30,20 @@ $$
 
 Used together with: [[Ch06-S01-H03-B02 - Example 6.1.3b|Example 6.1.3b]], [[Ch07-S02-H02-B01 - Identity 7.2.2a|Identity 7.2.2a]].
 
-## Related chapters
-
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (adjoint operator) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S02-H02 - Notation Adjoint Operator|adjoint operator ×3]] — заголовок `Ch01-S02-H02`, 3 вхождения в корпусе
+- [[Ch01-S02-H02 - Notation Adjoint Operator|adjoint operator]] — заголовок `Ch01-S02-H02`, 1 вхождение в корпусе
 - [[Ch02-S02-H01 - Definition Gradient Descent|adjoint operator]] — заголовок `Ch02-S02-H01`, 1 вхождение в корпусе
 - [[Ch02-S04 - Applications and Limits|adjoint operator]] — секция `Ch02-S04`, 1 вхождение в корпусе
-- [[Ch02-S04-H06 - Proof and Consequences Adjoint Operator|adjoint operator ×3]] — заголовок `Ch02-S04-H06`, 3 вхождения в корпусе
+- [[Ch02-S04-H06 - Proof and Consequences Adjoint Operator|adjoint operator ×2]] — заголовок `Ch02-S04-H06`, 2 вхождения в корпусе
 - [[Ch04-S02-H01 - Definition Spectral Gap|adjoint operator]] — заголовок `Ch04-S02-H01`, 1 вхождение в корпусе
-- [[Ch04-S03-H04 - Key Lemma Adjoint Operator|adjoint operator ×3]] — заголовок `Ch04-S03-H04`, 3 вхождения в корпусе
+- [[Ch04-S03-H04 - Key Lemma Adjoint Operator|adjoint operator]] — заголовок `Ch04-S03-H04`, 1 вхождение в корпусе
+- [[Ch06-S02-H02 - Notation Adjoint Operator|adjoint operator ×2]] — заголовок `Ch06-S02-H02`, 2 вхождения в корпусе
+- [[Ch07-S04-H06 - Proof and Consequences Adjoint Operator|adjoint operator]] — заголовок `Ch07-S04-H06`, 1 вхождение в корпусе
 - [[Ch09-S03 - Main Results|adjoint operator]] — секция `Ch09-S03`, 1 вхождение в корпусе
+- [[Ch09-S03-H04 - Key Lemma Adjoint Operator|adjoint operator ×2]] — заголовок `Ch09-S03-H04`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 13 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

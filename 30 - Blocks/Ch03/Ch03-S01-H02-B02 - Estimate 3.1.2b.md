@@ -30,27 +30,27 @@ $$
 
 Used together with: [[Ch06-S03-H02-B03 - Example 6.3.2c|Example 6.3.2c]], [[Ch07-S04-H01-B03 - Estimate 7.4.1c|Estimate 7.4.1c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×8]] — глава `Ch02`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×8]] — глава `Ch04`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (norm equivalence, uniform boundedness) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|norm equivalence]] — секция `Ch01-S02`, 1 вхождение в корпусе
-- [[Ch01-S02-H04 - Key Lemma Norm Equivalence|norm equivalence ×3]] — заголовок `Ch01-S02-H04`, 3 вхождения в корпусе
-- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch02-S01-H02`, 3 вхождения в корпусе
-- [[Ch02-S03-H01 - Definition Sample Complexity|norm equivalence · uniform boundedness ×2]] — заголовок `Ch02-S03-H01`, 2 вхождения в корпусе
+- [[Ch01-S02-H04 - Key Lemma Norm Equivalence|norm equivalence]] — заголовок `Ch01-S02-H04`, 1 вхождение в корпусе
+- [[Ch02-S01-H02 - Notation Uniform Boundedness|uniform boundedness]] — заголовок `Ch02-S01-H02`, 1 вхождение в корпусе
+- [[Ch02-S03-H01 - Definition Sample Complexity|norm equivalence]] — заголовок `Ch02-S03-H01`, 1 вхождение в корпусе
 - [[Ch03-S01 - Setup and Notation|norm equivalence]] — секция `Ch03-S01`, 1 вхождение в корпусе
-- [[Ch03-S01-H02 - Notation Norm Equivalence|norm equivalence ×3]] — заголовок `Ch03-S01-H02`, 3 вхождения в корпусе
-- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×3]] — заголовок `Ch03-S03-H06`, 3 вхождения в корпусе
-- [[Ch04-S03-H01 - Definition Orthogonal Projection|norm equivalence · uniform boundedness ×2]] — заголовок `Ch04-S03-H01`, 2 вхождения в корпусе
-- [[Ch04-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence ×3]] — заголовок `Ch04-S03-H06`, 3 вхождения в корпусе
+- [[Ch03-S01-H02 - Notation Norm Equivalence|norm equivalence ×2]] — заголовок `Ch03-S01-H02`, 2 вхождения в корпусе
+- [[Ch03-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch03-S03-H06`, 2 вхождения в корпусе
+- [[Ch04-S03-H01 - Definition Orthogonal Projection|norm equivalence]] — заголовок `Ch04-S03-H01`, 1 вхождение в корпусе
+- [[Ch04-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence]] — заголовок `Ch04-S03-H06`, 1 вхождение в корпусе
 - [[Ch05-S02-H04 - Key Lemma Uniform Boundedness|uniform boundedness]] — заголовок `Ch05-S02-H04`, 1 вхождение в корпусе
+- [[Ch06-S02-H04 - Key Lemma Norm Equivalence|norm equivalence ×2]] — заголовок `Ch06-S02-H04`, 2 вхождения в корпусе
+- [[Ch07-S01-H02 - Notation Uniform Boundedness|uniform boundedness ×2]] — заголовок `Ch07-S01-H02`, 2 вхождения в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|uniform boundedness]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch08-S01-H02 - Notation Norm Equivalence|norm equivalence]] — заголовок `Ch08-S01-H02`, 1 вхождение в корпусе
+- [[Ch08-S03-H06 - Proof and Consequences Uniform Boundedness|uniform boundedness]] — заголовок `Ch08-S03-H06`, 1 вхождение в корпусе
+- [[Ch09-S03-H01 - Definition Orthogonal Projection|uniform boundedness]] — заголовок `Ch09-S03-H01`, 1 вхождение в корпусе
+- [[Ch09-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence ×2]] — заголовок `Ch09-S03-H06`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 22 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

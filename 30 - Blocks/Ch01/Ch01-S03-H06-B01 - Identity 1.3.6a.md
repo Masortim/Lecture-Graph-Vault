@@ -29,21 +29,18 @@ $$
 
 Used together with: [[Ch06-S01-H06-B02 - Estimate 6.1.6b|Estimate 6.1.6b]], [[Ch07-S02-H05-B02 - Identity 7.2.5b|Identity 7.2.5b]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S03 - Main Results|eigenvalue bounds]] — секция `Ch01-S03`, 1 вхождение в корпусе
 - [[Ch01-S03-H01 - Definition Banach Limit|eigenvalue bounds]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
-- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch01-S03-H06`, 3 вхождения в корпусе
+- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch01-S03-H06`, 2 вхождения в корпусе
 - [[Ch03-S02 - Core Theory|eigenvalue bounds]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch03-S02-H04`, 3 вхождения в корпусе
+- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch03-S02-H04`, 1 вхождение в корпусе
 - [[Ch05-S01-H02 - Notation Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch05-S01-H02`, 2 вхождения в корпусе
+- [[Ch06-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch06-S03-H06`, 1 вхождение в корпусе
+- [[Ch08-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch08-S02-H04`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 11 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

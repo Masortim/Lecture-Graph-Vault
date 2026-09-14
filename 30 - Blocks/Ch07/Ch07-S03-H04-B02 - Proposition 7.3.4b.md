@@ -28,22 +28,18 @@ $$
 
 Used together with: [[Ch02-S03-H06-B02 - Estimate 2.3.6b|Estimate 2.3.6b]], [[Ch03-S04-H05-B02 - Identity 3.4.5b|Identity 3.4.5b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×8]] — глава `Ch02`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (markov chain) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S02-H01 - Definition Gradient Descent|markov chain]] — заголовок `Ch02-S02-H01`, 1 вхождение в корпусе
 - [[Ch02-S03 - Main Results|markov chain]] — секция `Ch02-S03`, 1 вхождение в корпусе
-- [[Ch02-S03-H04 - Key Lemma Markov Chain|markov chain ×3]] — заголовок `Ch02-S03-H04`, 3 вхождения в корпусе
-- [[Ch04-S02-H02 - Notation Markov Chain|markov chain ×3]] — заголовок `Ch04-S02-H02`, 3 вхождения в корпусе
+- [[Ch02-S03-H04 - Key Lemma Markov Chain|markov chain]] — заголовок `Ch02-S03-H04`, 1 вхождение в корпусе
+- [[Ch04-S02-H02 - Notation Markov Chain|markov chain ×2]] — заголовок `Ch04-S02-H02`, 2 вхождения в корпусе
 - [[Ch05-S02-H01 - Definition Hahn-Banach Extension|markov chain]] — заголовок `Ch05-S02-H01`, 1 вхождение в корпусе
 - [[Ch05-S04-H06 - Proof and Consequences Markov Chain|markov chain]] — заголовок `Ch05-S04-H06`, 1 вхождение в корпусе
+- [[Ch07-S02-H01 - Definition Gradient Descent|markov chain]] — заголовок `Ch07-S02-H01`, 1 вхождение в корпусе
+- [[Ch07-S03-H04 - Key Lemma Markov Chain|markov chain ×2]] — заголовок `Ch07-S03-H04`, 2 вхождения в корпусе
+- [[Ch09-S02-H02 - Notation Markov Chain|markov chain]] — заголовок `Ch09-S02-H02`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 10 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 10 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -29,28 +29,24 @@ $$
 
 Used together with: [[Ch09-S01-H05-B03 - Estimate 9.1.5c|Estimate 9.1.5c]], [[Ch01-S02-H04-B02 - Proposition 1.2.4b|Proposition 1.2.4b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×8]] — глава `Ch01`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (singular values, regularization) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H01 - Definition Banach Limit|regularization]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
 - [[Ch01-S04 - Applications and Limits|singular values]] — секция `Ch01-S04`, 1 вхождение в корпусе
-- [[Ch01-S04-H01 - Definition Singular Values|singular values ×3]] — заголовок `Ch01-S04-H01`, 3 вхождения в корпусе
-- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×3]] — заголовок `Ch02-S02-H04`, 3 вхождения в корпусе
-- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×3]] — заголовок `Ch03-S02-H05`, 3 вхождения в корпусе
-- [[Ch03-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S01-H02 - Notation Regularization|regularization ×3]] — заголовок `Ch04-S01-H02`, 3 вхождения в корпусе
+- [[Ch01-S04-H01 - Definition Singular Values|singular values ×2]] — заголовок `Ch01-S04-H01`, 2 вхождения в корпусе
+- [[Ch02-S02-H04 - Key Lemma Regularization|regularization ×2]] — заголовок `Ch02-S02-H04`, 2 вхождения в корпусе
+- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×2]] — заголовок `Ch03-S02-H05`, 2 вхождения в корпусе
+- [[Ch04-S01-H02 - Notation Regularization|regularization]] — заголовок `Ch04-S01-H02`, 1 вхождение в корпусе
 - [[Ch05-S01-H03 - Basic Properties Singular Values|singular values]] — заголовок `Ch05-S01-H03`, 1 вхождение в корпусе
 - [[Ch05-S03-H06 - Proof and Consequences Regularization|regularization ×2]] — заголовок `Ch05-S03-H06`, 2 вхождения в корпусе
+- [[Ch06-S03-H01 - Definition Banach Limit|regularization]] — заголовок `Ch06-S03-H01`, 1 вхождение в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|singular values]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
+- [[Ch07-S02-H04 - Key Lemma Regularization|regularization]] — заголовок `Ch07-S02-H04`, 1 вхождение в корпусе
+- [[Ch08-S02-H05 - Main Theorem Singular Values|singular values]] — заголовок `Ch08-S02-H05`, 1 вхождение в корпусе
+- [[Ch08-S03-H01 - Definition Convex Hull|regularization]] — заголовок `Ch08-S03-H01`, 1 вхождение в корпусе
 - [[Ch09-S01 - Setup and Notation|regularization]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H02 - Notation Regularization|regularization ×2]] — заголовок `Ch09-S01-H02`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 19 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

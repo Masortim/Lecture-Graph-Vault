@@ -30,32 +30,29 @@ $$
 
 Used together with: [[Ch05-S03-H02-B03 - Example 5.3.2c|Example 5.3.2c]], [[Ch06-S04-H01-B03 - Estimate 6.4.1c|Estimate 6.4.1c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×14]] — глава `Ch01`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×14]] — глава `Ch03`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (norm equivalence, spectral theorem) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|norm equivalence · spectral theorem ×2]] — секция `Ch01-S02`, 2 вхождения в корпусе
-- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×3]] — заголовок `Ch01-S02-H03`, 3 вхождения в корпусе
-- [[Ch01-S02-H04 - Key Lemma Norm Equivalence|norm equivalence ×3]] — заголовок `Ch01-S02-H04`, 3 вхождения в корпусе
+- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×2]] — заголовок `Ch01-S02-H03`, 2 вхождения в корпусе
+- [[Ch01-S02-H04 - Key Lemma Norm Equivalence|norm equivalence]] — заголовок `Ch01-S02-H04`, 1 вхождение в корпусе
 - [[Ch02-S03-H01 - Definition Sample Complexity|norm equivalence]] — заголовок `Ch02-S03-H01`, 1 вхождение в корпусе
 - [[Ch03-S01 - Setup and Notation|norm equivalence · spectral theorem ×2]] — секция `Ch03-S01`, 2 вхождения в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem ×3]] — заголовок `Ch03-S01-H01`, 3 вхождения в корпусе
-- [[Ch03-S01-H02 - Notation Norm Equivalence|norm equivalence ×3]] — заголовок `Ch03-S01-H02`, 3 вхождения в корпусе
+- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
+- [[Ch03-S01-H02 - Notation Norm Equivalence|norm equivalence ×2]] — заголовок `Ch03-S01-H02`, 2 вхождения в корпусе
 - [[Ch04-S03-H01 - Definition Orthogonal Projection|norm equivalence]] — заголовок `Ch04-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×3]] — заголовок `Ch04-S03-H05`, 3 вхождения в корпусе
-- [[Ch04-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence ×3]] — заголовок `Ch04-S03-H06`, 3 вхождения в корпусе
+- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×2]] — заголовок `Ch04-S03-H05`, 2 вхождения в корпусе
+- [[Ch04-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence]] — заголовок `Ch04-S03-H06`, 1 вхождение в корпусе
 - [[Ch06-S02 - Core Theory|spectral theorem]] — секция `Ch06-S02`, 1 вхождение в корпусе
+- [[Ch06-S02-H03 - Basic Properties Spectral Theorem|spectral theorem]] — заголовок `Ch06-S02-H03`, 1 вхождение в корпусе
+- [[Ch06-S02-H04 - Key Lemma Norm Equivalence|norm equivalence ×2]] — заголовок `Ch06-S02-H04`, 2 вхождения в корпусе
 - [[Ch08-S01 - Setup and Notation|spectral theorem]] — секция `Ch08-S01`, 1 вхождение в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|spectral theorem ×2]] — заголовок `Ch08-S01-H01`, 2 вхождения в корпусе
+- [[Ch08-S01-H02 - Notation Norm Equivalence|norm equivalence]] — заголовок `Ch08-S01-H02`, 1 вхождение в корпусе
 - [[Ch09-S03 - Main Results|spectral theorem]] — секция `Ch09-S03`, 1 вхождение в корпусе
+- [[Ch09-S03-H05 - Main Theorem Spectral Theorem|spectral theorem]] — заголовок `Ch09-S03-H05`, 1 вхождение в корпусе
+- [[Ch09-S03-H06 - Proof and Consequences Norm Equivalence|norm equivalence ×2]] — заголовок `Ch09-S03-H06`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 27 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

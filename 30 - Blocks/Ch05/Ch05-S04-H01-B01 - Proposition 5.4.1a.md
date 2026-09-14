@@ -28,26 +28,23 @@ $$
 
 Used together with: [[Ch07-S03-H01-B02 - Identity 7.3.1b|Identity 7.3.1b]], [[Ch08-S03-H06-B01 - Identity 8.3.6a|Identity 8.3.6a]].
 
-## Related chapters
-
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality ×2]] — глава `Ch07`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion]] — глава `Ch01`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (feature map, kernel matrix) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch01-S04-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H05 - Main Theorem Feature Map|feature map ×3]] — заголовок `Ch02-S02-H05`, 3 вхождения в корпусе
-- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×3]] — заголовок `Ch02-S02-H06`, 3 вхождения в корпусе
+- [[Ch02-S02-H05 - Main Theorem Feature Map|feature map]] — заголовок `Ch02-S02-H05`, 1 вхождение в корпусе
+- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×2]] — заголовок `Ch02-S02-H06`, 2 вхождения в корпусе
 - [[Ch04-S01 - Setup and Notation|kernel matrix]] — секция `Ch04-S01`, 1 вхождение в корпусе
-- [[Ch04-S01-H03 - Basic Properties Feature Map|feature map ×3]] — заголовок `Ch04-S01-H03`, 3 вхождения в корпусе
-- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×3]] — заголовок `Ch04-S01-H04`, 3 вхождения в корпусе
+- [[Ch04-S01-H03 - Basic Properties Feature Map|feature map ×2]] — заголовок `Ch04-S01-H03`, 2 вхождения в корпусе
+- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix]] — заголовок `Ch04-S01-H04`, 1 вхождение в корпусе
 - [[Ch05-S04-H01 - Definition Feature Map|feature map ×2]] — заголовок `Ch05-S04-H01`, 2 вхождения в корпусе
 - [[Ch05-S04-H02 - Notation Kernel Matrix|kernel matrix]] — заголовок `Ch05-S04-H02`, 1 вхождение в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
 - [[Ch07-S02 - Core Theory|feature map · kernel matrix ×2]] — секция `Ch07-S02`, 2 вхождения в корпусе
+- [[Ch07-S02-H05 - Main Theorem Feature Map|feature map ×2]] — заголовок `Ch07-S02-H05`, 2 вхождения в корпусе
+- [[Ch07-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix]] — заголовок `Ch07-S02-H06`, 1 вхождение в корпусе
+- [[Ch09-S01-H03 - Basic Properties Feature Map|feature map]] — заголовок `Ch09-S01-H03`, 1 вхождение в корпусе
+- [[Ch09-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×2]] — заголовок `Ch09-S01-H04`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 19 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 19 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

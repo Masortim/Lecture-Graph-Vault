@@ -28,30 +28,28 @@ $$
 
 Used together with: [[Ch06-S04-H04-B03 - Identity 6.4.4c|Identity 6.4.4c]], [[Ch08-S01-H03-B03 - Proposition 8.1.3c|Proposition 8.1.3c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×14]] — глава `Ch01`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory ×2]] — глава `Ch06`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization ×2]] — глава `Ch09`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (contraction mapping, spectral theorem) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|contraction mapping · spectral theorem ×2]] — секция `Ch01-S02`, 2 вхождения в корпусе
-- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×3]] — заголовок `Ch01-S02-H03`, 3 вхождения в корпусе
-- [[Ch01-S02-H05 - Main Theorem Contraction Mapping|contraction mapping ×3]] — заголовок `Ch01-S02-H05`, 3 вхождения в корпусе
+- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×2]] — заголовок `Ch01-S02-H03`, 2 вхождения в корпусе
+- [[Ch01-S02-H05 - Main Theorem Contraction Mapping|contraction mapping ×2]] — заголовок `Ch01-S02-H05`, 2 вхождения в корпусе
 - [[Ch03-S01 - Setup and Notation|spectral theorem]] — секция `Ch03-S01`, 1 вхождение в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem ×3]] — заголовок `Ch03-S01-H01`, 3 вхождения в корпусе
-- [[Ch03-S01-H03 - Basic Properties Contraction Mapping|contraction mapping ×3]] — заголовок `Ch03-S01-H03`, 3 вхождения в корпусе
-- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×3]] — заголовок `Ch04-S03-H05`, 3 вхождения в корпусе
-- [[Ch04-S04-H01 - Definition Contraction Mapping|contraction mapping ×3]] — заголовок `Ch04-S04-H01`, 3 вхождения в корпусе
+- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
+- [[Ch03-S01-H03 - Basic Properties Contraction Mapping|contraction mapping]] — заголовок `Ch03-S01-H03`, 1 вхождение в корпусе
+- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×2]] — заголовок `Ch04-S03-H05`, 2 вхождения в корпусе
+- [[Ch04-S04-H01 - Definition Contraction Mapping|contraction mapping]] — заголовок `Ch04-S04-H01`, 1 вхождение в корпусе
 - [[Ch06-S02 - Core Theory|contraction mapping · spectral theorem ×2]] — секция `Ch06-S02`, 2 вхождения в корпусе
+- [[Ch06-S02-H03 - Basic Properties Spectral Theorem|spectral theorem]] — заголовок `Ch06-S02-H03`, 1 вхождение в корпусе
+- [[Ch06-S02-H05 - Main Theorem Contraction Mapping|contraction mapping]] — заголовок `Ch06-S02-H05`, 1 вхождение в корпусе
 - [[Ch08-S01 - Setup and Notation|spectral theorem]] — секция `Ch08-S01`, 1 вхождение в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|spectral theorem ×2]] — заголовок `Ch08-S01-H01`, 2 вхождения в корпусе
+- [[Ch08-S01-H03 - Basic Properties Contraction Mapping|contraction mapping ×2]] — заголовок `Ch08-S01-H03`, 2 вхождения в корпусе
 - [[Ch09-S03 - Main Results|spectral theorem]] — секция `Ch09-S03`, 1 вхождение в корпусе
+- [[Ch09-S03-H05 - Main Theorem Spectral Theorem|spectral theorem]] — заголовок `Ch09-S03-H05`, 1 вхождение в корпусе
 - [[Ch09-S04 - Applications and Limits|contraction mapping]] — секция `Ch09-S04`, 1 вхождение в корпусе
+- [[Ch09-S04-H01 - Definition Contraction Mapping|contraction mapping ×2]] — заголовок `Ch09-S04-H01`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 26 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->
