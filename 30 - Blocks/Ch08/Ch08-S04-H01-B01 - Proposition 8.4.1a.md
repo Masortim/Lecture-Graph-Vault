@@ -28,24 +28,21 @@ $$
 
 Used together with: [[Ch01-S03-H01-B02 - Identity 1.3.1b|Identity 1.3.1b]], [[Ch02-S03-H06-B01 - Identity 2.3.6a|Identity 2.3.6a]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×4]] — глава `Ch05`, 4 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (approximation error, spectral gap) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×3]] — заголовок `Ch02-S01-H03`, 3 вхождения в корпусе
-- [[Ch02-S03-H03 - Basic Properties Spectral Gap|spectral gap ×3]] — заголовок `Ch02-S03-H03`, 3 вхождения в корпусе
-- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×3]] — заголовок `Ch03-S04-H01`, 3 вхождения в корпусе
+- [[Ch02-S01-H03 - Basic Properties Approximation Error|approximation error ×2]] — заголовок `Ch02-S01-H03`, 2 вхождения в корпусе
+- [[Ch02-S03-H03 - Basic Properties Spectral Gap|spectral gap ×2]] — заголовок `Ch02-S03-H03`, 2 вхождения в корпусе
+- [[Ch03-S04-H01 - Definition Approximation Error|approximation error ×2]] — заголовок `Ch03-S04-H01`, 2 вхождения в корпусе
 - [[Ch04-S02 - Core Theory|spectral gap]] — секция `Ch04-S02`, 1 вхождение в корпусе
-- [[Ch04-S02-H01 - Definition Spectral Gap|spectral gap ×3]] — заголовок `Ch04-S02-H01`, 3 вхождения в корпусе
+- [[Ch04-S02-H01 - Definition Spectral Gap|spectral gap]] — заголовок `Ch04-S02-H01`, 1 вхождение в корпусе
 - [[Ch05-S02-H05 - Main Theorem Approximation Error|approximation error ×2]] — заголовок `Ch05-S02-H05`, 2 вхождения в корпусе
 - [[Ch05-S04-H05 - Main Theorem Spectral Gap|spectral gap ×2]] — заголовок `Ch05-S04-H05`, 2 вхождения в корпусе
+- [[Ch07-S01-H03 - Basic Properties Approximation Error|approximation error]] — заголовок `Ch07-S01-H03`, 1 вхождение в корпусе
+- [[Ch07-S03-H03 - Basic Properties Spectral Gap|spectral gap]] — заголовок `Ch07-S03-H03`, 1 вхождение в корпусе
+- [[Ch08-S04-H01 - Definition Approximation Error|approximation error]] — заголовок `Ch08-S04-H01`, 1 вхождение в корпусе
+- [[Ch09-S02-H01 - Definition Spectral Gap|spectral gap ×2]] — заголовок `Ch09-S02-H01`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 17 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

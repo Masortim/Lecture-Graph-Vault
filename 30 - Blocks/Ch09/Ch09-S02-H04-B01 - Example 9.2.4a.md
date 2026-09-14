@@ -30,30 +30,23 @@ $$
 
 Used together with: [[Ch05-S04-H03-B03 - Proposition 5.4.3c|Proposition 5.4.3c]], [[Ch07-S01-H02-B02 - Estimate 7.1.2b|Estimate 7.1.2b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×7]] — глава `Ch02`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality]] — глава `Ch03`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (linear operator) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S01 - Setup and Notation|linear operator]] — секция `Ch01-S01`, 1 вхождение в корпусе
-- [[Ch01-S01-H02 - Notation Linear Operator|linear operator ×3]] — заголовок `Ch01-S01-H02`, 3 вхождения в корпусе
+- [[Ch01-S01-H02 - Notation Linear Operator|linear operator ×2]] — заголовок `Ch01-S01-H02`, 2 вхождения в корпусе
 - [[Ch02-S03 - Main Results|linear operator]] — секция `Ch02-S03`, 1 вхождение в корпусе
-- [[Ch02-S03-H06 - Proof and Consequences Linear Operator|linear operator ×3]] — заголовок `Ch02-S03-H06`, 3 вхождения в корпусе
+- [[Ch02-S03-H06 - Proof and Consequences Linear Operator|linear operator]] — заголовок `Ch02-S03-H06`, 1 вхождение в корпусе
 - [[Ch03-S03-H01 - Definition Convex Hull|linear operator]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
-- [[Ch04-S02-H04 - Key Lemma Linear Operator|linear operator ×3]] — заголовок `Ch04-S02-H04`, 3 вхождения в корпусе
+- [[Ch04-S02-H04 - Key Lemma Linear Operator|linear operator ×2]] — заголовок `Ch04-S02-H04`, 2 вхождения в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|linear operator]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
 - [[Ch06-S01 - Setup and Notation|linear operator]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H02 - Notation Linear Operator|linear operator]] — заголовок `Ch06-S01-H02`, 1 вхождение в корпусе
 - [[Ch07-S03 - Main Results|linear operator]] — секция `Ch07-S03`, 1 вхождение в корпусе
+- [[Ch07-S03-H06 - Proof and Consequences Linear Operator|linear operator ×2]] — заголовок `Ch07-S03-H06`, 2 вхождения в корпусе
 - [[Ch09-S02 - Core Theory|linear operator]] — секция `Ch09-S02`, 1 вхождение в корпусе
+- [[Ch09-S02-H04 - Key Lemma Linear Operator|linear operator]] — заголовок `Ch09-S02-H04`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 16 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

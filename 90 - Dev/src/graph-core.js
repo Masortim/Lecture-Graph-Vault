@@ -620,14 +620,42 @@
    */
   function buildKeywordCorpus(abstractNotes, graph, opts) {
     var cfg = merge(DEFAULTS, opts || {});
-    var byName = {}, byStem = {}, byId = (graph && graph._byId) || {};
+    var byId = (graph && graph._byId) || {};
+    // Названия заголовков нередко повторяются в разных секциях (например, «Examples»).
+    // Поэтому одного глобального `name -> node` недостаточно: аннотация уже указывает
+    // секцию в frontmatter, и именно в этой секции нужно искать ##-регион. Иначе
+    // совпадение из Ch02 могло ошибочно дать связь с первым таким заголовком из Ch01
+    // и скрыть настоящую связь с узлом Ch02.
+    var sectionsByName = {};
+    var headingsByName = {};
+    var headingsBySection = {};
+    function add(map, key, node) {
+      if (!key || !node) return;
+      var list = map[key] || (map[key] = []);
+      if (list.indexOf(node) < 0) list.push(node);
+    }
     ((graph && graph.nodes) || []).forEach(function (n) {
-      if (n.type !== "heading" && n.type !== "section") return;
-      var k = normPhrase(n.name);
-      if (k && !byName[k]) byName[k] = n;
-      var s = normPhrase(n.stem);
-      if (s && !byName[s]) byName[s] = n;
+      var name = normPhrase(n.name);
+      var stem = normPhrase(n.stem);
+      if (n.type === "section") {
+        add(sectionsByName, name, n);
+        add(sectionsByName, stem, n);
+        return;
+      }
+      if (n.type !== "heading") return;
+      add(headingsByName, name, n);
+      add(headingsByName, stem, n);
+      if (n.parent) {
+        var inSection = headingsBySection[n.parent] || (headingsBySection[n.parent] = {});
+        add(inSection, name, n);
+        add(inSection, stem, n);
+      }
     });
+    function one(list) {
+      // Без section: в заголовке/имени файла можно доверять только однозначному имени.
+      // Не выбираем «первый попавшийся» узел: ложная связь хуже честного unmatched.
+      return list && list.length === 1 ? list[0] : null;
+    }
     var regions = [], notes = 0, unmatched = 0;
     (abstractNotes || []).forEach(function (raw) {
       if (!raw || !raw.path) return;
@@ -636,14 +664,20 @@
       var parsed = parseAbstract(read);
       notes++;
       var sec = parsed.section ? byId[parsed.section] : null;
-      if (!sec) sec = byName[normPhrase(parsed.title)] || null;
+      if (!sec || sec.type !== "section") sec = one(sectionsByName[normPhrase(parsed.title)]);
       var regionsBefore = regions.length;
       if (sec) regions.push({ node: sec, level: "section", text: parsed.preamble, note: raw.path });
       else unmatched++;
       parsed.regions.forEach(function (r) {
-        var h = byName[normPhrase(r.name)];
-        if (!h) { unmatched++; return; } // заголовок переименован — считаем unmatched, не молчим
-        regions.push({ node: h, level: "heading", text: r.text, note: raw.path });
+        var key = normPhrase(r.name);
+        // При известной секции берём ВСЕ одноимённые заголовки только этой секции.
+        // Это сохраняет связь с каждым соответствующим узлом и не смешивает главы.
+        var matches = sec && headingsBySection[sec.id] ? headingsBySection[sec.id][key] : null;
+        if (!matches || !matches.length) matches = sec ? [] : (headingsByName[key] || []);
+        if (!matches.length) { unmatched++; return; }
+        matches.forEach(function (h) {
+          regions.push({ node: h, level: "heading", text: r.text, note: raw.path });
+        });
       });
       if (!parsed.preamble && regions.length === regionsBefore && !sec) unmatched++;
     });
@@ -660,14 +694,29 @@
           var c = countPhrase(r.text, key);
           if (c <= 0) return;
           total += c;
-          var ch = r.node.chapter || (r.level === "section" ? r.node.id : chapterOf(r.node, byId));
+          // Только id настоящей главы: section.id не является главой для цвета.
+          var ch = r.node.chapter || chapterOf(r.node, byId);
           var cur = byTarget[r.node.id];
-          if (cur) { cur.count += c; cur.chapters.push(ch); }
-          else {
-            cur = byTarget[r.node.id] = { id: r.node.id, name: r.node.name, stem: r.node.stem, level: r.level, chapter: ch, count: c, note: r.note, chapters: [ch] };
+          if (!cur) {
+            cur = byTarget[r.node.id] = {
+              id: r.node.id,
+              name: r.node.name,
+              stem: r.node.stem,
+              level: r.level,
+              chapter: ch,
+              count: 0,
+              note: r.note,
+              chapters: [],
+              byChapter: {},
+            };
             hits.push(cur);
           }
-          byChapter[ch] = (byChapter[ch] || 0) + c;
+          cur.count += c;
+          if (ch) {
+            cur.byChapter[ch] = (cur.byChapter[ch] || 0) + c;
+            if (cur.chapters.indexOf(ch) < 0) cur.chapters.push(ch);
+            byChapter[ch] = (byChapter[ch] || 0) + c;
+          }
         });
         return (cache[key] = { phrase: key, total: total, hits: hits, byChapter: byChapter });
       },
@@ -688,7 +737,24 @@
         var cur = byTarget[h.id];
         if (cur) { cur.count += h.count; cur.phrases.push(phrase); }
         else byTarget[h.id] = { id: h.id, name: h.name, stem: h.stem, level: h.level, chapter: h.chapter, count: h.count, phrases: [phrase] };
-        h.chapters.forEach(function (ch) { byChapter[ch] = (byChapter[ch] || 0) + h.count; });
+        // Копим реальные вхождения каждой главы, а не общий вес цели для каждой
+        // главы, в которой она когда-либо встретилась. Второй вариант раздувал бы
+        // счётчик и мог выбрать для цвета не ту доминирующую главу, если в корпусе
+        // два файла ссылаются на один узел.
+        var hitChapters = h.byChapter || null;
+        if (hitChapters) {
+          Object.keys(hitChapters).forEach(function (ch) {
+            if (!ch) return;
+            byChapter[ch] = (byChapter[ch] || 0) + hitChapters[ch];
+          });
+        } else {
+          // Совместимость с индексами, созданными внешними скриптами до появления
+          // byChapter у попадания: в типичном случае у цели была одна глава.
+          (h.chapters && h.chapters.length ? h.chapters : [h.chapter]).forEach(function (ch) {
+            if (!ch) return;
+            byChapter[ch] = (byChapter[ch] || 0) + h.count;
+          });
+        }
       });
     });
     var dominant = ownChapter || null, best = -1;
@@ -698,6 +764,9 @@
     });
     return {
       keywords: list,
+      // Никакой фильтрации по dominant здесь нет: ссылка должна появиться у
+      // КАЖДОЙ секции/заголовка, в чьей аннотации есть фраза. dominant нужен
+      // исключительно для цвета вершины.
       targets: Object.keys(byTarget).sort().map(function (k) { return byTarget[k]; }),
       weight: total,
       byChapter: byChapter,
@@ -716,18 +785,10 @@
   }
 
   /**
-   * ВСЕ главы, о которых говорит новая вершина, — а не одна «доминирующая».
-   *
-   * Корпус аннотаций состоит из секций и заголовков, поэтому прямые попадания
-   * (plan.targets) — это всегда они; главу же до сих пор использовали только чтобы
-   * выбрать папку и цвет (plan.dominant), и связь с ней в графе не появлялась вовсе.
-   * Между тем ключевые фразы почти всегда попадают в НЕСКОЛЬКО глав: именно эти связи
-   * и показывают, что тема сквозная. Здесь они превращаются в обычные ссылки-рёбра
-   * (kind "reference"), по одной на главу, отсортированные по числу вхождений.
-   *
-   * Вес по ключевым фразам (`weight:`) при этом НЕ меняется: он считается по региону
-   * keywords:begin/end, а эти ссылки живут в теле заметки, поэтому «вес = число
-   * вхождений в корпусе» остаётся прежним, а рёбра глав добавляются сверх него.
+   * Legacy-список глав по разбивке вхождений. Новые узлы и пересчёт фраз эту функцию
+   * больше не используют: связь должна вести к конкретной совпавшей секции/заголовку,
+   * а не к главе-посреднику. Оставлена для чтения и безопасного снятия заметок, которые
+   * были созданы старой версией плагина.
    */
   function relatedChapters(graph, plan, opts) {
     var o = opts || {};
@@ -803,7 +864,7 @@
   }
 
   var RELATED_HEADING = "## Related topics";
-  // связи со всеми главами, где встречаются ключевые фразы вершины (см. relatedChapters)
+  // Машинный раздел старых версий: распознаём его, чтобы пересчёт мог безопасно снять.
   var CHAPTER_HEADING = "## Related chapters";
 
   /**
@@ -913,7 +974,7 @@
     return lines.join("\n");
   }
 
-  /** Строки-пункты раздела «Related chapters» из плана relatedChapters (тот же формат, что в composeNote). */
+  /** Строки legacy-раздела «Related chapters» (нужны только для совместимости). */
   function chapterBullets(chapters) {
     return (chapters || []).map(function (c) {
       return "- [[" + c.stem + "|" + c.name + (c.count > 1 ? " ×" + c.count : "") + "]] — глава `" +
@@ -922,15 +983,14 @@
   }
 
   /**
-   * Идемпотентно записывает раздел «Related chapters» (связи со ВСЕМИ главами, где
-   * встретились ключевые фразы вершины) в тело заметки. Раздел машинный: старый
-   * снимается целиком и ставится заново — так пересчёт держит связи в актуальном
-   * состоянии, когда меняется список `keywords_en`. Пустой список глав убирает раздел.
+   * Совместимость со старым машинным разделом «Related chapters». Новый алгоритм
+   * передаёт пустой список и тем самым снимает этот раздел: глава-лидер теперь
+   * отвечает только за цвет, а corpus-ссылки остаются в keywords:begin/end на
+   * конкретные секции и заголовки. Переданный непустой список поддержан лишь для
+   * безопасного разбора/миграции старых заметок.
    *
-   * Раздел всегда живёт ВНЕ региона keywords:begin/end (перед ним): регион пишет
-   * только материализатор фраз и он обязан оставаться последним блоком тела, а сам
-   * раздел ссылок-глав должен попадать в граф как обычные рёбра «reference».
-   * Фронтматтер и всё, что стоит после региона, не трогаются.
+   * Раздел всегда живёт ВНЕ региона keywords:begin/end (перед ним). Фронтматтер и
+   * всё, что стоит после региона, не трогаются.
    */
   function applyRelatedChapters(text, chapters, opts) {
     var src = String(text == null ? "" : text).replace(/\r\n/g, "\n");
@@ -1101,13 +1161,11 @@
         weight: w,
         anchors: [],
       };
-      // Ссылка на главу — обычно «эта тема встречается и в главе X» из машинного раздела
-      // «Related chapters» (связи по ключевым фразам со ВСЕМИ подходящими главами, а не
-      // с одной). Это тематическая пометка, а не структура: ребро РИСУЕТСЯ и учитывается
-      // как связь, но в раскладку-пружину не входит (см. frStep/step) — иначе сотни таких
-      // рёбер стянули бы все главы-хабы в центр, где их широкие подписи наезжают и часть
-      // с экрана пропадает. На размер вершины (степень) эти рёбра влияют как обычные
-      // ссылки — глава, на которую часто ссылаются по теме, справедливо крупнее.
+      // Обычная ручная/reference-ссылка на главу — не структурное ребро. Для
+      // совместимости со старыми заметками не включаем её в пружины: иначе большое
+      // число legacy-ссылок из «Related chapters» стянет главы-хабы в центр. Новый
+      // алгоритм keyword-связей сюда не попадает — он ссылается прямо на секции и
+      // заголовки внутри региона keywords:begin/end.
       if (kind === "reference" && target.type === "chapter") e.chapterRef = true;
       if (meta && meta.alias) e.alias = meta.alias;
       seenPair[key] = e;
@@ -2701,8 +2759,8 @@
     var eLen = edges.length;
     for (var ei = 0; ei < eLen; ei++) {
       var e = edges[ei];
-      // тематическая ссылка на главу (раздел «Related chapters») в пружину не входит:
-      // рисуется, но не стягивает главы-хабы в центр (см. addEdge/chapterRef)
+      // Ручная/legacy-ссылка на главу в пружину не входит: рисуется, но не стягивает
+      // главы-хабы в центр (см. addEdge/chapterRef).
       if (e.chapterRef) continue;
       var a = byId[e.source], b = byId[e.target];
       if (!a || !b) continue;
@@ -5001,7 +5059,9 @@
    * значения — без кавычек, как в остальных заметках хранилища; строки с пробелами
    * и пунктуацией — в кавычках, как их же читает parseScalar), тело с двумя строками
    * подписи, материализованным регионом ключевых фраз и разделом «Related topics»
-   * для совпадений по названиям. Чистая функция — её и проверяют юнит-тесты.
+   * для совпадений по названиям. Corpus-связи живут только в `region`: это все
+   * конкретные совпавшие секции/заголовки, а глава-лидер не создаёт отдельной ссылки.
+   * Чистая функция — её и проверяют юнит-тесты.
    */
   function composeNote(spec, opts) {
     var cfg = merge(DEFAULTS, opts || {});
@@ -5044,18 +5104,6 @@
         var label = RELATED_TYPE_LABEL[r.type] || "вершина";
         body.push("- [[" + r.stem + "|" + r.phrase + "]] — " + label + (r.name && r.name !== r.phrase ? " «" + r.name + "»" : ""));
       });
-    }
-    // Связи со ВСЕМИ главами, в аннотациях которых нашлись ключевые фразы (не только
-    // с «доминирующей», которая задаёт папку и цвет): у сквозной темы их несколько, и
-    // без этого раздела в графе не было бы видно ни одной из них. Отдельный заголовок,
-    // а не общий «Related topics»: пункты машинные, у каждого — за что связь.
-    var chapters = s.chapters || [];
-    if (chapters.length) {
-      // Без вводного абзаца: за что связь, написано в самом пункте. Тогда после
-      // удаления последней главы раздел уходит целиком (dropEmptySection), а не
-      // остаётся сиротливым заголовком с пояснением к пустому списку.
-      body.push("", CHAPTER_HEADING, "");
-      chapterBullets(chapters).forEach(function (line) { body.push(line); });
     }
     // регион ключевых фраз — всегда ПОСЛЕДНИМ блоком тела: материализатор
     // (applyKeywordRegion) пишет его в конец, и повторный пересчёт не двигает его

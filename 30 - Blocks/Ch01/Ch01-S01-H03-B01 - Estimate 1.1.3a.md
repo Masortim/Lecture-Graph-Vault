@@ -30,29 +30,26 @@ $$
 
 Used together with: [[Ch01-S03-H06-B03 - Example 1.3.6c|Example 1.3.6c]], [[Ch02-S04-H05-B03 - Estimate 2.4.5c|Estimate 2.4.5c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×12]] — глава `Ch02`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality ×2]] — глава `Ch07`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (compact set, lipschitz continuity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H03 - Basic Properties Compact Set|compact set ×3]] — заголовок `Ch01-S01-H03`, 3 вхождения в корпусе
-- [[Ch01-S02-H01 - Definition Dual Space|lipschitz continuity]] — заголовок `Ch01-S02-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity ×3]] — заголовок `Ch02-S02-H02`, 3 вхождения в корпусе
-- [[Ch02-S04-H01 - Definition Compact Set|compact set ×3]] — заголовок `Ch02-S04-H01`, 3 вхождения в корпусе
-- [[Ch03-S02-H01 - Definition Weak Convergence|lipschitz continuity]] — заголовок `Ch03-S02-H01`, 1 вхождение в корпусе
-- [[Ch03-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity ×3]] — заголовок `Ch03-S04-H06`, 3 вхождения в корпусе
+- [[Ch01-S01-H03 - Basic Properties Compact Set|compact set]] — заголовок `Ch01-S01-H03`, 1 вхождение в корпусе
+- [[Ch02-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch02-S02-H02`, 2 вхождения в корпусе
+- [[Ch02-S04-H01 - Definition Compact Set|compact set]] — заголовок `Ch02-S04-H01`, 1 вхождение в корпусе
+- [[Ch03-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity]] — заголовок `Ch03-S04-H06`, 1 вхождение в корпусе
 - [[Ch04-S02 - Core Theory|compact set]] — секция `Ch04-S02`, 1 вхождение в корпусе
-- [[Ch04-S02-H05 - Main Theorem Compact Set|compact set ×3]] — заголовок `Ch04-S02-H05`, 3 вхождения в корпусе
+- [[Ch04-S02-H05 - Main Theorem Compact Set|compact set]] — заголовок `Ch04-S02-H05`, 1 вхождение в корпусе
 - [[Ch05-S03-H04 - Key Lemma Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch05-S03-H04`, 2 вхождения в корпусе
+- [[Ch06-S01-H03 - Basic Properties Compact Set|compact set ×2]] — заголовок `Ch06-S01-H03`, 2 вхождения в корпусе
+- [[Ch06-S02-H01 - Definition Dual Space|lipschitz continuity]] — заголовок `Ch06-S02-H01`, 1 вхождение в корпусе
 - [[Ch07-S02 - Core Theory|lipschitz continuity]] — секция `Ch07-S02`, 1 вхождение в корпусе
+- [[Ch07-S02-H02 - Notation Lipschitz Continuity|lipschitz continuity]] — заголовок `Ch07-S02-H02`, 1 вхождение в корпусе
 - [[Ch07-S04 - Applications and Limits|compact set]] — секция `Ch07-S04`, 1 вхождение в корпусе
+- [[Ch07-S04-H01 - Definition Compact Set|compact set ×2]] — заголовок `Ch07-S04-H01`, 2 вхождения в корпусе
+- [[Ch08-S02-H01 - Definition Weak Convergence|lipschitz continuity]] — заголовок `Ch08-S02-H01`, 1 вхождение в корпусе
+- [[Ch08-S04-H06 - Proof and Consequences Lipschitz Continuity|lipschitz continuity ×2]] — заголовок `Ch08-S04-H06`, 2 вхождения в корпусе
+- [[Ch09-S02-H05 - Main Theorem Compact Set|compact set ×2]] — заголовок `Ch09-S02-H05`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 22 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 22 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

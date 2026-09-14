@@ -28,26 +28,22 @@ $$
 
 Used together with: [[Ch05-S03-H01-B02 - Identity 5.3.1b|Identity 5.3.1b]], [[Ch06-S03-H06-B01 - Identity 6.3.6a|Identity 6.3.6a]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×12]] — глава `Ch03`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (singular values, closed graph) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S04 - Applications and Limits|singular values]] — секция `Ch01-S04`, 1 вхождение в корпусе
-- [[Ch01-S04-H01 - Definition Singular Values|singular values ×3]] — заголовок `Ch01-S04-H01`, 3 вхождения в корпусе
-- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×3]] — заголовок `Ch02-S01-H01`, 3 вхождения в корпусе
-- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×3]] — заголовок `Ch03-S02-H05`, 3 вхождения в корпусе
-- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph ×3]] — заголовок `Ch03-S03-H05`, 3 вхождения в корпусе
+- [[Ch01-S04-H01 - Definition Singular Values|singular values ×2]] — заголовок `Ch01-S04-H01`, 2 вхождения в корпусе
+- [[Ch02-S01-H01 - Definition Closed Graph|closed graph ×2]] — заголовок `Ch02-S01-H01`, 2 вхождения в корпусе
+- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×2]] — заголовок `Ch03-S02-H05`, 2 вхождения в корпусе
+- [[Ch03-S03-H05 - Main Theorem Closed Graph|closed graph]] — заголовок `Ch03-S03-H05`, 1 вхождение в корпусе
 - [[Ch05-S01-H03 - Basic Properties Singular Values|singular values]] — заголовок `Ch05-S01-H03`, 1 вхождение в корпусе
 - [[Ch05-S02-H03 - Basic Properties Closed Graph|closed graph ×2]] — заголовок `Ch05-S02-H03`, 2 вхождения в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|singular values]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
 - [[Ch07-S01 - Setup and Notation|closed graph]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H01 - Definition Closed Graph|closed graph]] — заголовок `Ch07-S01-H01`, 1 вхождение в корпусе
+- [[Ch08-S02-H05 - Main Theorem Singular Values|singular values]] — заголовок `Ch08-S02-H05`, 1 вхождение в корпусе
+- [[Ch08-S03-H05 - Main Theorem Closed Graph|closed graph ×2]] — заголовок `Ch08-S03-H05`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 17 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 17 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -28,21 +28,17 @@ $$
 
 Used together with: [[Ch03-S02-H02-B03 - Example 3.2.2c|Example 3.2.2c]], [[Ch04-S03-H01-B03 - Estimate 4.3.1c|Estimate 4.3.1c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (convex hull) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S04-H03 - Basic Properties Convex Hull|convex hull ×3]] — заголовок `Ch01-S04-H03`, 3 вхождения в корпусе
-- [[Ch03-S03-H01 - Definition Convex Hull|convex hull ×3]] — заголовок `Ch03-S03-H01`, 3 вхождения в корпусе
+- [[Ch01-S04-H03 - Basic Properties Convex Hull|convex hull ×2]] — заголовок `Ch01-S04-H03`, 2 вхождения в корпусе
+- [[Ch03-S03-H01 - Definition Convex Hull|convex hull]] — заголовок `Ch03-S03-H01`, 1 вхождение в корпусе
 - [[Ch05-S01 - Setup and Notation|convex hull]] — секция `Ch05-S01`, 1 вхождение в корпусе
 - [[Ch05-S01-H05 - Main Theorem Convex Hull|convex hull]] — заголовок `Ch05-S01-H05`, 1 вхождение в корпусе
 - [[Ch06-S04 - Applications and Limits|convex hull]] — секция `Ch06-S04`, 1 вхождение в корпусе
+- [[Ch06-S04-H03 - Basic Properties Convex Hull|convex hull]] — заголовок `Ch06-S04-H03`, 1 вхождение в корпусе
+- [[Ch08-S03-H01 - Definition Convex Hull|convex hull ×2]] — заголовок `Ch08-S03-H01`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 9 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 9 · глава Ch05 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

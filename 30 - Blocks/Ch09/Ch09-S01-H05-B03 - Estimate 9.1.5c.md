@@ -30,26 +30,24 @@ $$
 
 Used together with: [[Ch04-S02-H06-B03 - Example 4.2.6c|Example 4.2.6c]], [[Ch05-S03-H05-B03 - Estimate 5.3.5c|Estimate 5.3.5c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×14]] — глава `Ch02`, 14 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×5]] — глава `Ch05`, 5 вхождений ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity, markov chain) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S02-H01 - Definition Gradient Descent|markov chain]] — заголовок `Ch02-S02-H01`, 1 вхождение в корпусе
 - [[Ch02-S03 - Main Results|markov chain]] — секция `Ch02-S03`, 1 вхождение в корпусе
-- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×3]] — заголовок `Ch02-S03-H01`, 3 вхождения в корпусе
-- [[Ch02-S03-H04 - Key Lemma Markov Chain|markov chain ×3]] — заголовок `Ch02-S03-H04`, 3 вхождения в корпусе
-- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×3]] — заголовок `Ch04-S01-H05`, 3 вхождения в корпусе
-- [[Ch04-S02-H02 - Notation Markov Chain|markov chain ×3]] — заголовок `Ch04-S02-H02`, 3 вхождения в корпусе
+- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×2]] — заголовок `Ch02-S03-H01`, 2 вхождения в корпусе
+- [[Ch02-S03-H04 - Key Lemma Markov Chain|markov chain]] — заголовок `Ch02-S03-H04`, 1 вхождение в корпусе
+- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×2]] — заголовок `Ch04-S01-H05`, 2 вхождения в корпусе
+- [[Ch04-S02-H02 - Notation Markov Chain|markov chain ×2]] — заголовок `Ch04-S02-H02`, 2 вхождения в корпусе
 - [[Ch05-S02-H01 - Definition Hahn-Banach Extension|markov chain]] — заголовок `Ch05-S02-H01`, 1 вхождение в корпусе
 - [[Ch05-S04 - Applications and Limits|sample complexity]] — секция `Ch05-S04`, 1 вхождение в корпусе
 - [[Ch05-S04-H03 - Basic Properties Sample Complexity|sample complexity ×2]] — заголовок `Ch05-S04-H03`, 2 вхождения в корпусе
 - [[Ch05-S04-H06 - Proof and Consequences Markov Chain|markov chain]] — заголовок `Ch05-S04-H06`, 1 вхождение в корпусе
+- [[Ch07-S02-H01 - Definition Gradient Descent|markov chain]] — заголовок `Ch07-S02-H01`, 1 вхождение в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|sample complexity]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch07-S03-H04 - Key Lemma Markov Chain|markov chain ×2]] — заголовок `Ch07-S03-H04`, 2 вхождения в корпусе
+- [[Ch09-S01-H05 - Main Theorem Sample Complexity|sample complexity]] — заголовок `Ch09-S01-H05`, 1 вхождение в корпусе
+- [[Ch09-S02-H02 - Notation Markov Chain|markov chain]] — заголовок `Ch09-S02-H02`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 19 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 19 · глава Ch05 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -30,24 +30,20 @@ $$
 
 Used together with: [[Ch09-S04-H05-B02 - Identity 9.4.5b|Identity 9.4.5b]], [[Ch02-S01-H04-B01 - Example 2.1.4a|Example 2.1.4a]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators]] — глава `Ch02`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (fixed point) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S02-H06 - Proof and Consequences Fixed Point|fixed point ×3]] — заголовок `Ch01-S02-H06`, 3 вхождения в корпусе
+- [[Ch01-S02-H06 - Proof and Consequences Fixed Point|fixed point]] — заголовок `Ch01-S02-H06`, 1 вхождение в корпусе
 - [[Ch02-S04-H01 - Definition Compact Set|fixed point]] — заголовок `Ch02-S04-H01`, 1 вхождение в корпусе
-- [[Ch03-S01-H04 - Key Lemma Fixed Point|fixed point ×3]] — заголовок `Ch03-S01-H04`, 3 вхождения в корпусе
+- [[Ch03-S01-H04 - Key Lemma Fixed Point|fixed point ×2]] — заголовок `Ch03-S01-H04`, 2 вхождения в корпусе
 - [[Ch04-S04 - Applications and Limits|fixed point]] — секция `Ch04-S04`, 1 вхождение в корпусе
 - [[Ch04-S04-H01 - Definition Contraction Mapping|fixed point]] — заголовок `Ch04-S04-H01`, 1 вхождение в корпусе
-- [[Ch04-S04-H02 - Notation Fixed Point|fixed point ×3]] — заголовок `Ch04-S04-H02`, 3 вхождения в корпусе
+- [[Ch04-S04-H02 - Notation Fixed Point|fixed point ×2]] — заголовок `Ch04-S04-H02`, 2 вхождения в корпусе
+- [[Ch06-S02-H06 - Proof and Consequences Fixed Point|fixed point ×2]] — заголовок `Ch06-S02-H06`, 2 вхождения в корпусе
 - [[Ch08-S01 - Setup and Notation|fixed point]] — секция `Ch08-S01`, 1 вхождение в корпусе
+- [[Ch08-S01-H04 - Key Lemma Fixed Point|fixed point]] — заголовок `Ch08-S01-H04`, 1 вхождение в корпусе
+- [[Ch09-S04-H02 - Notation Fixed Point|fixed point]] — заголовок `Ch09-S04-H02`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 13 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

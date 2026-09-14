@@ -30,20 +30,17 @@ $$
 
 Used together with: [[Ch04-S04-H04-B02 - Proposition 4.4.4b|Proposition 4.4.4b]], [[Ch06-S01-H03-B02 - Example 6.1.3b|Example 6.1.3b]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (banach limit) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H01 - Definition Banach Limit|banach limit ×3]] — заголовок `Ch01-S03-H01`, 3 вхождения в корпусе
-- [[Ch03-S01-H05 - Main Theorem Banach Limit|banach limit ×3]] — заголовок `Ch03-S01-H05`, 3 вхождения в корпусе
-- [[Ch04-S04-H03 - Basic Properties Banach Limit|banach limit ×3]] — заголовок `Ch04-S04-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H01 - Definition Banach Limit|banach limit]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
+- [[Ch03-S01-H05 - Main Theorem Banach Limit|banach limit]] — заголовок `Ch03-S01-H05`, 1 вхождение в корпусе
+- [[Ch04-S04-H03 - Basic Properties Banach Limit|banach limit]] — заголовок `Ch04-S04-H03`, 1 вхождение в корпусе
 - [[Ch06-S03 - Main Results|banach limit]] — секция `Ch06-S03`, 1 вхождение в корпусе
+- [[Ch06-S03-H01 - Definition Banach Limit|banach limit ×2]] — заголовок `Ch06-S03-H01`, 2 вхождения в корпусе
+- [[Ch08-S01-H05 - Main Theorem Banach Limit|banach limit ×2]] — заголовок `Ch08-S01-H05`, 2 вхождения в корпусе
+- [[Ch09-S04-H03 - Basic Properties Banach Limit|banach limit ×2]] — заголовок `Ch09-S04-H03`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 10 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 10 · глава Ch06 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

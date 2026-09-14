@@ -29,20 +29,18 @@ $$
 
 Used together with: [[Ch01-S03-H03-B02 - Example 1.3.3b|Example 1.3.3b]], [[Ch02-S04-H02-B01 - Identity 2.4.2a|Identity 2.4.2a]].
 
-## Related chapters
-
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (hilbert decomposition) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch01-S03-H02`, 3 вхождения в корпусе
+- [[Ch01-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch01-S03-H02`, 2 вхождения в корпусе
 - [[Ch03-S01 - Setup and Notation|hilbert decomposition]] — секция `Ch03-S01`, 1 вхождение в корпусе
 - [[Ch03-S01-H01 - Definition Spectral Theorem|hilbert decomposition]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
-- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch03-S01-H06`, 3 вхождения в корпусе
-- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×3]] — заголовок `Ch04-S04-H04`, 3 вхождения в корпусе
+- [[Ch03-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch03-S01-H06`, 2 вхождения в корпусе
+- [[Ch04-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition ×2]] — заголовок `Ch04-S04-H04`, 2 вхождения в корпусе
+- [[Ch06-S03-H02 - Notation Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch06-S03-H02`, 1 вхождение в корпусе
+- [[Ch08-S01-H06 - Proof and Consequences Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch08-S01-H06`, 1 вхождение в корпусе
+- [[Ch09-S04-H04 - Key Lemma Hilbert Decomposition|hilbert decomposition]] — заголовок `Ch09-S04-H04`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 11 · глава Ch03 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

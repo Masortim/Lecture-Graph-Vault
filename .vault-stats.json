@@ -39,16 +39,16 @@
     "Ch06-S04-H06-B03",
     "Ch09-S04-H06-B03"
   ],
-  "edges": 8508,
-  "maxDegree": 160,
+  "edges": 8435,
+  "maxDegree": 70,
   "unresolved": 0,
   "orphans": 0,
   "components": 1,
   "degreeByType": {
     "chapter": {
-      "min": 46,
-      "max": 160,
-      "uniq": 9
+      "min": 13,
+      "max": 48,
+      "uniq": 5
     },
     "section": {
       "min": 21,
@@ -56,9 +56,9 @@
       "uniq": 19
     },
     "heading": {
-      "min": 9,
-      "max": 81,
-      "uniq": 46
+      "min": 12,
+      "max": 51,
+      "uniq": 31
     },
     "block": {
       "min": 2,
@@ -68,24 +68,24 @@
   },
   "radiusByType": {
     "chapter": {
-      "min": 19.861033258597345,
-      "max": 34
+      "min": 17.08103599624088,
+      "max": 30.340595336528096
     },
     "section": {
-      "min": 16.264541013187518,
-      "max": 26.696883533714043
+      "min": 19.88649396905967,
+      "max": 34
     },
     "heading": {
-      "min": 11.76003481163368,
-      "max": 27.843191152679754
+      "min": 16.389080373853936,
+      "max": 30.89917457469465
     },
     "block": {
       "min": 6,
-      "max": 26.586835452825007
+      "max": 33.852082025946345
     }
   },
   "indexLinks": 1017,
-  "keywordEdges": 1642,
+  "keywordEdges": 2374,
   "keywordNodes": 186,
   "maxKeywordWeight": 29,
   "keywordBlocksShare": 25

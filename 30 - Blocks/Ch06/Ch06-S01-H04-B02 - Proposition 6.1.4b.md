@@ -28,28 +28,26 @@ $$
 
 Used together with: [[Ch01-S01-H04-B03 - Identity 1.1.4c|Identity 1.1.4c]], [[Ch02-S02-H03-B03 - Proposition 2.2.3c|Proposition 2.2.3c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×12]] — глава `Ch01`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×12]] — глава `Ch04`, 12 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (metric completion, banach limit) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H04 - Key Lemma Metric Completion|metric completion ×3]] — заголовок `Ch01-S01-H04`, 3 вхождения в корпусе
-- [[Ch01-S03-H01 - Definition Banach Limit|banach limit ×3]] — заголовок `Ch01-S03-H01`, 3 вхождения в корпусе
-- [[Ch02-S04-H02 - Notation Metric Completion|metric completion ×3]] — заголовок `Ch02-S04-H02`, 3 вхождения в корпусе
-- [[Ch03-S01-H05 - Main Theorem Banach Limit|banach limit ×3]] — заголовок `Ch03-S01-H05`, 3 вхождения в корпусе
+- [[Ch01-S01-H04 - Key Lemma Metric Completion|metric completion ×2]] — заголовок `Ch01-S01-H04`, 2 вхождения в корпусе
+- [[Ch01-S03-H01 - Definition Banach Limit|banach limit]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
+- [[Ch02-S04-H02 - Notation Metric Completion|metric completion ×2]] — заголовок `Ch02-S04-H02`, 2 вхождения в корпусе
+- [[Ch03-S01-H05 - Main Theorem Banach Limit|banach limit]] — заголовок `Ch03-S01-H05`, 1 вхождение в корпусе
 - [[Ch03-S04-H01 - Definition Approximation Error|metric completion]] — заголовок `Ch03-S04-H01`, 1 вхождение в корпусе
-- [[Ch04-S02-H06 - Proof and Consequences Metric Completion|metric completion ×3]] — заголовок `Ch04-S02-H06`, 3 вхождения в корпусе
-- [[Ch04-S04-H03 - Basic Properties Banach Limit|banach limit ×3]] — заголовок `Ch04-S04-H03`, 3 вхождения в корпусе
+- [[Ch04-S02-H06 - Proof and Consequences Metric Completion|metric completion ×2]] — заголовок `Ch04-S02-H06`, 2 вхождения в корпусе
+- [[Ch04-S04-H03 - Basic Properties Banach Limit|banach limit]] — заголовок `Ch04-S04-H03`, 1 вхождение в корпусе
 - [[Ch05-S04-H01 - Definition Feature Map|metric completion]] — заголовок `Ch05-S04-H01`, 1 вхождение в корпусе
 - [[Ch06-S01 - Setup and Notation|metric completion]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H04 - Key Lemma Metric Completion|metric completion]] — заголовок `Ch06-S01-H04`, 1 вхождение в корпусе
 - [[Ch06-S03 - Main Results|banach limit]] — секция `Ch06-S03`, 1 вхождение в корпусе
+- [[Ch06-S03-H01 - Definition Banach Limit|banach limit ×2]] — заголовок `Ch06-S03-H01`, 2 вхождения в корпусе
+- [[Ch07-S04-H02 - Notation Metric Completion|metric completion]] — заголовок `Ch07-S04-H02`, 1 вхождение в корпусе
+- [[Ch08-S01-H05 - Main Theorem Banach Limit|banach limit ×2]] — заголовок `Ch08-S01-H05`, 2 вхождения в корпусе
+- [[Ch09-S02-H06 - Proof and Consequences Metric Completion|metric completion]] — заголовок `Ch09-S02-H06`, 1 вхождение в корпусе
+- [[Ch09-S04-H03 - Basic Properties Banach Limit|banach limit ×2]] — заголовок `Ch09-S04-H03`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 22 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 22 · глава Ch06 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

@@ -1231,6 +1231,45 @@ ok("мини-корпус: вес = сумма вхождений по ВЕМУ 
   assert.strictEqual(core.planBlockKeywords({}, corpus, "Ch01", shippedCfg).weight, 0);
 });
 
+ok("корпус: одноимённые заголовки связываются с каждым узлом своей аннотации, а лидер красит новый узел", () => {
+  const mini = [
+    { path: "10 - Chapters/Ch01.md", text: "---\ntype: chapter\nid: Ch01\nname: One\n---\n\n# One\n" },
+    { path: "10 - Chapters/Ch02.md", text: "---\ntype: chapter\nid: Ch02\nname: Two\n---\n\n# Two\n" },
+    { path: "20 - Sections/S1.md", text: "---\ntype: section\nid: S1\nname: First section\nparent: Ch01\nchapter: Ch01\n---\n\n# First section\n" },
+    { path: "20 - Sections/S2.md", text: "---\ntype: section\nid: S2\nname: Second section\nparent: Ch02\nchapter: Ch02\n---\n\n# Second section\n" },
+    // «Examples» встречается в обеих главах — глобальный поиск по имени ошибочно
+    // склеил бы оба региона с H1 и выбрал бы Ch01 вместо настоящего лидера Ch02.
+    { path: "25 - Headings/H1.md", text: "---\ntype: heading\nid: H1\nname: Examples\nparent: S1\nchapter: Ch01\n---\n\n# Examples\n" },
+    { path: "25 - Headings/H2.md", text: "---\ntype: heading\nid: H2\nname: Examples\nparent: S2\nchapter: Ch02\n---\n\n# Examples\n" },
+    { path: "35 - Abstracts/A.md", text: "---\ntype: abstract\nsection: S1\n---\n\n# First section\n\n## Examples\n\nshared term\n" },
+    { path: "35 - Abstracts/B.md", text: "---\ntype: abstract\nsection: S2\n---\n\n# Second section\n\n## Examples\n\nshared term; shared term; shared term\n" },
+  ];
+  const g = core.buildGraph(mini.filter((n) => n.path.indexOf("35 -") !== 0), shippedCfg);
+  const corpus = core.buildKeywordCorpus(mini.filter((n) => n.path.indexOf("35 -") === 0), g, shippedCfg);
+  const plan = core.planBlockKeywords({ keywords_en: "shared term" }, corpus, null, shippedCfg);
+  assert.deepStrictEqual(plan.targets.map((t) => t.id).sort(), ["H1", "H2"],
+    "потерян узел из другой главы: " + JSON.stringify(plan.targets));
+  assert.deepStrictEqual(plan.byChapter, { Ch01: 1, Ch02: 3 }, "вхождения разбиты по главам неверно");
+  assert.strictEqual(plan.dominant, "Ch02", "глава с максимумом должна определять цвет");
+  const note = core.composeNote({
+    type: "block",
+    id: "MN-100",
+    name: "Shared term",
+    keywords: ["shared term"],
+    weight: plan.weight,
+    region: core.keywordRegionText(plan, shippedCfg),
+  }, shippedCfg);
+  assert.ok(!/^chapter:/m.test(note), "глава-лидер стала структурной главой новой заметки");
+  const withNewNode = core.buildGraph(mini.filter((n) => n.path.indexOf("35 -") !== 0).concat([
+    { path: "30 - Blocks/MN-100 - Shared term.md", text: note },
+  ]), shippedCfg);
+  const n = withNewNode._byId["MN-100"];
+  assert.deepStrictEqual(n.out.filter((o) => o.kind === "keyword").map((o) => o.id).sort(), ["H1", "H2"],
+    "новая вершина не связана со всеми узлами из аннотаций");
+  assert.strictEqual(n.kwChapter, "Ch02", "лидер не дошёл до модели графа");
+  assert.strictEqual(n.color, withNewNode.colorsByChapter.Ch02, "новый узел окрашен не главой-лидером");
+});
+
 ok("материализация региона: идемпотентно, вне региона — байт-в-байт, снятие — чисто", () => {
   const mini = [
     { path: "35 - Abstracts/A.md", text: "---\ntype: abstract\nsection: S1\n---\n\n# Sec One\n\nalpha alpha\n" },
@@ -1454,8 +1493,10 @@ ok("relatedChapters: ВСЕ главы из разбивки по вхожден
   assert.deepStrictEqual(core.relatedChapters(graph, { byChapter: { "Ch01-S01": 5 } }, {}), []);
 });
 
-ok("composeNote: раздел Related chapters даёт рёбра на все главы, вес не меняется", () => {
+ok("composeNote: глава-лидер не становится ссылкой — corpus-связи только на совпавшие узлы", () => {
   const marks = core.keywordMarkers();
+  // Свойство оставлено в объекте намеренно: composeNote не должен позволить старому
+  // вызывающему коду снова создать ссылки на главы вместо совпавших областей корпуса.
   const chapters = core.relatedChapters(graph, { byChapter: { Ch02: 18, Ch06: 1 } }, {});
   const text = core.composeNote(
     {
@@ -1464,35 +1505,28 @@ ok("composeNote: раздел Related chapters даёт рёбра на все �
       name: "Cross Cutting Topic",
       keywords: ["vector space"],
       weight: 5,
-      chapter: "Ch01",
-      region: marks.begin + "\n\n- [[Ch01-S01 - Setup and Notation|vector space ×5]]\n\n" + marks.end,
+      // У manual-узла без родителя не должно появиться chapter: только потому,
+      // что Ch02 — лидер по вхождениям.
+      region: marks.begin + "\n\n- [[Ch01-S01 - Setup and Notation|vector space ×2]]\n- [[Ch02-S01 - Setup and Notation|vector space ×3]]\n\n" + marks.end,
       related: [],
       chapters: chapters,
     },
     shippedCfg
   );
-  assert.ok(text.indexOf("## Related chapters") > 0, "нет раздела глав");
-  assert.ok(text.indexOf("## Related chapters") < text.indexOf(marks.begin),
-    "регион ключевых фраз обязан оставаться последним блоком тела");
-  chapters.forEach((c) => {
-    assert.ok(text.indexOf("[[" + c.stem + "|") > 0, "нет ссылки на главу " + c.id);
-  });
-  // заметка сразу становится вершиной с рёбрами на КАЖДУЮ главу
-  const g = core.buildGraph(allNotes.concat([{ path: "30 - Blocks/Ch01/MN-42 - Cross Cutting Topic.md", text }]), shippedCfg);
+  assert.strictEqual(text.indexOf("## Related chapters"), -1, "созданы лишние ссылки на главы");
+  assert.ok(text.indexOf("[[Ch01-S01 - Setup and Notation|") > 0, "нет прямой связи Ch01");
+  assert.ok(text.indexOf("[[Ch02-S01 - Setup and Notation|") > 0, "нет прямой связи Ch02");
+  assert.ok(!/^chapter:/m.test(text), "глава-лидер ошибочно стала chapter: структуры");
+  const g = core.buildGraph(allNotes.concat([{ path: "30 - Blocks/MN-42 - Cross Cutting Topic.md", text }]), shippedCfg);
   const n = g._byId["MN-42"];
   assert.ok(n, "заметка не стала вершиной");
-  chapters.forEach((c) => {
-    assert.ok(n.out.some((o) => o.id === c.id && o.kind === "reference"),
-      "нет ребра reference на главу " + c.id + ": " + JSON.stringify(n.out.map((o) => o.id + "/" + o.kind)));
-  });
-  // вес по ключевым фразам считается ТОЛЬКО по региону: связи глав его не раздувают
-  assert.strictEqual(n.kwWeight, 5, "вес изменился из-за связей с главами: " + n.kwWeight);
-  // и сами эти рёбра — не keyword: иначе они попали бы в вес и в размер вершины
-  assert.strictEqual(n.out.filter((o) => o.kind === "keyword" && /^Ch\d+$/.test(o.id)).length, 0,
-    "связь с главой стала ребром keyword");
-  // без глав раздела нет вовсе — пустой заголовок в заметке не нужен
-  const bare = core.composeNote({ type: "block", id: "MN-43", name: "No Chapters", chapters: [] }, shippedCfg);
-  assert.strictEqual(bare.indexOf("## Related chapters"), -1, "пустой раздел глав всё равно записан");
+  assert.deepStrictEqual(n.out.filter((o) => o.kind === "keyword").map((o) => o.id).sort(), ["Ch01-S01", "Ch02-S01"],
+    "ссылки поставлены не на все совпавшие узлы");
+  assert.strictEqual(n.out.filter((o) => o.kind === "reference" && /^Ch\d+$/.test(o.id)).length, 0,
+    "глава-лидер стала ссылкой вместо цвета");
+  assert.strictEqual(n.kwWeight, 5, "вес не равен сумме прямых попаданий: " + n.kwWeight);
+  assert.strictEqual(n.kwChapter, "Ch02", "лидер по вхождениям не выбран для цвета");
+  assert.strictEqual(n.color, g.colorsByChapter.Ch02, "узел не окрашен цветом главы-лидера");
 });
 
 ok("applyRelatedChapters: пересчёт материализует/обновляет/снимает раздел глав (идемпотентно)", () => {

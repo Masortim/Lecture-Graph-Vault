@@ -30,30 +30,27 @@ $$
 
 Used together with: [[Ch01-S02-H06-B03 - Example 1.2.6c|Example 1.2.6c]], [[Ch02-S03-H05-B03 - Estimate 2.3.5c|Estimate 2.3.5c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×15]] — глава `Ch01`, 15 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (orthogonal projection, eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S01 - Setup and Notation|orthogonal projection]] — секция `Ch01-S01`, 1 вхождение в корпусе
-- [[Ch01-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection ×3]] — заголовок `Ch01-S01-H05`, 3 вхождения в корпусе
+- [[Ch01-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection]] — заголовок `Ch01-S01-H05`, 1 вхождение в корпусе
 - [[Ch01-S03 - Main Results|eigenvalue bounds]] — секция `Ch01-S03`, 1 вхождение в корпусе
 - [[Ch01-S03-H01 - Definition Banach Limit|eigenvalue bounds]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
-- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch01-S03-H06`, 3 вхождения в корпусе
-- [[Ch02-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection ×3]] — заголовок `Ch02-S04-H03`, 3 вхождения в корпусе
+- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch01-S03-H06`, 2 вхождения в корпусе
+- [[Ch02-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection]] — заголовок `Ch02-S04-H03`, 1 вхождение в корпусе
 - [[Ch03-S02 - Core Theory|eigenvalue bounds]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch03-S02-H04`, 3 вхождения в корпусе
+- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch03-S02-H04`, 1 вхождение в корпусе
 - [[Ch04-S03 - Main Results|orthogonal projection]] — секция `Ch04-S03`, 1 вхождение в корпусе
-- [[Ch04-S03-H01 - Definition Orthogonal Projection|orthogonal projection ×3]] — заголовок `Ch04-S03-H01`, 3 вхождения в корпусе
+- [[Ch04-S03-H01 - Definition Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch04-S03-H01`, 2 вхождения в корпусе
 - [[Ch05-S01-H02 - Notation Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch05-S01-H02`, 2 вхождения в корпусе
 - [[Ch06-S01 - Setup and Notation|orthogonal projection]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H05 - Main Theorem Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch06-S01-H05`, 2 вхождения в корпусе
+- [[Ch06-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch06-S03-H06`, 1 вхождение в корпусе
+- [[Ch07-S04-H03 - Basic Properties Orthogonal Projection|orthogonal projection ×2]] — заголовок `Ch07-S04-H03`, 2 вхождения в корпусе
+- [[Ch08-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch08-S02-H04`, 2 вхождения в корпусе
+- [[Ch09-S03-H01 - Definition Orthogonal Projection|orthogonal projection]] — заголовок `Ch09-S03-H01`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 23 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

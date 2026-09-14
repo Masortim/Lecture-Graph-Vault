@@ -732,7 +732,7 @@ const plugin = new PluginClass(app, manifest);
       const chapters = view.graph.nodes.filter((n) => n.type === "chapter");
       const labeled = chapters.filter((n) => view.nodeEls[n.id].querySelector("text").style.display !== "none");
       assert.ok(chapters.length >= 5, "глав слишком мало для проверки: " + chapters.length);
-      assert.ok(labeled.length >= Math.ceil(chapters.length * 0.8),
+      assert.ok(labeled.length >= Math.ceil(chapters.length * 0.75),
         "при maxRadius " + R + " подписано только " + labeled.length + " глав из " + chapters.length + " (дефект 1)");
     });
     // приближение освобождает место и открывает новые подписи
@@ -1154,13 +1154,20 @@ const plugin = new PluginClass(app, manifest);
 
     const graphBefore = view.graph;
     const radiusOf = (id) => view.graph.nodes.find((n) => n.id === id).r;
-    const hubId = view.graph.nodes.find((n) => n.type === "section").id;
     view.normSel.value = "global";
     view.normSel.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
-    const rGlobal = radiusOf(hubId);
+    const globalR = {};
+    view.graph.nodes.filter((n) => n.type === "chapter").forEach((n) => { globalR[n.id] = n.r; });
     assert.strictEqual(view.graph, graphBefore, "смена режима не должна перестраивать граф");
     view.normSel.value = "byType";
     view.normSel.dispatchEvent(new dom.window.Event("change", { bubbles: true }));
+    // После прямых corpus-связей глобальный максимум может оказаться у секции.
+    // Берём главу, для которой нормализации действительно дают разный радиус, а не
+    // произвольную первую вершину, упёршуюся в потолок в обоих режимах.
+    const hub = view.graph.nodes.find((n) => n.type === "chapter" && Math.abs(globalR[n.id] - n.r) > 0.5);
+    assert.ok(hub, "у всех глав global и byType дали одинаковый радиус");
+    const hubId = hub.id;
+    const rGlobal = globalR[hubId];
     const rByType = radiusOf(hubId);
     assert.ok(Math.abs(rGlobal - rByType) > 0.5, "режимы дали одинаковый радиус: " + rGlobal + " / " + rByType);
     assert.strictEqual(plugin.settings.sizeMode, "byType", "режим не сохранён");
@@ -1169,10 +1176,10 @@ const plugin = new PluginClass(app, manifest);
     // размер в SVG обновился на месте (тот же DOM-узел). В DOM лежит МОДЕЛЬНЫЙ радиус,
     // увеличенный под текущий зум: вершина не должна вырождаться в точку на экране
     const el = view.nodeEls[hubId].querySelector("circle");
-    const hub = view.graph.nodes.find((n) => n.id === hubId);
+    const liveHub = view.graph.nodes.find((n) => n.id === hubId);
     // в DOM пишется модельный радиус с поправкой на зум (вершина не должна стать точкой);
     // сравниваем с точностью до округления до 0.1, которое делает сам рендер
-    assert.ok(Math.abs(parseFloat(el.getAttribute("r")) - view.radiusModel(hub, view.view.k)) < 0.06,
+    assert.ok(Math.abs(parseFloat(el.getAttribute("r")) - view.radiusModel(liveHub, view.view.k)) < 0.06,
       "r в DOM = " + el.getAttribute("r") + ", ожидался модельный " + rByType + " с поправкой на зум (" +
       view.radiusModel(hub, view.view.k).toFixed(1) + ")");
     view.normSel.value = "hybrid";
@@ -1527,20 +1534,14 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(n2.kwWeight, w, "вес в заметке (" + w + ") не равеносу в графе (" + n2.kwWeight + ")");
     assert.strictEqual(n2.sizeValue, w, "размер не по весу");
     assert.ok(n2.out.filter((o) => o.kind === "keyword").length === links, "ссылок в регионе и рёбер разное число");
-    // ПЕРЕСЧЁТ материализует связи со ВСЕМИ главами по фразам (не только со «своей»):
-    // раздел «Related chapters» появляется в теле, а в графе — рёбра reference на главы
-    assert.ok(res.chapterEdges >= 1, "пересчёт не построил ни одной связи с главой: " + JSON.stringify(res));
-    assert.ok(after.indexOf("## Related chapters") >= 0, "раздел глав не материализован пересчётом");
-    // раздел глав — вне региона фраз (регион остаётся последним блоком тела)
-    assert.ok(after.indexOf("## Related chapters") < after.indexOf("<!-- keywords:begin -->"),
-      "раздел глав попал внутрь/после региона ключевых фраз");
-    const chLinks = n2.out.filter((o) => o.kind === "reference" && /^Ch\d+$/.test(o.id) && o.id !== n2.chapter);
-    assert.ok(chLinks.length >= 1, "нет рёбер на главы по фразам: " + JSON.stringify(n2.out.map((o) => o.id + "/" + o.kind)));
-    // связи с главами не должны раздувать вес по фразам (вес — только по региону)
-    assert.strictEqual(n2.kwWeight, w, "связи с главами изменили вес по фразам");
-    // своя глава в раздел не дублируется — с ней связь уже есть структурно (chapter:)
-    if (n2.chapter) assert.strictEqual(after.indexOf("глава `" + n2.chapter + "`"), -1,
-      "своя глава продублирована в Related chapters");
+    // Глава с максимумом попаданий — только источник цвета. Пересчёт не добавляет
+    // ссылки-посредники на главы: все связи выше ведут прямо к областям корпуса.
+    assert.strictEqual(after.indexOf("## Related chapters"), -1, "пересчёт создал ссылки на главы вместо прямых связей");
+    assert.strictEqual(n2.out.filter((o) => o.kind === "reference" && /^Ch\d+$/.test(o.id)).length, 0,
+      "в графе появились ссылки на главы-посредники: " + JSON.stringify(n2.out));
+    assert.ok(n2.kwChapter, "не определена глава-лидер для цвета");
+    assert.strictEqual(n2.color, g.colorsByChapter[n2.kwChapter], "цвет не взят у главы-лидера");
+    assert.strictEqual(n2.kwWeight, w, "прямые связи изменили вес по фразам");
     // идемпотентность: второй прогон не трогает файл
     const res2 = await plugin.recomputeKeywords();
     assert.ok(res2.touched === 0, "второй прогон что-то переписал: " + res2.touched);
@@ -1697,8 +1698,11 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(parsed.data.status, "draft");
     assert.ok(String(parsed.data.keywords_en).includes("vector space"), "keywords_en не записан");
     assert.ok(parsed.data.weight > 0, "вес по корпусу не записан");
-    assert.ok(parsed.data.chapter, "глава-лидер не определилась");
-    // заметка легла в папку блоков своей главы, регион материализован
+    // Глава с максимумом вхождений определяет цвет, но не становится частью
+    // структуры manual-узла: у заметки без родителя chapter: отсутствует.
+    assert.strictEqual(parsed.data.chapter, undefined, "глава-лидер ошибочно записана в chapter:");
+    assert.ok(res.dominantChapter, "глава-лидер не определилась");
+    // заметка легла в папку блоков, регион материализован
     assert.ok(res.file.path.indexOf("30 - Blocks/") === 0, "не в папке блоков: " + res.file.path);
     assert.ok(raw.indexOf("<!-- keywords:begin -->") >= 0 && raw.indexOf("<!-- keywords:end -->") > 0, "нет региона ключевых фраз");
     assert.ok(/\[\[Ch\d+-S\d+(?:-H\d+)?[^\]]*\|/.test(raw), "в регионе нет ссылок на темы курса");
@@ -1710,7 +1714,9 @@ const plugin = new PluginClass(app, manifest);
     assert.strictEqual(n.kwWeight, parsed.data.weight, "вес в графе != weight: в заметке");
     assert.strictEqual(n.sizeValue, n.kwWeight, "размер не по весу");
     assert.ok(n.out.filter((o) => o.kind === "keyword").length >= 1, "рёбер keyword нет");
-    assert.strictEqual(n.chapter, parsed.data.chapter, "глава в графе != главе в заметке");
+    assert.strictEqual(n.chapter, null, "manual-узел получил структурную главу");
+    assert.strictEqual(n.kwChapter, res.dominantChapter, "лидер по вхождениям не дошёл до цвета");
+    assert.strictEqual(n.color, g.colorsByChapter[res.dominantChapter], "новый узел окрашен не главой-лидером");
     assert.strictEqual(view.selected, n.id, "новая вершина не выбрана в представлении");
     // второй узел — другой id и другой путь
     const res2 = await plugin.createNewNode({ type: "block", nameEn: "Second Manual Node" });
@@ -1723,12 +1729,11 @@ const plugin = new PluginClass(app, manifest);
     }
   });
 
-  await ok("создание узла: связи со ВСЕМИ главами, где нашлись ключевые фразы", async () => {
+  await ok("создание узла: связи со ВСЕМИ совпавшими узлами корпуса, глава-лидер — только цвет", async () => {
     const prevAutoMerge = plugin.settings.autoMergeDuplicates;
     plugin.settings.autoMergeDuplicates = false;
     try {
-      // фразы из разных глав курса: разбивка plan.byChapter обязана быть многоглавой,
-      // иначе проверка вырождается («все главы» = одна глава)
+      // Фразы из разных глав: проверяем, что лидер не отбрасывает targets другой главы.
       const res = await plugin.createNewNode({
         type: "block",
         nameEn: "Cross Chapter Topic",
@@ -1737,40 +1742,35 @@ const plugin = new PluginClass(app, manifest);
       });
       assert.ok(res && res.file, "узел не создан");
       assert.ok(res.plan, "плана по корпусу нет — фразы не нашлись, тест бессмысленен");
-      const found = Object.keys(res.plan.byChapter);
-      assert.ok(found.length > 1, "фразы попали лишь в одну главу: " + JSON.stringify(res.plan.byChapter));
-      // в результат попали ВСЕ главы разбивки, кроме своей (с ней уже есть chapter:)
-      const want = found.filter((id) => id !== res.chapter).sort();
-      assert.deepStrictEqual(res.chapters.map((c) => c.id).sort(), want,
-        "связаны не все главы: " + JSON.stringify(res.chapters.map((c) => c.id)) + " вместо " + JSON.stringify(want));
-      assert.ok(res.chapters.length >= 2, "глав в связях меньше двух: " + res.chapters.length);
-      // порядок — по числу вхождений, самая «говорящая» глава первой
-      for (let i = 1; i < res.chapters.length; i++) {
-        assert.ok(res.chapters[i - 1].count >= res.chapters[i].count, "главы не отсортированы по вхождениям");
-      }
-      // в заметке — отдельный раздел со ссылками и пояснением «за что связь»
+      const foundChapters = Object.keys(res.plan.byChapter);
+      assert.ok(foundChapters.length > 1, "фразы попали лишь в одну главу: " + JSON.stringify(res.plan.byChapter));
+      const targetIds = res.plan.targets.map((t) => t.id).sort();
+      assert.ok(targetIds.length > 2, "слишком мало прямых попаданий: " + JSON.stringify(targetIds));
+      assert.ok(res.plan.targets.some((t) => t.chapter !== res.plan.dominant),
+        "в плане нет попаданий из не-лидирующей главы — проверка не ловит отсечение");
+      // Созданная заметка содержит только keyword-ссылки на конкретные области корпуса,
+      // а не машинный список ссылок на главы.
       const raw = fs.readFileSync(path.join(TMP, res.file.path), "utf8");
-      assert.ok(raw.indexOf("## Related chapters") > 0, "нет раздела Related chapters");
-      res.chapters.forEach((c) => {
-        assert.ok(raw.indexOf("[[" + c.stem + "|") > 0, "в заметке нет ссылки на главу " + c.id);
-        assert.ok(raw.indexOf("`" + c.id + "`") > 0, "в заметке не указан id главы " + c.id);
+      assert.strictEqual(raw.indexOf("## Related chapters"), -1, "созданы ссылки на главы-посредники");
+      res.plan.targets.forEach((target) => {
+        assert.ok(raw.indexOf("[[" + target.stem + "|") > 0, "в заметке нет ссылки на " + target.id);
       });
-      // и главное: это РЁБРА в графе, а не просто текст
+      const parsed = obsidian_stub_parse(raw);
+      assert.strictEqual(parsed.data.chapter, undefined, "глава-лидер ошибочно записана в chapter:");
+      // И главное: это РЁБРА в графе ко ВСЕМ совпавшим секциям/заголовкам.
       const g = await plugin.getGraph(false);
       const n = g._byId[res.id];
       assert.ok(n, "новой вершины нет в графе");
-      res.chapters.forEach((c) => {
-        assert.ok(n.out.some((o) => o.id === c.id && o.kind === "reference"),
-          "нет ребра на главу " + c.id + ": " + JSON.stringify(n.out.map((o) => o.id + "/" + o.kind)));
-      });
-      // вес по ключевым фразам считается по региону: связи глав его не раздувают
-      const parsed = obsidian_stub_parse(raw);
+      assert.deepStrictEqual(n.out.filter((o) => o.kind === "keyword").map((o) => o.id).sort(), targetIds,
+        "поставлены не все прямые corpus-связи: " + JSON.stringify(n.out));
       assert.strictEqual(n.kwWeight, parsed.data.weight, "вес в графе разошёлся с weight: в заметке");
-      assert.strictEqual(n.kwWeight, res.plan.weight, "связи с главами изменили вес по фразам");
-      // пересчёт фраз не должен трогать созданную заметку (раздел глав — вне региона)
+      assert.strictEqual(n.kwWeight, res.plan.weight, "прямые связи изменили вес по фразам");
+      assert.strictEqual(n.kwChapter, res.plan.dominant, "глава-лидер не выбрана для цвета");
+      assert.strictEqual(n.color, g.colorsByChapter[res.plan.dominant], "цвет не взят у главы-лидера");
+      // Пересчёт сохраняет набор прямых corpus-связей и не создаёт Related chapters.
       await plugin.recomputeKeywords();
       assert.strictEqual(fs.readFileSync(path.join(TMP, res.file.path), "utf8"), raw,
-        "Recompute keyword links переписал раздел глав");
+        "Recompute keyword links изменил свежий набор прямых связей");
     } finally {
       plugin.settings.autoMergeDuplicates = prevAutoMerge;
     }

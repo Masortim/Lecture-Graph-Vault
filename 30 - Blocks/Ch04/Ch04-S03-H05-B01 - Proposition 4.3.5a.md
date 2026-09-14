@@ -28,26 +28,21 @@ $$
 
 Used together with: [[Ch08-S04-H04-B02 - Proposition 8.4.4b|Proposition 8.4.4b]], [[Ch01-S01-H03-B02 - Example 1.1.3b|Example 1.1.3b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch08 - Concentration and Probability|Concentration and Probability]] — глава `Ch08`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch09 - Learning Theory and Regularization|Learning Theory and Regularization]] — глава `Ch09`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (spectral theorem) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|spectral theorem]] — секция `Ch01-S02`, 1 вхождение в корпусе
-- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×3]] — заголовок `Ch01-S02-H03`, 3 вхождения в корпусе
+- [[Ch01-S02-H03 - Basic Properties Spectral Theorem|spectral theorem ×2]] — заголовок `Ch01-S02-H03`, 2 вхождения в корпусе
 - [[Ch03-S01 - Setup and Notation|spectral theorem]] — секция `Ch03-S01`, 1 вхождение в корпусе
-- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem ×3]] — заголовок `Ch03-S01-H01`, 3 вхождения в корпусе
-- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×3]] — заголовок `Ch04-S03-H05`, 3 вхождения в корпусе
+- [[Ch03-S01-H01 - Definition Spectral Theorem|spectral theorem]] — заголовок `Ch03-S01-H01`, 1 вхождение в корпусе
+- [[Ch04-S03-H05 - Main Theorem Spectral Theorem|spectral theorem ×2]] — заголовок `Ch04-S03-H05`, 2 вхождения в корпусе
 - [[Ch06-S02 - Core Theory|spectral theorem]] — секция `Ch06-S02`, 1 вхождение в корпусе
+- [[Ch06-S02-H03 - Basic Properties Spectral Theorem|spectral theorem]] — заголовок `Ch06-S02-H03`, 1 вхождение в корпусе
 - [[Ch08-S01 - Setup and Notation|spectral theorem]] — секция `Ch08-S01`, 1 вхождение в корпусе
+- [[Ch08-S01-H01 - Definition Spectral Theorem|spectral theorem ×2]] — заголовок `Ch08-S01-H01`, 2 вхождения в корпусе
 - [[Ch09-S03 - Main Results|spectral theorem]] — секция `Ch09-S03`, 1 вхождение в корпусе
+- [[Ch09-S03-H05 - Main Theorem Spectral Theorem|spectral theorem]] — заголовок `Ch09-S03-H05`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 14 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

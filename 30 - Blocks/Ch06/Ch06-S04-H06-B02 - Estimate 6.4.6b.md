@@ -30,24 +30,19 @@ $$
 
 Used together with: [[Ch07-S01-H03-B02 - Example 7.1.3b|Example 7.1.3b]], [[Ch08-S02-H02-B01 - Identity 8.2.2a|Identity 8.2.2a]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems]] — глава `Ch04`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (open mapping) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S04 - Applications and Limits|open mapping]] — секция `Ch01-S04`, 1 вхождение в корпусе
-- [[Ch01-S04-H06 - Proof and Consequences Open Mapping|open mapping ×3]] — заголовок `Ch01-S04-H06`, 3 вхождения в корпусе
-- [[Ch03-S03-H04 - Key Lemma Open Mapping|open mapping ×3]] — заголовок `Ch03-S03-H04`, 3 вхождения в корпусе
-- [[Ch04-S02-H01 - Definition Spectral Gap|open mapping]] — заголовок `Ch04-S02-H01`, 1 вхождение в корпусе
+- [[Ch01-S04-H06 - Proof and Consequences Open Mapping|open mapping]] — заголовок `Ch01-S04-H06`, 1 вхождение в корпусе
+- [[Ch03-S03-H04 - Key Lemma Open Mapping|open mapping ×2]] — заголовок `Ch03-S03-H04`, 2 вхождения в корпусе
 - [[Ch05-S02 - Core Theory|open mapping]] — секция `Ch05-S02`, 1 вхождение в корпусе
 - [[Ch05-S02-H02 - Notation Open Mapping|open mapping]] — заголовок `Ch05-S02-H02`, 1 вхождение в корпусе
 - [[Ch06-S04 - Applications and Limits|open mapping]] — секция `Ch06-S04`, 1 вхождение в корпусе
+- [[Ch06-S04-H06 - Proof and Consequences Open Mapping|open mapping ×2]] — заголовок `Ch06-S04-H06`, 2 вхождения в корпусе
+- [[Ch08-S03-H04 - Key Lemma Open Mapping|open mapping]] — заголовок `Ch08-S03-H04`, 1 вхождение в корпусе
+- [[Ch09-S02-H01 - Definition Spectral Gap|open mapping]] — заголовок `Ch09-S02-H01`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 11 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 11 · глава Ch06 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

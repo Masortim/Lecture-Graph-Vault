@@ -29,30 +29,27 @@ $$
 
 Used together with: [[Ch05-S04-H02-B02 - Estimate 5.4.2b|Estimate 5.4.2b]], [[Ch07-S01-H01-B02 - Identity 7.1.1b|Identity 7.1.1b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×7]] — глава `Ch04`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality ×2]] — глава `Ch07`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, compact set) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H03 - Basic Properties Compact Set|compact set ×3]] — заголовок `Ch01-S01-H03`, 3 вхождения в корпусе
+- [[Ch01-S01-H03 - Basic Properties Compact Set|compact set]] — заголовок `Ch01-S01-H03`, 1 вхождение в корпусе
 - [[Ch02-S01 - Setup and Notation|entropy bound]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×3]] — заголовок `Ch02-S01-H05`, 3 вхождения в корпусе
-- [[Ch02-S04-H01 - Definition Compact Set|compact set ×3]] — заголовок `Ch02-S04-H01`, 3 вхождения в корпусе
+- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×2]] — заголовок `Ch02-S01-H05`, 2 вхождения в корпусе
+- [[Ch02-S04-H01 - Definition Compact Set|compact set]] — заголовок `Ch02-S04-H01`, 1 вхождение в корпусе
 - [[Ch03-S04 - Applications and Limits|entropy bound]] — секция `Ch03-S04`, 1 вхождение в корпусе
-- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×3]] — заголовок `Ch03-S04-H03`, 3 вхождения в корпусе
+- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×2]] — заголовок `Ch03-S04-H03`, 2 вхождения в корпусе
 - [[Ch04-S02 - Core Theory|compact set]] — секция `Ch04-S02`, 1 вхождение в корпусе
-- [[Ch04-S02-H05 - Main Theorem Compact Set|compact set ×3]] — заголовок `Ch04-S02-H05`, 3 вхождения в корпусе
+- [[Ch04-S02-H05 - Main Theorem Compact Set|compact set]] — заголовок `Ch04-S02-H05`, 1 вхождение в корпусе
 - [[Ch05-S03 - Main Results|entropy bound]] — секция `Ch05-S03`, 1 вхождение в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|entropy bound]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
+- [[Ch06-S01-H03 - Basic Properties Compact Set|compact set ×2]] — заголовок `Ch06-S01-H03`, 2 вхождения в корпусе
 - [[Ch07-S01 - Setup and Notation|entropy bound]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H05 - Main Theorem Entropy Bound|entropy bound]] — заголовок `Ch07-S01-H05`, 1 вхождение в корпусе
 - [[Ch07-S04 - Applications and Limits|compact set]] — секция `Ch07-S04`, 1 вхождение в корпусе
+- [[Ch07-S04-H01 - Definition Compact Set|compact set ×2]] — заголовок `Ch07-S04-H01`, 2 вхождения в корпусе
+- [[Ch08-S04-H03 - Basic Properties Entropy Bound|entropy bound]] — заголовок `Ch08-S04-H03`, 1 вхождение в корпусе
+- [[Ch09-S02-H05 - Main Theorem Compact Set|compact set ×2]] — заголовок `Ch09-S02-H05`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 22 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 22 · глава Ch07 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

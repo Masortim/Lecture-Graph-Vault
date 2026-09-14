@@ -30,27 +30,23 @@ $$
 
 Used together with: [[Ch04-S04-H02-B03 - Example 4.4.2c|Example 4.4.2c]], [[Ch06-S01-H01-B03 - Estimate 6.1.1c|Estimate 6.1.1c]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×7]] — глава `Ch01`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (generalization bound, singular values) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S04 - Applications and Limits|singular values]] — секция `Ch01-S04`, 1 вхождение в корпусе
-- [[Ch01-S04-H01 - Definition Singular Values|singular values ×3]] — заголовок `Ch01-S04-H01`, 3 вхождения в корпусе
-- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound ×3]] — заголовок `Ch02-S03-H02`, 3 вхождения в корпусе
-- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×3]] — заголовок `Ch03-S02-H05`, 3 вхождения в корпусе
-- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×3]] — заголовок `Ch04-S01-H06`, 3 вхождения в корпусе
+- [[Ch01-S04-H01 - Definition Singular Values|singular values ×2]] — заголовок `Ch01-S04-H01`, 2 вхождения в корпусе
+- [[Ch02-S03-H02 - Notation Generalization Bound|generalization bound]] — заголовок `Ch02-S03-H02`, 1 вхождение в корпусе
+- [[Ch03-S02-H05 - Main Theorem Singular Values|singular values ×2]] — заголовок `Ch03-S02-H05`, 2 вхождения в корпусе
+- [[Ch04-S01-H06 - Proof and Consequences Generalization Bound|generalization bound]] — заголовок `Ch04-S01-H06`, 1 вхождение в корпусе
 - [[Ch05-S01-H01 - Definition Kernel and Range|generalization bound]] — заголовок `Ch05-S01-H01`, 1 вхождение в корпусе
 - [[Ch05-S01-H03 - Basic Properties Singular Values|singular values]] — заголовок `Ch05-S01-H03`, 1 вхождение в корпусе
 - [[Ch05-S04-H04 - Key Lemma Generalization Bound|generalization bound]] — заголовок `Ch05-S04-H04`, 1 вхождение в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|singular values]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
+- [[Ch07-S03-H02 - Notation Generalization Bound|generalization bound ×2]] — заголовок `Ch07-S03-H02`, 2 вхождения в корпусе
+- [[Ch08-S02-H05 - Main Theorem Singular Values|singular values]] — заголовок `Ch08-S02-H05`, 1 вхождение в корпусе
 - [[Ch09-S01 - Setup and Notation|generalization bound]] — секция `Ch09-S01`, 1 вхождение в корпусе
+- [[Ch09-S01-H06 - Proof and Consequences Generalization Bound|generalization bound ×2]] — заголовок `Ch09-S01-H06`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 17 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 17 · глава Ch09 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

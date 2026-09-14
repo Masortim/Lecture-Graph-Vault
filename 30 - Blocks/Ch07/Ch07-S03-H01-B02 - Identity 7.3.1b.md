@@ -29,20 +29,16 @@ $$
 
 Used together with: [[Ch01-S04-H02-B02 - Estimate 1.4.2b|Estimate 1.4.2b]], [[Ch03-S01-H01-B02 - Identity 3.1.1b|Identity 3.1.1b]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (sample complexity) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×3]] — заголовок `Ch02-S03-H01`, 3 вхождения в корпусе
-- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×3]] — заголовок `Ch04-S01-H05`, 3 вхождения в корпусе
+- [[Ch02-S03-H01 - Definition Sample Complexity|sample complexity ×2]] — заголовок `Ch02-S03-H01`, 2 вхождения в корпусе
+- [[Ch04-S01-H05 - Main Theorem Sample Complexity|sample complexity ×2]] — заголовок `Ch04-S01-H05`, 2 вхождения в корпусе
 - [[Ch05-S04 - Applications and Limits|sample complexity]] — секция `Ch05-S04`, 1 вхождение в корпусе
 - [[Ch05-S04-H03 - Basic Properties Sample Complexity|sample complexity ×2]] — заголовок `Ch05-S04-H03`, 2 вхождения в корпусе
+- [[Ch07-S03-H01 - Definition Sample Complexity|sample complexity]] — заголовок `Ch07-S03-H01`, 1 вхождение в корпусе
+- [[Ch09-S01-H05 - Main Theorem Sample Complexity|sample complexity]] — заголовок `Ch09-S01-H05`, 1 вхождение в корпусе
 
-**Вес по ключевым фразам: 9 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 9 · глава Ch05 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

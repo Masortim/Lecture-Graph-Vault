@@ -30,32 +30,27 @@ $$
 
 Used together with: [[Ch08-S04-H01-B02 - Identity 8.4.1b|Identity 8.4.1b]], [[Ch09-S04-H06-B01 - Identity 9.4.6a|Identity 9.4.6a]].
 
-## Related chapters
-
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×13]] — глава `Ch04`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×8]] — глава `Ch01`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×6]] — глава `Ch02`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×6]] — глава `Ch03`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry]] — глава `Ch05`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-- [[Ch07 - Convexity and Duality|Convexity and Duality]] — глава `Ch07`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (contraction mapping, kernel matrix) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S02 - Core Theory|contraction mapping]] — секция `Ch01-S02`, 1 вхождение в корпусе
-- [[Ch01-S02-H05 - Main Theorem Contraction Mapping|contraction mapping ×3]] — заголовок `Ch01-S02-H05`, 3 вхождения в корпусе
-- [[Ch01-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch01-S04-H01`, 1 вхождение в корпусе
-- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×3]] — заголовок `Ch02-S02-H06`, 3 вхождения в корпусе
-- [[Ch03-S01-H03 - Basic Properties Contraction Mapping|contraction mapping ×3]] — заголовок `Ch03-S01-H03`, 3 вхождения в корпусе
+- [[Ch01-S02-H05 - Main Theorem Contraction Mapping|contraction mapping ×2]] — заголовок `Ch01-S02-H05`, 2 вхождения в корпусе
+- [[Ch02-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix ×2]] — заголовок `Ch02-S02-H06`, 2 вхождения в корпусе
+- [[Ch03-S01-H03 - Basic Properties Contraction Mapping|contraction mapping]] — заголовок `Ch03-S01-H03`, 1 вхождение в корпусе
 - [[Ch04-S01 - Setup and Notation|kernel matrix]] — секция `Ch04-S01`, 1 вхождение в корпусе
-- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×3]] — заголовок `Ch04-S01-H04`, 3 вхождения в корпусе
-- [[Ch04-S04-H01 - Definition Contraction Mapping|contraction mapping ×3]] — заголовок `Ch04-S04-H01`, 3 вхождения в корпусе
+- [[Ch04-S01-H04 - Key Lemma Kernel Matrix|kernel matrix]] — заголовок `Ch04-S01-H04`, 1 вхождение в корпусе
+- [[Ch04-S04-H01 - Definition Contraction Mapping|contraction mapping]] — заголовок `Ch04-S04-H01`, 1 вхождение в корпусе
 - [[Ch05-S04-H02 - Notation Kernel Matrix|kernel matrix]] — заголовок `Ch05-S04-H02`, 1 вхождение в корпусе
 - [[Ch06-S02 - Core Theory|contraction mapping]] — секция `Ch06-S02`, 1 вхождение в корпусе
+- [[Ch06-S02-H05 - Main Theorem Contraction Mapping|contraction mapping]] — заголовок `Ch06-S02-H05`, 1 вхождение в корпусе
+- [[Ch06-S04-H01 - Definition Singular Values|kernel matrix]] — заголовок `Ch06-S04-H01`, 1 вхождение в корпусе
 - [[Ch07-S02 - Core Theory|kernel matrix]] — секция `Ch07-S02`, 1 вхождение в корпусе
+- [[Ch07-S02-H06 - Proof and Consequences Kernel Matrix|kernel matrix]] — заголовок `Ch07-S02-H06`, 1 вхождение в корпусе
+- [[Ch08-S01-H03 - Basic Properties Contraction Mapping|contraction mapping ×2]] — заголовок `Ch08-S01-H03`, 2 вхождения в корпусе
+- [[Ch09-S01-H04 - Key Lemma Kernel Matrix|kernel matrix ×2]] — заголовок `Ch09-S01-H04`, 2 вхождения в корпусе
 - [[Ch09-S04 - Applications and Limits|contraction mapping]] — секция `Ch09-S04`, 1 вхождение в корпусе
+- [[Ch09-S04-H01 - Definition Contraction Mapping|contraction mapping ×2]] — заголовок `Ch09-S04-H01`, 2 вхождения в корпусе
 
-**Вес по ключевым фразам: 22 · глава Ch04 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
+**Вес по ключевым фразам: 22 · глава Ch09 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

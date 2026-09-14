@@ -16,7 +16,7 @@ const uiPatched = ui.replace('const core = require("graph-core");', "const core 
 
 // Версия плагина — одно место на весь репозиторий: баннер сборки, manifest.json и
 // документация (write_docs.py читает её отсюда же).
-const VERSION = "1.13.0";
+const VERSION = "1.13.1";
 
 const banner = `/* lecture-graph v${VERSION} — автоген: src/graph-core.js + src/ui.js, не редактировать напрямую. */\n`;
 const bundle =

@@ -29,32 +29,28 @@ $$
 
 Used together with: [[Ch08-S02-H04-B03 - Identity 8.2.4c|Identity 8.2.4c]], [[Ch09-S03-H03-B03 - Proposition 9.3.3c|Proposition 9.3.3c]].
 
-## Related chapters
-
-- [[Ch02 - Normed Spaces and Operators|Normed Spaces and Operators ×13]] — глава `Ch02`, 13 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×8]] — глава `Ch03`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×6]] — глава `Ch01`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch04 - Banach Space Theorems|Banach Space Theorems ×6]] — глава `Ch04`, 6 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×3]] — глава `Ch05`, 3 вхождения ключевых фраз в аннотациях главы
-- [[Ch06 - Spectral Theory|Spectral Theory]] — глава `Ch06`, 1 вхождение ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (entropy bound, metric completion) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
-- [[Ch01-S01-H04 - Key Lemma Metric Completion|metric completion ×3]] — заголовок `Ch01-S01-H04`, 3 вхождения в корпусе
+- [[Ch01-S01-H04 - Key Lemma Metric Completion|metric completion ×2]] — заголовок `Ch01-S01-H04`, 2 вхождения в корпусе
 - [[Ch02-S01 - Setup and Notation|entropy bound]] — секция `Ch02-S01`, 1 вхождение в корпусе
-- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×3]] — заголовок `Ch02-S01-H05`, 3 вхождения в корпусе
-- [[Ch02-S04-H02 - Notation Metric Completion|metric completion ×3]] — заголовок `Ch02-S04-H02`, 3 вхождения в корпусе
+- [[Ch02-S01-H05 - Main Theorem Entropy Bound|entropy bound ×2]] — заголовок `Ch02-S01-H05`, 2 вхождения в корпусе
+- [[Ch02-S04-H02 - Notation Metric Completion|metric completion ×2]] — заголовок `Ch02-S04-H02`, 2 вхождения в корпусе
 - [[Ch03-S04 - Applications and Limits|entropy bound]] — секция `Ch03-S04`, 1 вхождение в корпусе
 - [[Ch03-S04-H01 - Definition Approximation Error|metric completion]] — заголовок `Ch03-S04-H01`, 1 вхождение в корпусе
-- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×3]] — заголовок `Ch03-S04-H03`, 3 вхождения в корпусе
-- [[Ch04-S02-H06 - Proof and Consequences Metric Completion|metric completion ×3]] — заголовок `Ch04-S02-H06`, 3 вхождения в корпусе
+- [[Ch03-S04-H03 - Basic Properties Entropy Bound|entropy bound ×2]] — заголовок `Ch03-S04-H03`, 2 вхождения в корпусе
+- [[Ch04-S02-H06 - Proof and Consequences Metric Completion|metric completion ×2]] — заголовок `Ch04-S02-H06`, 2 вхождения в корпусе
 - [[Ch05-S03 - Main Results|entropy bound]] — секция `Ch05-S03`, 1 вхождение в корпусе
 - [[Ch05-S03-H01 - Definition Entropy Bound|entropy bound]] — заголовок `Ch05-S03-H01`, 1 вхождение в корпусе
 - [[Ch05-S04-H01 - Definition Feature Map|metric completion]] — заголовок `Ch05-S04-H01`, 1 вхождение в корпусе
 - [[Ch06-S01 - Setup and Notation|metric completion]] — секция `Ch06-S01`, 1 вхождение в корпусе
+- [[Ch06-S01-H04 - Key Lemma Metric Completion|metric completion]] — заголовок `Ch06-S01-H04`, 1 вхождение в корпусе
 - [[Ch07-S01 - Setup and Notation|entropy bound]] — секция `Ch07-S01`, 1 вхождение в корпусе
+- [[Ch07-S01-H05 - Main Theorem Entropy Bound|entropy bound]] — заголовок `Ch07-S01-H05`, 1 вхождение в корпусе
+- [[Ch07-S04-H02 - Notation Metric Completion|metric completion]] — заголовок `Ch07-S04-H02`, 1 вхождение в корпусе
+- [[Ch08-S04-H03 - Basic Properties Entropy Bound|entropy bound]] — заголовок `Ch08-S04-H03`, 1 вхождение в корпусе
+- [[Ch09-S02-H06 - Proof and Consequences Metric Completion|metric completion]] — заголовок `Ch09-S02-H06`, 1 вхождение в корпусе
 
 **Вес по ключевым фразам: 23 · глава Ch02 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->

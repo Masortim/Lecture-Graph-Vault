@@ -29,22 +29,18 @@ $$
 
 Used together with: [[Ch08-S01-H01-B03 - Estimate 8.1.1c|Estimate 8.1.1c]], [[Ch09-S01-H06-B02 - Estimate 9.1.6b|Estimate 9.1.6b]].
 
-## Related chapters
-
-- [[Ch01 - Metric Spaces and Completion|Metric Spaces and Completion ×8]] — глава `Ch01`, 8 вхождений ключевых фраз в аннотациях главы
-- [[Ch03 - Inner Products and Orthogonality|Inner Products and Orthogonality ×7]] — глава `Ch03`, 7 вхождений ключевых фраз в аннотациях главы
-- [[Ch05 - Hilbert Space Geometry|Hilbert Space Geometry ×2]] — глава `Ch05`, 2 вхождения ключевых фраз в аннотациях главы
-
 <!-- keywords:begin -->
 
 Связи по `keywords_en` (eigenvalue bounds) — найдено в аннотациях `35 - Abstracts`. Число после × — вес ребра (сколько раз фраза встречается в этой области); блок создан алгоритмом, править его руками бессмысленно: перезапишется.
 
 - [[Ch01-S03 - Main Results|eigenvalue bounds]] — секция `Ch01-S03`, 1 вхождение в корпусе
 - [[Ch01-S03-H01 - Definition Banach Limit|eigenvalue bounds]] — заголовок `Ch01-S03-H01`, 1 вхождение в корпусе
-- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch01-S03-H06`, 3 вхождения в корпусе
+- [[Ch01-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch01-S03-H06`, 2 вхождения в корпусе
 - [[Ch03-S02 - Core Theory|eigenvalue bounds]] — секция `Ch03-S02`, 1 вхождение в корпусе
-- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×3]] — заголовок `Ch03-S02-H04`, 3 вхождения в корпусе
+- [[Ch03-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch03-S02-H04`, 1 вхождение в корпусе
 - [[Ch05-S01-H02 - Notation Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch05-S01-H02`, 2 вхождения в корпусе
+- [[Ch06-S03-H06 - Proof and Consequences Eigenvalue Bounds|eigenvalue bounds]] — заголовок `Ch06-S03-H06`, 1 вхождение в корпусе
+- [[Ch08-S02-H04 - Key Lemma Eigenvalue Bounds|eigenvalue bounds ×2]] — заголовок `Ch08-S02-H04`, 2 вхождения в корпусе
 
 **Вес по ключевым фразам: 11 · глава Ch01 (текст до первого `##` — связь с секцией, текст под `## Имя` — с заголовком)**
 <!-- keywords:end -->
