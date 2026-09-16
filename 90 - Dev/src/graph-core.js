@@ -16,6 +16,11 @@
 
   var TYPES = ["chapter", "section", "heading", "block"];
 
+  /* Формат выгрузки НАЗВАНИЙ (кнопки ⤓ JSON / ⤒ JSON): только id + name + name_zh.
+     Отдельная версия от "lecture-graph/1" (полный граф), потому что это другой файл
+     с другой задачей — его правит переводчик, а не рисует визуализатор. */
+  var NAMES_FORMAT = "lecture-graph-names/1";
+
   /**
    * Подпись, которая не влезла в свой бюджет, не обрезается многоточием, а ГАСНЕТ
    * к правому краю. Это нижняя граница «сколько текста показано в полную силу»: даже
@@ -2114,6 +2119,159 @@
     }
     nodes.forEach(function (n) { n.vx = 0; n.vy = 0; });
     return movable.length;
+  }
+
+  /* ------------------------------------------------------------------ имена вершин: JSON туда и обратно
+   *
+   * Кнопки `⤓ JSON` / `⤒ JSON` в панели графа работают НЕ полной выгрузкой графа
+   * (координаты, цвета, рёбра — это `toGraphJson`), а узким форматом «только названия»:
+   * три поля на вершину — `id`, `name` (английское) и `name_zh` (китайское). Такой файл
+   * отдают переводчику или скрипту машинного перевода, а потом возвращают обратно кнопкой
+   * импорта: она обновляет свойство `name_zh` в заметках глав/секций/заголовков/блоков.
+   *
+   * Из-за этого формат нарочно плоский и без «шума»: любой редактор JSON и любой
+   * переводческий инструмент увидят ровно те строки, которые нужно перевести.
+   */
+
+  /** Идут ли имена этой вершины в выгрузку названий: настоящая заметка с id. */
+  function namesExportable(node) {
+    if (!node || node.inline) return false; // инлайн-якорь живёт в чужой заметке, своих свойств нет
+    return !!String(node.id || "").trim();
+  }
+
+  /**
+   * Выгрузка названий: `{format, generated, count, nodes: [{id, name, name_zh}]}`.
+   * Ровно три поля на вершину — ни путей, ни типов, ни координат.
+   */
+  function toNamesJson(graph, opts) {
+    opts = opts || {};
+    var nodes = (opts.nodes || (graph && graph.nodes) || []).filter(namesExportable);
+    // порядок в файле детерминирован (по id): дважды выгруженный один и тот же граф
+    // даёт один и тот же текст, поэтому diff показывает только реальные правки перевода
+    nodes = nodes.slice().sort(function (a, b) {
+      var x = String(a.id), y = String(b.id);
+      return x < y ? -1 : x > y ? 1 : 0;
+    });
+    var seen = {};
+    var out = [];
+    nodes.forEach(function (n) {
+      var id = String(n.id).trim();
+      if (seen[id]) return; // один id — одна запись: импорт иначе не знал бы, какую брать
+      seen[id] = true;
+      out.push({ id: id, name: String(n.name == null ? "" : n.name), name_zh: String(n.nameZh == null ? "" : n.nameZh) });
+    });
+    return {
+      format: NAMES_FORMAT,
+      generated: opts.stamp || "",
+      count: out.length,
+      nodes: out,
+    };
+  }
+
+  /**
+   * Разбор файла импорта. Принимаем и «родной» формат `{nodes: [...]}`, и просто массив
+   * записей, и полную выгрузку графа (`toGraphJson` — у неё те же поля `id`/`name_zh`),
+   * и словарь `{id: "перевод"}`: пользователь может принести файл откуда угодно.
+   * Возвращает {entries: [{id, nameZh, name}], errors: [строки]}.
+   */
+  function parseNamesJson(text) {
+    var res = { entries: [], errors: [], format: null };
+    var data;
+    try {
+      data = typeof text === "string" ? JSON.parse(text) : text;
+    } catch (e) {
+      res.errors.push("файл не разбирается как JSON: " + (e && e.message ? e.message : e));
+      return res;
+    }
+    if (!data || typeof data !== "object") {
+      res.errors.push("в файле не объект и не массив JSON");
+      return res;
+    }
+    var list = null;
+    if (Array.isArray(data)) list = data;
+    else if (Array.isArray(data.nodes)) {
+      list = data.nodes;
+      res.format = data.format || null;
+    } else {
+      // словарь {id: "китайское название"} — самый простой вид «таблицы перевода»
+      list = Object.keys(data).map(function (k) {
+        var v = data[k];
+        return v && typeof v === "object" ? merge({ id: k }, v) : { id: k, name_zh: v };
+      });
+    }
+    if (!list.length) {
+      res.errors.push("в файле нет ни одной записи");
+      return res;
+    }
+    var seen = {};
+    list.forEach(function (row, i) {
+      if (!row || typeof row !== "object") {
+        res.errors.push("запись " + (i + 1) + ": не объект");
+        return;
+      }
+      var id = String(row.id === undefined || row.id === null ? "" : row.id).trim();
+      if (!id) {
+        res.errors.push("запись " + (i + 1) + ": нет поля id");
+        return;
+      }
+      if (seen[id]) {
+        res.errors.push("id «" + id + "» встречается в файле дважды — взята первая запись");
+        return;
+      }
+      seen[id] = true;
+      // name_zh отсутствует => запись просто не про перевод (например, выгрузка без него);
+      // пустая строка — намеренная очистка перевода, её отличаем от «поля нет»
+      var zhRaw = row.name_zh !== undefined ? row.name_zh : row.nameZh;
+      var entry = { id: id, name: row.name === undefined || row.name === null ? null : sanitizeLabel(row.name) };
+      entry.nameZh = zhRaw === undefined || zhRaw === null ? null : sanitizeLabel(zhRaw);
+      if (entry.nameZh === null) {
+        res.errors.push("id «" + id + "»: нет поля name_zh — запись пропущена");
+        return;
+      }
+      res.entries.push(entry);
+    });
+    return res;
+  }
+
+  /**
+   * План импорта: что именно поменяется в хранилище. Чистая функция — её крутят тесты,
+   * а UI рисует по ней окно подтверждения и пишет только строки из `changes`.
+   *   changes  — перевод в заметке отличается от файла (будет запись)
+   *   same     — перевод уже такой (заметку не трогаем: mtime не сдвигается)
+   *   missing  — id из файла нет в графе (опечатка в id или заметку удалили)
+   *   cleared  — импорт стирает существующий перевод (пустая строка в файле)
+   */
+  function planNamesImport(graph, entries, opts) {
+    opts = opts || {};
+    var byId = {};
+    ((graph && graph.nodes) || []).forEach(function (n) {
+      if (!namesExportable(n)) return;
+      if (!byId[n.id]) byId[n.id] = n;
+    });
+    var plan = { changes: [], same: [], missing: [], cleared: [], skippedEmpty: [] };
+    (entries || []).forEach(function (e) {
+      var node = byId[e.id];
+      if (!node) {
+        plan.missing.push(e.id);
+        return;
+      }
+      var next = String(e.nameZh == null ? "" : e.nameZh);
+      var prev = String(node.nameZh == null ? "" : node.nameZh);
+      if (next === prev) {
+        plan.same.push(e.id);
+        return;
+      }
+      // «пустая строка стирает перевод» — только если об этом попросили явно:
+      // иначе полупустой файл молча снёс бы китайские названия по всему курсу
+      if (!next && opts.allowClear !== true) {
+        plan.skippedEmpty.push(e.id);
+        return;
+      }
+      var change = { id: e.id, path: node.path, type: node.type, name: node.name, from: prev, to: next, node: node };
+      if (!next) plan.cleared.push(change);
+      plan.changes.push(change);
+    });
+    return plan;
   }
 
   /** JSON-выгрузка: что видно на экране, то и в файле (узлы, рёбра, размеры, цвета, статистика). */
@@ -5493,6 +5651,11 @@
     isHexColor: isHexColor,
     normalizeHexColor: normalizeHexColor,
     toGraphJson: toGraphJson,
+    NAMES_FORMAT: NAMES_FORMAT,
+    namesExportable: namesExportable,
+    toNamesJson: toNamesJson,
+    parseNamesJson: parseNamesJson,
+    planNamesImport: planNamesImport,
     toDot: toDot,
     toGraphML: toGraphML,
     toCsv: toCsv,

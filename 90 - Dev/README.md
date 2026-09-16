@@ -124,7 +124,8 @@ test-view → finalize`. Корпус и материализованные св
 оглавления, совпадение `styles.css` со `src/`) и `test-view.js` (вывод плагина == вывод CLI).
 
 Устройство: `src/graph-core.js` — чистая логика (frontmatter, извлечение ссылок, степени/радиусы/кегль,
-движки раскладки, экспорт SVG/CSV/GraphML/DOT/JSON). Раскладка — пять режимов: `fdp` (пружины,
+движки раскладки, экспорт SVG/CSV/GraphML/DOT/JSON и узкий формат названий
+`lecture-graph-names/1`: `toNamesJson` / `parseNamesJson` / `planNamesImport`). Раскладка — пять режимов: `fdp` (пружины,
 `frStep`), `neato` (стресс-мажоризация, `smStep`), `twopi` (радиальные слои по глубине дерева,
 `twopiLayout`), `clusters` (свой сектор главы + кольца уровней: `placeClusters`, упаковку листьев
 держит `packAroundAnchors`, стенки сектора — `clampWalls`) и `force` (живая физика `step`). Общие
@@ -146,7 +147,12 @@ Obsidian; `undoDelete` возвращает все правленые файлы
 холсте** (`zoomBy`) с индикатором масштаба, отдельный слой рёбер выбранной вершины (акцентный
 цвет), экранная расстановка подписей `planLabels()` и поправка размеров на зум `radiusModel()`/
 `labelComp()`, легенда цветов глав с изоляцией по клику, тост вместо строки состояния,
-полноэкранный режим, экспорт JSON/SVG, команды, настройки). `build.js` инлайнит ядро в `main.js`, поэтому esbuild не нужен, а тесты гоняют
+полноэкранный режим (кнопка `⛶` — только значок: текст ушёл в `title`/`aria-label`, иначе подпись
+занимала треть панели), **пара кнопок названий `⤓ JSON` / `⤒ JSON`** — выгрузка `id`+`name`+`name_zh`
+(`core.toNamesJson` → `90 - Exports/lecture-names-<дата>.json`) и обратный импорт китайских названий
+(`core.parseNamesJson` → `core.planNamesImport` → `ImportNamesModal` → `applyNamesImport`: пишется
+ровно одна строка frontmatter, `undoNamesImport` возвращает правленые заметки байт-в-байт),
+экспорт JSON/SVG, команды, настройки). `build.js` инлайнит ядро в `main.js`, поэтому esbuild не нужен, а тесты гоняют
 ровно тот код, что лежит в плагине. `obsidian-stub.js` + `node_modules/obsidian` — минимальный стаб
 API Obsidian для тестов. `preview/` — предпросмотр плагина в браузере БЕЗ Obsidian
 (`server.js` собирает bundle из `src/` на лету и отдаёт хранилище JSON'ом, `fs-shim.js`

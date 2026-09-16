@@ -196,16 +196,42 @@ check("src/ui.js: полный экран (класс + immersive + requestFulls
       and "toGraphJson" in ui_src and "exportJSON" in ui_src)
 check("src/ui.js: подписи режет ядро (labelShown/labelEn), а не фиксированный порог",
       "core.labelShown" in ui_src and "labelEn" in ui_src and "applySizesNow" in ui_src)
+
+# 2f-3. раунд 26: кнопка полного экрана без подписи и пара ⤓/⤒ JSON для названий вершин
+check("src/ui.js: у кнопки полного экрана нет текстовой надписи (значок + title)",
+      'mkButton(gView, FULL_ICON' in ui_src and 'FULL_TITLE' in ui_src
+      and "lg-btn--icon" in ui_src
+      and '"\u26f6 \u041f\u0440\u043e\u0441\u043c\u043e\u0442\u0440\u0435\u0442\u044c' not in ui_src,
+      "подпись вернулась на кнопку")
+check("src/ui.js: кнопка импорта названий стоит сразу за кнопкой экспорта",
+      ui_src.find('"\u2913 JSON"') > 0
+      and 0 < ui_src.find('"\u2912 JSON"') - ui_src.find('"\u2913 JSON"') < 700
+      and "exportNames" in ui_src and "importNames" in ui_src,
+      "порядок кнопок ⤓/⤒ JSON в панели")
+check("src/ui.js: импорт пишет только name_zh, показывает план и умеет отмену",
+      "ImportNamesModal" in ui_src and "applyNamesImport" in ui_src and "undoNamesImport" in ui_src
+      and "settings.nameZhKey" in ui_src and "lastNamesImport" in ui_src)
 core_src = open(os.path.join(DEV, "src", "graph-core.js"), encoding="utf-8").read()
 check("ядро: дуги (arcPath/edgePath), size:/color:/caption:, toGraphJson",
       "function arcPath" in core_src and "function edgePath" in core_src
       and "sizeRaw" in core_src and "colorProp" in core_src and "caption: linkTargetOf" in core_src
       and "function toGraphJson" in core_src)
 check("ядро: кегль подписи ∝ размеру вершины", "baseFont" in core_src and "sizeFactor" in core_src)
+check("ядро: формат названий (id + name + name_zh) — выгрузка, разбор и план импорта",
+      "function toNamesJson" in core_src and "function parseNamesJson" in core_src
+      and "function planNamesImport" in core_src and "lecture-graph-names/1" in core_src)
 check("main.js: собрано с пузырьком и без карточки", "lg-bubble" in js and "lg-card" not in js)
+check("main.js: в сборке есть обе кнопки названий и окно плана импорта",
+      "toNamesJson" in js and "parseNamesJson" in js and "ImportNamesModal" in js
+      and "lecture-names-" in js and "undoNamesImport" in js)
+check("main.js: команды палитры для названий на месте",
+      all(c in js for c in ("export-names-json", "import-names-json", "undo-names-import")))
 check("styles.css: есть пузырёк/тост/легенда/выделенные рёбра, нет карточки",
       all(t in css for t in (".lg-bubble {", ".lg-toast {", ".lg-legend__chip", ".lg-edges--sel", ".lg-btn--cta"))
       and ".lg-card" not in css and "lg-status" not in css)
+check("styles.css: есть стили окна импорта названий и кнопки-пиктограммы",
+      all(t in css for t in (".lg-import__list", ".lg-import__row", ".lg-import__sum", ".lg-btn--icon"))
+      and re.search(r"\.lg-btn--icon \{[^}]*min-width:", css) is not None)
 check("styles.css: в полноэкранном режиме не остаётся ничего, кроме графа",
       re.search(r"\.lg-root--full \.lg-bar, \.lg-root--full \.lg-legend \{ display: none", css) is not None)
 
@@ -413,6 +439,13 @@ for folder in ("00 - Start Here", "35 - Abstracts", "40 - Templates", "50 - Dash
             for m in _re0.findall(r"__[A-Z][A-Z_]*__", txt):
                 leftover.append("%s: %s" % (os.path.relpath(os.path.join(root_, x), VAULT), m))
 check("в документации не осталось неподставленных подстановок", not leftover, str(leftover[:3]))
+
+check(".gitignore: рабочая выгрузка названий не едет в репозиторий",
+      "90 - Exports/lecture-names-*.json" in open(os.path.join(VAULT, ".gitignore"), encoding="utf-8").read())
+doc2b = open(os.path.join(VAULT, "00 - Start Here", "02 Graph \u2014 как читать и править.md"), encoding="utf-8").read()
+check("02 Graph: описаны обе кнопки названий и правила импорта",
+      "lecture-names-" in doc2b and "\u2912 JSON" in doc2b and "name_zh" in doc2b
+      and "Undo last names import" in doc2b)
 
 print("== этап 2: ключевые фразы ==")
 import re as _re

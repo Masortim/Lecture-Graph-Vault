@@ -97,7 +97,8 @@ class Vault extends Events {
     this.root = root;
   }
   _abs(rel) { return path.join(this.root, rel); }
-  getMarkdownFiles() {
+  /** Как в Obsidian: ВСЕ файлы хранилища, не только .md (импорт названий ищет тут *.json). */
+  getFiles() {
     const out = [];
     const walk = (dir, rel) => {
       for (const ent of fs.readdirSync(dir, { withFileTypes: true })) {
@@ -105,12 +106,15 @@ class Vault extends Events {
         const p = path.join(dir, ent.name);
         const r = rel ? rel + "/" + ent.name : ent.name;
         if (ent.isDirectory()) walk(p, r);
-        else if (ent.name.endsWith(".md")) out.push(new TFile(r, p));
+        else out.push(new TFile(r, p));
       }
     };
     if (fs.existsSync(this.root)) walk(this.root, "");
     out.sort((a, b) => (a.path < b.path ? -1 : 1));
     return out;
+  }
+  getMarkdownFiles() {
+    return this.getFiles().filter((f) => f.path.endsWith(".md"));
   }
   getAbstractFileByPath(p) {
     if (!p) return null;
