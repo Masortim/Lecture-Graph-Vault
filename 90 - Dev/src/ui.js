@@ -52,6 +52,13 @@ const LABEL_WIDTH_STEPS = 4;
 // сколько ждём «устоявшегося» размера сцены при входе/выходе из полноэкранного режима:
 // переход Chromium и перекладка Obsidian длятся сотни миллисекунд
 const FULLSCREEN_SETTLE_MS = 450;
+/* Кнопка полного экрана — только пиктограмма: подпись «Просмотреть граф на полном экране»
+   занимала треть панели и переносила остальные кнопки на вторую строку. Текст никуда не
+   делся — он в title/aria-label, поэтому подсказка и скринридер всё так же его читают. */
+const FULL_ICON = "⛶";
+const FULL_ICON_EXIT = "✕";
+const FULL_TITLE = "Просмотреть граф на полном экране";
+const FULL_TITLE_EXIT = "Выйти из полноэкранного режима (Esc)";
 
 const DEFAULT_SETTINGS = {
   folders: "",
@@ -400,10 +407,22 @@ class LectureGraphView extends obsidian.ItemView {
     };
 
     var gView = group("");
-    this.fullBtn = this.mkButton(gView, "⛶ Просмотреть граф на полном экране", () => this.toggleFullscreen());
+    // Полный экран — кнопка-пиктограмма БЕЗ подписи: длинная надпись занимала треть
+    // панели и уезжала на вторую строку. Смысл несут символ, title и aria-label.
+    this.fullBtn = this.mkButton(gView, FULL_ICON, () => this.toggleFullscreen(), {
+      cls: "lg-btn lg-btn--icon",
+      title: FULL_TITLE,
+    });
     this.mkButton(gView, "⟳ Rebuild", () => this.refresh(true));
     this.mkButton(gView, "⤢ Fit", () => this.fit());
-    this.mkButton(gView, "⤓ JSON", () => this.exportJSON());
+    // экспорт названий и импорт переводов — пара рядом: «вниз» выгружает
+    // id/name/name_zh в файл, «вверх» возвращает правленый файл в свойства заметок
+    this.exportBtn = this.mkButton(gView, "⤓ JSON", () => this.exportNames(), {
+      title: "Экспорт названий в *.json: только id, name (EN) и name_zh (中文) из папок Chapters, Sections, Headings, Blocks",
+    });
+    this.importBtn = this.mkButton(gView, "⤒ JSON", () => this.importNames(), {
+      title: "Импорт названий из *.json: обновить свойство name_zh (китайское название) у заметок в папках Chapters, Sections, Headings, Blocks",
+    });
     this.mkButton(gView, "⤓ SVG", () => this.exportSVG());
     this.freezeBtn = this.mkButton(gView, "▶ Physics", () => {
       this.frozen = !this.frozen;
@@ -1863,7 +1882,13 @@ class LectureGraphView extends obsidian.ItemView {
     } catch (e) {
       /* Fullscreen API недоступен (превью, мобильный режим) — остаётся CSS-вариант */
     }
-    if (this.fullBtn) this.fullBtn.setText(this.fullscreen ? "✕ Выйти из полноэкранного (Esc)" : "⛶ Просмотреть граф на полном экране");
+    // кнопка без подписи: меняется пиктограмма, а сам текст живёт в title/aria-label
+    if (this.fullBtn) {
+      this.fullBtn.setText(this.fullscreen ? FULL_ICON_EXIT : FULL_ICON);
+      var ft = this.fullscreen ? FULL_TITLE_EXIT : FULL_TITLE;
+      this.fullBtn.setAttribute("title", ft);
+      this.fullBtn.setAttribute("aria-label", ft);
+    }
     /* Сцена меняет размер ДВАЖДЫ: сразу (класс) и когда закончится переход
        полноэкранного режима Chromium и перекладка Obsidian. Считаем камеру сразу —
        чтобы не показывать кадр со старой, — и досчитываем, пока размер не устоится.
@@ -2293,7 +2318,23 @@ class LectureGraphView extends obsidian.ItemView {
     return this.plugin.exportSVG(this.exportGraph());
   }
 
-  /** Выгрузка ровно того, что видно: узлы, рёбра, размеры, цвета, статистика. */
+  /**
+   * Кнопка `⤓ JSON` — выгрузка НАЗВАНИЙ: id, name (EN) и name_zh (中文) по всем заметкам
+   * глав/секций/заголовков/блоков. Здесь намеренно НЕ exportGraph(): фильтры панели
+   * (тип, глава, поиск) прячут вершины на экране, а файл перевода должен быть полным —
+   * иначе импорт вернул бы переводы только для той части курса, что была видна.
+   * Полная выгрузка графа (координаты, цвета, рёбра) осталась командой палитры.
+   */
+  async exportNames() {
+    return this.plugin.exportNamesJson();
+  }
+
+  /** Кнопка `⤒ JSON` — импорт названий: обновляет name_zh в свойствах заметок. */
+  async importNames() {
+    return this.plugin.importNames();
+  }
+
+  /** Полная выгрузка графа (узлы, рёбра, размеры, цвета, координаты) — ровно то, что видно. */
   async exportJSON() {
     return this.plugin.exportJSON(this.exportGraph());
   }
@@ -2364,6 +2405,165 @@ class EditLabelModal extends obsidian.Modal {
 
   onClose() {
     this.contentEl.textContent = "";
+  }
+}
+
+/* ------------------------------------------------- modal: импорт названий (⤒ JSON) */
+
+/**
+ * Что именно изменится в хранилище. Импорт правит чужие заметки пачкой, поэтому
+ * сначала показываем план: сколько переводов обновится, что не нашлось по id, что
+ * уже совпадает. Список правок — с прежним и новым значением, чтобы «перевод не той
+ * колонки» было видно до записи, а не после.
+ */
+class ImportNamesModal extends obsidian.Modal {
+  constructor(app, plugin, plan, done) {
+    super(app);
+    this.plugin = plugin;
+    this.plan = plan;
+    this.done = done || function () {};
+    this.busy = false;
+    this.finished = false;
+  }
+
+  onOpen() {
+    var plan = this.plan;
+    var content = this.contentEl;
+    content.addClass("lg-modal");
+    content.addClass("lg-import");
+    this.modalEl.addClass("lg-modal-wide");
+    content.createEl("h2", { text: "Импорт названий: обновить 中文 (name_zh)" });
+    content.createDiv({ cls: "lg-modal-path", text: plan.source || "" });
+
+    var sum = content.createDiv({ cls: "lg-import__sum" });
+    var stat = function (label, n, cls) {
+      var el = sum.createDiv({ cls: "lg-import__stat" + (cls ? " " + cls : "") });
+      el.createSpan({ cls: "lg-import__n", text: String(n) });
+      el.createSpan({ cls: "lg-import__cap", text: label });
+    };
+    stat("обновится", plan.changes.length, "lg-import__stat--go");
+    stat("уже совпадает", plan.same.length);
+    stat("id не найдено", plan.missing.length, plan.missing.length ? "lg-import__stat--warn" : "");
+    if (plan.skippedEmpty.length) stat("пустых пропущено", plan.skippedEmpty.length, "lg-import__stat--warn");
+
+    if (plan.missing.length) {
+      content.createDiv({
+        cls: "lg-import__warn",
+        text: "Нет таких вершин (" + plan.missing.length + "): " + plan.missing.slice(0, 8).join(", ") +
+          (plan.missing.length > 8 ? " …" : "") + " — эти записи будут пропущены.",
+      });
+    }
+    if (plan.parseErrors && plan.parseErrors.length) {
+      content.createDiv({
+        cls: "lg-import__warn",
+        text: "Замечания по файлу (" + plan.parseErrors.length + "): " + plan.parseErrors.slice(0, 3).join("; ") +
+          (plan.parseErrors.length > 3 ? " …" : ""),
+      });
+    }
+
+    var list = content.createDiv({ cls: "lg-import__list" });
+    plan.changes.slice(0, 200).forEach(function (ch) {
+      var row = list.createDiv({ cls: "lg-import__row" });
+      var head = row.createDiv({ cls: "lg-import__head" });
+      head.createSpan({ cls: "lg-import__id", text: ch.id });
+      head.createSpan({ cls: "lg-import__type", text: TYPE_LABEL[ch.type] || ch.type || "" });
+      head.createSpan({ cls: "lg-import__name", text: ch.name || "" });
+      var zh = row.createDiv({ cls: "lg-import__zh" });
+      zh.createSpan({ cls: "lg-line--zh lg-import__from", text: ch.from || "(пусто)" });
+      zh.createSpan({ cls: "lg-import__arrow", text: "→" });
+      zh.createSpan({ cls: "lg-line--zh lg-import__to", text: ch.to || "(очистить)" });
+    });
+    if (plan.changes.length > 200) {
+      list.createDiv({ cls: "lg-import__more", text: "…и ещё " + (plan.changes.length - 200) + " — показаны первые 200" });
+    }
+
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Меняется только свойство " + (this.plugin.settings.nameZhKey || "name_zh") +
+        " в заметках папок Chapters, Sections, Headings, Blocks. Тело заметок, формулы и остальные свойства не трогаются; " +
+        "после импорта работает команда «Undo last names import».",
+    });
+
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    this.okBtn = btns.createEl("button", { cls: "mod-cta", text: "Обновить " + plan.changes.length, attr: { type: "button" } });
+    this.okBtn.addEventListener("click", () => this.submit());
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+    setTimeout(() => this.okBtn.focus(), 30);
+    this.registerDomEvent(document, "keydown", (ev) => {
+      if (ev.key === "Enter" && (ev.ctrlKey || ev.metaKey)) this.submit();
+    });
+  }
+
+  async submit() {
+    if (this.busy) return;
+    this.busy = true;
+    this.okBtn.disabled = true;
+    this.okBtn.setText("Пишем…");
+    var res = null;
+    try {
+      res = await this.plugin.applyNamesImport(this.plan);
+    } finally {
+      this.busy = false;
+      this.finished = true;
+    }
+    this.close();
+    this.done(res);
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+    if (!this.finished) {
+      this.finished = true;
+      this.done(null);
+    }
+  }
+}
+
+/**
+ * Запасной выбор файла: системного диалога может не быть (мобильный webview,
+ * предпросмотр в браузере) — тогда предлагаем json-файлы из папки экспорта хранилища.
+ */
+class ImportNamesPickModal extends obsidian.Modal {
+  constructor(app, plugin, files, done) {
+    super(app);
+    this.plugin = plugin;
+    this.files = files;
+    this.done = done || function () {};
+    this.finished = false;
+  }
+
+  onOpen() {
+    var content = this.contentEl;
+    content.addClass("lg-modal");
+    content.addClass("lg-import");
+    content.createEl("h2", { text: "Импорт названий: выберите файл" });
+    content.createDiv({
+      cls: "lg-modal-hint",
+      text: "Системный диалог выбора файла недоступен. Вот json-файлы из папки «" +
+        (this.plugin.settings.exportFolder || "90 - Exports") + "» — свежие сверху.",
+    });
+    var list = content.createDiv({ cls: "lg-import__files" });
+    var self = this;
+    this.files.slice(0, 50).forEach(function (f) {
+      var b = list.createEl("button", { cls: "lg-import__file", attr: { type: "button" } });
+      b.createDiv({ cls: "lg-import__file-name", text: f.name || f.path });
+      b.createDiv({ cls: "lg-modal-path", text: f.path });
+      b.addEventListener("click", function () {
+        self.finished = true;
+        self.close();
+        self.done(f);
+      });
+    });
+    var btns = content.createDiv({ cls: "lg-modal-btns" });
+    btns.createEl("button", { text: "Отмена", attr: { type: "button" } }).addEventListener("click", () => this.close());
+  }
+
+  onClose() {
+    this.contentEl.textContent = "";
+    if (!this.finished) {
+      this.finished = true;
+      this.done(null);
+    }
   }
 }
 
@@ -3753,6 +3953,9 @@ class LectureGraphPlugin extends obsidian.Plugin {
     this.lastMerge = null;
     this.manualMergeModal = null;
     this.mergingManually = false;
+    // импорт названий (кнопка ⤒ JSON): снимок правленых заметок для «Undo last names import»
+    this.lastNamesImport = null;
+    this.importingNames = false;
 
     this.addRibbonIcon("git-fork", "Lecture graph (полный экран — Shift+клик)", (ev) => this.activateView(!!(ev && (ev.shiftKey || ev.ctrlKey))));
     this.addCommand({
@@ -3830,6 +4033,21 @@ class LectureGraphPlugin extends obsidian.Plugin {
         var view = this.view();
         await this.exportJSON(view ? view.exportGraph() : await this.getGraph(false));
       },
+    });
+    this.addCommand({
+      id: "export-names-json",
+      name: "Export node names as JSON (id + name + name_zh)",
+      callback: () => this.exportNamesJson(),
+    });
+    this.addCommand({
+      id: "import-names-json",
+      name: "Import node names from JSON (update name_zh)",
+      callback: () => this.importNames(),
+    });
+    this.addCommand({
+      id: "undo-names-import",
+      name: "Undo last names import (restore name_zh)",
+      callback: () => this.undoNamesImport(),
     });
     this.addCommand({
       id: "edit-caption",
@@ -5612,6 +5830,254 @@ class LectureGraphPlugin extends obsidian.Plugin {
     return file;
   }
 
+  /* -------------------------------------------------- названия вершин: JSON туда и обратно
+   *
+   * Кнопка `⤓ JSON` в панели выгружает ТОЛЬКО названия — id, name (EN), name_zh (中文),
+   * а кнопка `⤒ JSON` рядом принимает такой файл обратно и обновляет в заметках свойство
+   * name_zh. Круг замкнут: выгрузили → перевели где угодно (хоть в таблице, хоть машинным
+   * переводчиком) → вернули в хранилище, не трогая ни тела заметок, ни прочие свойства.
+   */
+
+  /** Заметки, чьи названия ходят через JSON: вершины из папок Chapters/Sections/Headings/Blocks. */
+  async namesGraph() {
+    // отдельная модель, а не снимок с координатами: важен полный состав заметок,
+    // а не то, что осталось после фильтров панели
+    return this.buildGraphModel(buildOptions(this.settings));
+  }
+
+  /**
+   * Выгрузка названий в `90 - Exports/lecture-names-<дата>.json`.
+   * Три поля на вершину и ничего больше — файл делается для правки человеком.
+   */
+  async exportNamesJson(graph) {
+    var g = graph || (await this.namesGraph());
+    var obj = core.toNamesJson(g, { stamp: new Date().toISOString().slice(0, 16).replace("T", " ") });
+    var text = JSON.stringify(obj, null, 2) + "\n";
+    var file = await this.writeFile(this.settings.exportFolder + "/lecture-names-" + stamp() + ".json", text);
+    var zh = obj.nodes.filter(function (n) { return n.name_zh; }).length;
+    var msg = "Названия выгружены: " + file.path + " · " + obj.count + " вершин · с переводом " + zh +
+      " · без перевода " + (obj.count - zh);
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    return file;
+  }
+
+  /**
+   * Откуда берём файл импорта. Порядок такой, чтобы кнопка «просто работала»:
+   *   1. системный диалог выбора файла (<input type="file">) — когда он доступен;
+   *   2. если диалога нет (мобильный webview, предпросмотр) — окно со списком
+   *      json-файлов из папки экспорта хранилища.
+   * В обоих случаях возвращаем {name, text} или null, если пользователь передумал.
+   */
+  pickImportFile() {
+    var self = this;
+    return new Promise(function (resolve) {
+      var doc = typeof document !== "undefined" ? document : null;
+      if (!doc || !doc.createElement || typeof FileReader === "undefined") return resolve(null);
+      var input = doc.createElement("input");
+      if (!("files" in input)) return resolve(null);
+      input.type = "file";
+      input.accept = "application/json,.json";
+      input.style.display = "none";
+      var done = false;
+      var finish = function (value) {
+        if (done) return;
+        done = true;
+        if (input.parentNode) input.parentNode.removeChild(input);
+        resolve(value);
+      };
+      input.addEventListener("change", function () {
+        var f = input.files && input.files[0];
+        if (!f) return finish(null);
+        var reader = new FileReader();
+        reader.onload = function () { finish({ name: f.name, text: String(reader.result == null ? "" : reader.result) }); };
+        reader.onerror = function () {
+          new obsidian.Notice("Не удалось прочитать файл: " + f.name);
+          finish(null);
+        };
+        reader.readAsText(f);
+      });
+      // Пользователь мог закрыть диалог крестиком: change тогда не приходит вовсе.
+      // Ждём возврата фокуса в окно и, если файла так и нет, спокойно отменяем операцию.
+      var onFocus = function () {
+        window.removeEventListener("focus", onFocus);
+        setTimeout(function () {
+          if (!input.files || !input.files.length) finish(null);
+        }, 600);
+      };
+      window.addEventListener("focus", onFocus);
+      doc.body.appendChild(input);
+      try {
+        input.click();
+      } catch (e) {
+        finish(null);
+      }
+      void self;
+    });
+  }
+
+  /** json-файлы в папке экспорта — запасной выбор, когда системного диалога нет. */
+  vaultJsonFiles() {
+    var folder = String(this.settings.exportFolder || "90 - Exports").replace(/\/+$/, "");
+    var all = this.app.vault.getFiles ? this.app.vault.getFiles() : this.app.vault.getMarkdownFiles();
+    var out = all.filter(function (f) {
+      return /\.json$/i.test(f.path) && (!folder || f.path.indexOf(folder + "/") === 0);
+    });
+    out.sort(function (a, b) { return a.path < b.path ? 1 : a.path > b.path ? -1 : 0; }); // свежие сверху
+    return out;
+  }
+
+  /**
+   * Кнопка `⤒ JSON`: прочитать файл, показать окно с планом («что именно изменится»)
+   * и по подтверждению записать name_zh в заметки.
+   */
+  async importNames() {
+    if (this.importingNames) return null;
+    var picked = await this.pickImportFile();
+    if (!picked) {
+      // системного диалога нет (или пользователь его закрыл) — предложим файлы хранилища
+      var files = this.vaultJsonFiles();
+      if (!files.length) {
+        new obsidian.Notice("Импорт названий: выберите *.json-файл (или положите его в «" + this.settings.exportFolder + "»)");
+        return null;
+      }
+      var self = this;
+      return new Promise(function (resolve) {
+        new ImportNamesPickModal(self.app, self, files, function (file) {
+          if (!file) return resolve(null);
+          self.app.vault
+            .cachedRead(file)
+            .then(function (text) { return self.importNamesFromText(text, file.path); })
+            .then(resolve, function (e) {
+              new obsidian.Notice("Не удалось прочитать " + file.path + ": " + (e && e.message ? e.message : e));
+              resolve(null);
+            });
+        }).open();
+      });
+    }
+    return this.importNamesFromText(picked.text, picked.name);
+  }
+
+  /** Разбор файла + окно подтверждения. Отдельный метод, чтобы его звали и тесты, и оба пути выбора файла. */
+  async importNamesFromText(text, sourceName) {
+    var parsed = core.parseNamesJson(text);
+    if (!parsed.entries.length) {
+      var why = parsed.errors.length ? parsed.errors[0] : "в файле нет записей с id и name_zh";
+      new obsidian.Notice("Импорт названий не удался: " + why);
+      return null;
+    }
+    var graph = await this.namesGraph();
+    var plan = core.planNamesImport(graph, parsed.entries);
+    plan.source = sourceName || "выбранный файл";
+    plan.parseErrors = parsed.errors;
+    plan.entries = parsed.entries;
+    plan.graph = graph;
+    if (!plan.changes.length) {
+      var bits = ["ничего не изменилось"];
+      if (plan.same.length) bits.push("совпало переводов: " + plan.same.length);
+      if (plan.missing.length) bits.push("id не найдено: " + plan.missing.length);
+      if (plan.skippedEmpty.length) bits.push("пустых значений пропущено: " + plan.skippedEmpty.length);
+      new obsidian.Notice("Импорт названий: " + bits.join(" · "));
+      this.forEachView(function (v) { v.setStatus("Импорт названий: " + bits.join(" · "), 8000); });
+      return { plan: plan, written: 0 };
+    }
+    var self = this;
+    return new Promise(function (resolve) {
+      new ImportNamesModal(self.app, self, plan, resolve).open();
+    });
+  }
+
+  /**
+   * Собственно запись: каждой заметке из плана правится ОДНО свойство — name_zh.
+   * Тело заметки, формулы и прочие поля frontmatter не трогаются (core.setFrontmatterValues
+   * переписывает ровно одну строку). Все прежние тексты запоминаются: undoNamesImport()
+   * возвращает их байт-в-байт, как это делает отмена удаления вершины.
+   */
+  async applyNamesImport(plan) {
+    if (!plan || !plan.changes || !plan.changes.length) return { written: 0, failed: 0 };
+    var key = this.settings.nameZhKey || "name_zh";
+    var written = 0;
+    var failed = 0;
+    var snapshots = [];
+    this.importingNames = true;
+    try {
+      for (var i = 0; i < plan.changes.length; i++) {
+        var ch = plan.changes[i];
+        var file = this.app.vault.getAbstractFileByPath(ch.path);
+        if (!(file instanceof obsidian.TFile)) {
+          failed++;
+          continue;
+        }
+        // патч строится заново на каждой итерации и передаётся замыканию по значению:
+        // так запись не зависит от того, когда именно processInternal вызовет updater
+        var patch = {};
+        patch[key] = ch.to;
+        var apply = (function (p) {
+          return function (data) { return core.setFrontmatterValues(data, p); };
+        })(patch);
+        try {
+          var before = await this.app.vault.cachedRead(file);
+          if (apply(before) === before) continue;
+          snapshots.push({ path: ch.path, text: before });
+          await this.processInternal(file, apply);
+          written++;
+          // модель обновляем на лету: подпись на графе меняется без пересборки
+          var node = this.nodeByPath(ch.path);
+          if (node) node.nameZh = core.sanitizeLabel(ch.to);
+          if (ch.node) ch.node.nameZh = core.sanitizeLabel(ch.to);
+        } catch (e) {
+          failed++;
+          new obsidian.Notice("Не удалось записать " + ch.path + ": " + (e && e.message ? e.message : e));
+        }
+      }
+    } finally {
+      this.importingNames = false;
+    }
+    if (snapshots.length) this.lastNamesImport = { at: Date.now(), files: snapshots };
+    // подписи стали другой длины — пересчитать кегль и упаковку меток, иначе метки поедут
+    this.markGraphDirty();
+    await this.getGraph(true);
+    this.forEachView(function (v) {
+      v.refresh(false);
+    });
+    var bits = ["обновлено переводов: " + written];
+    if (plan.same.length) bits.push("уже совпадало: " + plan.same.length);
+    if (plan.missing.length) bits.push("id не найдено: " + plan.missing.length);
+    if (plan.skippedEmpty.length) bits.push("пустых значений пропущено: " + plan.skippedEmpty.length);
+    if (failed) bits.push("ошибок: " + failed);
+    var msg = "Импорт названий · " + bits.join(" · ") +
+      (written ? " · вернуть — команда «Undo last names import»" : "");
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 9000); });
+    return { written: written, failed: failed, plan: plan };
+  }
+
+  /** Отмена импорта: заметкам возвращается текст, снятый перед записью, — байт-в-байт. */
+  async undoNamesImport() {
+    var last = this.lastNamesImport;
+    if (!last || !last.files || !last.files.length) {
+      new obsidian.Notice("Отменять нечего: в этой сессии названия не импортировались");
+      return null;
+    }
+    var n = 0;
+    for (var i = 0; i < last.files.length; i++) {
+      try {
+        await this.writeFile(last.files[i].path, last.files[i].text);
+        n++;
+      } catch (e) {
+        new obsidian.Notice("Не удалось вернуть " + last.files[i].path + ": " + (e && e.message ? e.message : e));
+      }
+    }
+    this.lastNamesImport = null;
+    this.markGraphDirty();
+    await this.getGraph(true);
+    this.forEachView(function (v) { v.refresh(false); });
+    var msg = "Импорт названий отменён: возвращено заметок — " + n;
+    new obsidian.Notice(msg);
+    this.forEachView(function (v) { v.setStatus(msg, 8000); });
+    return { files: n };
+  }
+
   /* -------------------------------------------------- сообщения у вершин (caption) */
 
   /**
@@ -5764,6 +6230,8 @@ module.exports.EditLabelModal = EditLabelModal;
 module.exports.CreateNodeModal = CreateNodeModal;
 module.exports.DeleteNodeModal = DeleteNodeModal;
 module.exports.ManualMergeModal = ManualMergeModal;
+module.exports.ImportNamesModal = ImportNamesModal;
+module.exports.ImportNamesPickModal = ImportNamesPickModal;
 module.exports.VIEW_TYPE = VIEW_TYPE;
 module.exports.DEFAULT_SETTINGS = DEFAULT_SETTINGS;
 module.exports.buildOptions = buildOptions;

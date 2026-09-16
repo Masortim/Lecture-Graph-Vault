@@ -18,3 +18,6 @@ __pycache__/
 90 - Exports/lecture-graph-*.json
 90 - Exports/lecture-graph-*.svg
 90 - Exports/lecture-labels-*.csv
+# выгрузка названий вершин (кнопка ⤓ JSON: id + name + name_zh); обратно её
+# принимает кнопка ⤒ JSON — файл рабочий, в репозитории ему делать нечего
+90 - Exports/lecture-names-*.json

@@ -5,6 +5,9 @@
 .lg-bar-title { font-size: var(--font-ui-smaller); text-transform: uppercase; letter-spacing: .06em; opacity: .6; margin-right: 2px; }
 .lg-btn { font-size: var(--font-ui-small); padding: 2px 8px; border-radius: 6px; border: 1px solid var(--background-modifier-border); background: var(--background-primary); cursor: pointer; }
 .lg-btn:hover { background: var(--background-modifier-hover); }
+/* Кнопка-пиктограмма (полный экран): подписи нет, поэтому её ширина не должна зависеть
+   от того, какой символ нарисован — иначе панель «дёргается» при входе/выходе (⛶ → ✕). */
+.lg-btn--icon { min-width: 28px; padding: 2px 6px; text-align: center; line-height: 1.35; }
 /* «+ Создать по шаблону» в пузырьке сообщения — единственный акцент в рамке */
 .lg-btn--cta { margin-top: 4px; border-color: var(--interactive-accent); color: var(--text-on-accent); background: var(--interactive-accent); font-weight: 600; }
 .lg-btn--cta:hover { background: var(--interactive-accent-hover); color: var(--text-on-accent); }
@@ -281,6 +284,45 @@ body.lg-immersive .view-header, body.lg-immersive .workspace-tab-header-containe
 .lg-merge__plan { font-size: var(--font-ui-smaller); opacity: .85; }
 .lg-merge__warn { font-size: var(--font-ui-smaller); color: var(--text-warning, #f2b33d); margin-top: 4px; }
 .lg-merge__empty { font-size: var(--font-ui-small); margin: 12px 0; }
+
+/* --- ImportNamesModal: план импорта названий (кнопка ⤒ JSON) ---
+   Импорт правит чужие заметки пачкой, поэтому окно сначала показывает, ЧТО изменится:
+   сводка цифрами, затем построчно «было → станет» по каждому переводу. */
+.lg-import__sum { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px; }
+.lg-import__stat {
+  display: flex; align-items: baseline; gap: 5px; padding: 3px 10px; border-radius: 8px;
+  border: 1px solid var(--background-modifier-border); background: var(--background-secondary);
+}
+.lg-import__stat--go { border-color: var(--interactive-accent); }
+.lg-import__stat--warn { border-color: var(--text-warning, #f2b33d); }
+.lg-import__n { font-weight: 600; font-variant-numeric: tabular-nums; }
+.lg-import__cap { font-size: var(--font-ui-smaller); opacity: .75; }
+.lg-import__warn { font-size: var(--font-ui-smaller); color: var(--text-warning, #f2b33d); margin-bottom: 8px; }
+.lg-import__list {
+  display: flex; flex-direction: column; gap: 6px;
+  max-height: 46vh; overflow-y: auto; margin-bottom: 10px; padding-right: 4px;
+}
+.lg-import__row { border: 1px solid var(--background-modifier-border); border-radius: 8px; padding: 6px 10px; background: var(--background-secondary); }
+.lg-import__head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; font-size: var(--font-ui-smaller); }
+.lg-import__id { font-family: var(--font-monospace); opacity: .8; }
+.lg-import__type { opacity: .55; }
+.lg-import__name { font-weight: 600; opacity: .9; }
+.lg-import__zh { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; margin-top: 3px; font-size: var(--font-ui-small); }
+.lg-import__from { opacity: .6; text-decoration: line-through; }
+.lg-import__arrow { opacity: .55; }
+.lg-import__to { font-weight: 600; }
+.lg-import__more { font-size: var(--font-ui-smaller); opacity: .7; padding: 2px 4px; }
+/* запасной выбор файла (мобильный webview / предпросмотр): список json из папки экспорта.
+   Высоту кнопке задаём auto — тема Obsidian фиксирует её, и две строки наезжали бы. */
+.lg-import__files { display: flex; flex-direction: column; gap: 6px; max-height: 50vh; overflow-y: auto; margin-bottom: 10px; }
+.lg-import__file {
+  display: block; width: 100%; height: auto; text-align: left; white-space: normal;
+  padding: 7px 10px; border-radius: 8px; border: 1px solid var(--background-modifier-border);
+  background: var(--background-secondary); color: var(--text-normal); cursor: pointer;
+}
+.lg-import__file:hover { background: var(--background-modifier-hover); }
+.lg-import__file-name { font-size: var(--font-ui-small); font-weight: 600; }
+.lg-import__file .lg-modal-path { margin-bottom: 0; }
 
 /* --- цвет вершины: образцы, пипетка, предпросмотр (окно «Цвет вершины», окно
    создания узла и раздел настроек «Цвет отдельной вершины») --- */

@@ -2193,6 +2193,128 @@ ok("planNodeMerge: предупреждения о детях, ссылках и
   assert.ok(plan.warnings.join(";").indexOf("Родители") >= 0, "нет про родителей: " + plan.warnings.join(";"));
 });
 
+console.log("\n== раунд 26: названия вершин в JSON и обратно (кнопки ⤓/⤒ JSON) ==");
+
+// Граф реального хранилища — выгрузка названий обязана покрывать все четыре папки.
+const namesGraph = core.buildGraph(allNotes, {});
+
+ok("toNamesJson: только id, name и name_zh — по всем Chapters/Sections/Headings/Blocks", () => {
+  const out = core.toNamesJson(namesGraph, { stamp: "2026-09-16 12:00" });
+  assert.strictEqual(out.format, core.NAMES_FORMAT, "формат: " + out.format);
+  assert.strictEqual(out.generated, "2026-09-16 12:00");
+  assert.strictEqual(out.count, out.nodes.length, "count не равен длине списка");
+  assert.strictEqual(out.count, NODES, "выгружено " + out.count + " из " + NODES + " вершин");
+  // ровно три поля: ни путей, ни цветов, ни координат — файл правит человек
+  const keys = new Set();
+  out.nodes.forEach((n) => Object.keys(n).forEach((k) => keys.add(k)));
+  assert.deepStrictEqual([...keys].sort(), ["id", "name", "name_zh"], "лишние поля: " + [...keys].join(","));
+  // в выгрузке есть вершина каждого уровня, и названия — как в свойствах заметки
+  ["Ch01", "Ch01-S01", "Ch01-S01-H01", "Ch01-S01-H01-B01"].forEach((id) => {
+    const n = out.nodes.find((x) => x.id === id);
+    assert.ok(n, "нет вершины " + id);
+    assert.ok(n.name && n.name_zh, id + " выгружен без названий: " + JSON.stringify(n));
+  });
+  const ch = out.nodes.find((x) => x.id === "Ch01");
+  assert.strictEqual(ch.name, "Metric Spaces and Completion", ch.name);
+  assert.strictEqual(ch.name_zh, "度量空间与完备化", ch.name_zh);
+  // порядок детерминирован (по id): повторная выгрузка даёт тот же текст
+  const ids = out.nodes.map((n) => n.id);
+  assert.deepStrictEqual(ids, ids.slice().sort(), "порядок вершин не по id");
+  assert.strictEqual(JSON.stringify(out), JSON.stringify(core.toNamesJson(namesGraph, { stamp: "2026-09-16 12:00" })),
+    "две выгрузки одного графа различаются");
+});
+
+ok("toNamesJson: инлайн-блоки и вершины без id в файл не идут", () => {
+  const g = { nodes: [
+    { id: "Ch01", name: "A", nameZh: "甲" },
+    { id: "Ch01#^x", name: "inline", nameZh: "", inline: true },
+    { id: "  ", name: "no id", nameZh: "" },
+    { id: "Ch01", name: "дубль id", nameZh: "乙" },
+  ] };
+  const out = core.toNamesJson(g);
+  assert.strictEqual(out.count, 1, JSON.stringify(out.nodes));
+  assert.strictEqual(out.nodes[0].name_zh, "甲", "взята не первая запись дубля");
+});
+
+ok("parseNamesJson: свой формат, голый массив, полная выгрузка графа и словарь {id: перевод}", () => {
+  const rows = [{ id: "Ch01", name: "A", name_zh: "甲" }, { id: "Ch02", name: "B", name_zh: "乙" }];
+  const variants = {
+    "свой формат": JSON.stringify({ format: core.NAMES_FORMAT, nodes: rows }),
+    "голый массив": JSON.stringify(rows),
+    "выгрузка графа": JSON.stringify(core.toGraphJson({
+      nodes: [{ id: "Ch01", name: "A", nameZh: "甲", type: "chapter" }, { id: "Ch02", name: "B", nameZh: "乙", type: "chapter" }],
+      edges: [], stats: {}, config: {},
+    })),
+    "словарь": JSON.stringify({ Ch01: "甲", Ch02: "乙" }),
+  };
+  Object.keys(variants).forEach((kind) => {
+    const res = core.parseNamesJson(variants[kind]);
+    assert.strictEqual(res.entries.length, 2, kind + ": записей " + res.entries.length + " (" + res.errors.join("; ") + ")");
+    assert.strictEqual(res.entries[0].id, "Ch01", kind);
+    assert.strictEqual(res.entries[0].nameZh, "甲", kind + ": перевод " + res.entries[0].nameZh);
+  });
+});
+
+ok("parseNamesJson: битый файл, запись без id и без name_zh, повтор id — понятные ошибки", () => {
+  assert.ok(core.parseNamesJson("{не json").errors[0].indexOf("не разбирается") >= 0, "молча съеден битый JSON");
+  assert.ok(core.parseNamesJson("[]").errors[0].indexOf("нет ни одной записи") >= 0, "пустой массив принят");
+  const res = core.parseNamesJson(JSON.stringify([
+    { id: "Ch01", name_zh: "甲" },
+    { name_zh: "без id" },
+    { id: "Ch02" },
+    { id: "Ch01", name_zh: "повтор" },
+  ]));
+  assert.strictEqual(res.entries.length, 1, "лишние записи прошли: " + JSON.stringify(res.entries));
+  assert.strictEqual(res.entries[0].nameZh, "甲", "взята не первая запись");
+  const errs = res.errors.join(" | ");
+  assert.ok(/нет поля id/.test(errs) && /нет поля name_zh/.test(errs) && /дважды/.test(errs), errs);
+});
+
+ok("planNamesImport: меняет только отличающееся, чужие id и пустые значения не трогают хранилище", () => {
+  const g = { nodes: [
+    { id: "Ch01", name: "A", nameZh: "甲", path: "10 - Chapters/A.md", type: "chapter" },
+    { id: "Ch02", name: "B", nameZh: "乙", path: "10 - Chapters/B.md", type: "chapter" },
+    { id: "Ch03", name: "C", nameZh: "丙", path: "10 - Chapters/C.md", type: "chapter" },
+  ] };
+  const entries = core.parseNamesJson(JSON.stringify([
+    { id: "Ch01", name_zh: "новый甲" }, // правка
+    { id: "Ch02", name_zh: "乙" },       // уже такой
+    { id: "Ch03", name_zh: "" },         // пустое: по умолчанию НЕ стираем
+    { id: "Ch09", name_zh: "нет такой" },
+  ])).entries;
+  const plan = core.planNamesImport(g, entries);
+  assert.deepStrictEqual(plan.changes.map((c) => c.id), ["Ch01"], JSON.stringify(plan.changes));
+  assert.strictEqual(plan.changes[0].from, "甲");
+  assert.strictEqual(plan.changes[0].to, "новый甲");
+  assert.strictEqual(plan.changes[0].path, "10 - Chapters/A.md", "в плане нет пути заметки");
+  assert.deepStrictEqual(plan.same, ["Ch02"]);
+  assert.deepStrictEqual(plan.missing, ["Ch09"]);
+  assert.deepStrictEqual(plan.skippedEmpty, ["Ch03"], "пустой перевод молча стёр название");
+  // очистка перевода — только по явному запросу
+  const clearing = core.planNamesImport(g, entries, { allowClear: true });
+  assert.deepStrictEqual(clearing.changes.map((c) => c.id), ["Ch01", "Ch03"], JSON.stringify(clearing.changes));
+  assert.strictEqual(clearing.cleared.length, 1, "очистка не помечена");
+});
+
+ok("круг выгрузка → импорт: одни и те же данные не порождают ни одной правки", () => {
+  const out = core.toNamesJson(namesGraph, { stamp: "" });
+  const back = core.parseNamesJson(JSON.stringify(out));
+  assert.strictEqual(back.errors.length, 0, back.errors.slice(0, 3).join("; "));
+  assert.strictEqual(back.entries.length, out.count, "записей после разбора: " + back.entries.length);
+  const plan = core.planNamesImport(namesGraph, back.entries);
+  assert.strictEqual(plan.changes.length, 0, "холостой импорт правит " + plan.changes.length + " заметок");
+  assert.strictEqual(plan.missing.length, 0, "не нашлись id: " + plan.missing.slice(0, 3).join(","));
+  assert.strictEqual(plan.same.length, out.count, "совпало " + plan.same.length + " из " + out.count);
+});
+
+ok("импорт пишет одну строку frontmatter: тело заметки и прочие свойства целы", () => {
+  const raw = fs.readFileSync(path.join(ROOT, "10 - Chapters", "Ch01 - Metric Spaces and Completion.md"), "utf8");
+  const next = core.setFrontmatterValues(raw, { name_zh: "度量空间与完备化 · перевод" });
+  assert.ok(/^name_zh: "度量空间与完备化 · перевод"$/m.test(next), "перевод не записан");
+  assert.strictEqual(next.replace(/^name_zh:.*$/m, ""), raw.replace(/^name_zh:.*$/m, ""), "задета другая строка frontmatter");
+  assert.strictEqual(core.parseFrontmatter(next).body, core.parseFrontmatter(raw).body, "изменилось тело заметки");
+});
+
 // Итог — последней строкой: раунд 21 идёт после основного блока, поэтому счётчик
 // должен печататься тогда, когда все проверки уже выполнены.
 console.log("\n" + pass + " проверок пройдено, exitCode=" + (process.exitCode || 0));

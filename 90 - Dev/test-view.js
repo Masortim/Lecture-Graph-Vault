@@ -1000,11 +1000,18 @@ const plugin = new PluginClass(app, manifest);
     assert.ok(cmd("toggle-fullscreen"), "нет команды toggle-fullscreen");
     assert.ok(cmd("open-view-fullscreen"), "нет команды open-view-fullscreen");
     assert.ok(view.fullBtn, "нет кнопки во весь экран");
+    // кнопка — пиктограмма без текстовой надписи: сам текст живёт в title/aria-label
+    assert.strictEqual(view.fullBtn.textContent.trim(), "⛶", "на кнопке не пиктограмма: " + JSON.stringify(view.fullBtn.textContent));
+    assert.ok(view.fullBtn.classList.contains("lg-btn--icon"), "нет класса кнопки-пиктограммы: " + view.fullBtn.className);
+    assert.ok(/полном экране/.test(view.fullBtn.getAttribute("title") || ""), "title кнопки: " + view.fullBtn.getAttribute("title"));
+    assert.strictEqual(view.fullBtn.getAttribute("aria-label"), view.fullBtn.getAttribute("title"), "aria-label не совпал с title");
     assert.strictEqual(view.rootEl.classList.contains("lg-root--full"), false, "стартовал полноэкранным");
     view.fullBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
     assert.strictEqual(view.fullscreen, true, "клик по кнопке не открыл");
     assert.ok(view.rootEl.classList.contains("lg-root--full"), "нет класса lg-root--full");
-    assert.ok(/Выйти/.test(view.fullBtn.textContent) && /Esc/.test(view.fullBtn.textContent), "подпись кнопки: " + view.fullBtn.textContent);
+    assert.strictEqual(view.fullBtn.textContent.trim(), "✕", "в полноэкранном на кнопке: " + JSON.stringify(view.fullBtn.textContent));
+    assert.ok(/Esc/.test(view.fullBtn.getAttribute("title") || ""), "title выхода: " + view.fullBtn.getAttribute("title"));
+    assert.ok(view.fullBtn.textContent.trim().length <= 2, "на кнопке снова появилась надпись: " + view.fullBtn.textContent);
     dom.window.dispatchEvent(new dom.window.KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
     assert.ok(dom.window.__escSeen !== false, "keydown не дошёл до окна");
     assert.strictEqual(view.fullscreen, false, "Esc не вышел из полноэкранного режима");
@@ -2838,6 +2845,155 @@ See [[MN-92 - Manual Merge Target|the target node]].
     } finally {
       plugin.settings.autoMergeDuplicates = prevAutoMerge;
     }
+  });
+
+  console.log("\n== раунд 26: названия вершин — экспорт ⤓ JSON и импорт ⤒ JSON ==");
+
+  await ok("панель: ⤒ JSON стоит сразу справа от ⤓ JSON и подписана", async () => {
+    const bar = view.rootEl.querySelector(".lg-bar-group");
+    const labels = Array.from(bar.querySelectorAll("button")).map((b) => b.textContent.trim());
+    const i = labels.indexOf("⤓ JSON");
+    const j = labels.indexOf("⤒ JSON");
+    assert.ok(i >= 0, "нет кнопки экспорта: " + labels.join(" | "));
+    assert.strictEqual(j, i + 1, "кнопка импорта не справа от экспорта: " + labels.join(" | "));
+    assert.ok(view.importBtn && view.exportBtn, "кнопки не сохранены во view");
+    // стрелка вверх на импорте, вниз на экспорте — направление читается без подсказки
+    assert.ok(view.importBtn.textContent.indexOf("\u2912") >= 0, "на импорте не стрелка вверх: " + view.importBtn.textContent);
+    assert.ok(view.exportBtn.textContent.indexOf("\u2913") >= 0, "на экспорте не стрелка вниз: " + view.exportBtn.textContent);
+    assert.ok(/Импорт названий/.test(view.importBtn.getAttribute("title") || ""), view.importBtn.getAttribute("title"));
+    assert.ok(/name_zh|китайск/.test(view.importBtn.getAttribute("title") || ""), "в подсказке импорта нет name_zh");
+    assert.ok(/id, name/.test(view.exportBtn.getAttribute("title") || ""), view.exportBtn.getAttribute("title"));
+  });
+
+  let namesFile = null;
+  await ok("⤓ JSON: файл названий — только id/name/name_zh по всем четырём папкам", async () => {
+    const dir = path.join(TMP, plugin.settings.exportFolder);
+    const before = fs.existsSync(dir) ? fs.readdirSync(dir).filter((f) => /^lecture-names-.*\.json$/.test(f)) : [];
+    const file = await view.exportNames();
+    assert.ok(file && /lecture-names-.*\.json$/.test(file.path), "экспорт вернул: " + (file && file.path));
+    const after = fs.readdirSync(dir).filter((f) => /^lecture-names-.*\.json$/.test(f));
+    assert.strictEqual(after.length, before.length + 1, "файл не появился: " + after.join(","));
+    namesFile = path.join(dir, after[after.length - 1]);
+    const data = JSON.parse(fs.readFileSync(namesFile, "utf8"));
+    assert.strictEqual(data.format, "lecture-graph-names/1", "формат: " + data.format);
+    assert.strictEqual(data.count, data.nodes.length, "count не равен длине nodes");
+    assert.strictEqual(data.count, view.graph.nodes.length, "в файле " + data.count + " вершин, в графе " + view.graph.nodes.length);
+    const keys = new Set();
+    data.nodes.forEach((n) => Object.keys(n).forEach((k) => keys.add(k)));
+    assert.deepStrictEqual([...keys].sort(), ["id", "name", "name_zh"], "лишние поля: " + [...keys].join(","));
+    // в файле есть вершина каждого уровня — значит обошли все четыре папки
+    ["Ch01", "Ch01-S01", "Ch01-S01-H01", "Ch01-S01-H01-B01"].forEach((id) => {
+      const n = data.nodes.find((x) => x.id === id);
+      assert.ok(n && n.name && n.name_zh, "нет вершины " + id + " с названиями: " + JSON.stringify(n));
+    });
+    const ch = data.nodes.find((n) => n.id === "Ch01");
+    assert.strictEqual(ch.name_zh, "度量空间与完备化", "китайское название: " + ch.name_zh);
+  });
+
+  await ok("⤓ JSON не зависит от фильтров панели: перевод выгружается на весь курс", async () => {
+    const prev = JSON.parse(JSON.stringify(plugin.settings.filters));
+    try {
+      plugin.settings.filters.types = { chapter: true, section: false, heading: false, block: false };
+      view.applyFilters();
+      const visible = Object.keys(view.visible).filter((id) => view.visible[id]).length;
+      assert.ok(visible < view.graph.nodes.length, "фильтр не сработал, проверка бессмысленна");
+      const file = await view.exportNames();
+      const data = JSON.parse(fs.readFileSync(path.join(TMP, file.path), "utf8"));
+      assert.strictEqual(data.count, view.graph.nodes.length,
+        "выгружено " + data.count + " при " + visible + " видимых — файл перевода обязан быть полным");
+    } finally {
+      plugin.settings.filters = prev;
+      view.applyFilters();
+    }
+  });
+
+  await ok("⤒ JSON: окно показывает план, запись меняет ровно name_zh, Undo возвращает байт-в-байт", async () => {
+    const chRel = "10 - Chapters/Ch01 - Metric Spaces and Completion.md";
+    const blRel = "30 - Blocks/Ch01/Ch01-S01-H01-B01 - Proposition 1.1.1a.md";
+    const chAbs = path.join(TMP, chRel);
+    const blAbs = path.join(TMP, blRel);
+    const chBefore = fs.readFileSync(chAbs, "utf8");
+    const blBefore = fs.readFileSync(blAbs, "utf8");
+    // берём настоящий выгруженный файл и правим в нём два перевода — так работает пользователь
+    const data = JSON.parse(fs.readFileSync(namesFile, "utf8"));
+    data.nodes.find((n) => n.id === "Ch01").name_zh = "度量空间与完备化（импорт）";
+    data.nodes.find((n) => n.id === "Ch01-S01-H01-B01").name_zh = "向量空间命题（импорт）";
+    data.nodes.push({ id: "Нет-такой-вершины", name: "x", name_zh: "y" });
+
+    const pending = plugin.importNamesFromText(JSON.stringify(data), "lecture-names-test.json");
+    await new Promise((r) => setTimeout(r, 120));
+    const modal = Array.from(dom.window.document.querySelectorAll(".modal")).pop();
+    assert.ok(modal && /Импорт названий/.test(modal.textContent), "окно плана не открылось");
+    assert.ok(modal.querySelector(".lg-import__list"), "в окне нет списка правок");
+    assert.ok(/Ch01-S01-H01-B01/.test(modal.textContent), "в плане нет правки блока");
+    assert.ok(/Нет-такой-вершины/.test(modal.textContent), "в плане не предупредили про неизвестный id");
+    assert.ok(/度量空间与完备化（импорт）/.test(modal.textContent), "в плане не видно нового перевода");
+    const okBtn = Array.from(modal.querySelectorAll("button")).find((b) => /Обновить/.test(b.textContent));
+    assert.ok(okBtn, "нет кнопки подтверждения: " + Array.from(modal.querySelectorAll("button")).map((b) => b.textContent).join(","));
+    okBtn.dispatchEvent(new dom.window.MouseEvent("click", { bubbles: true }));
+    const res = await pending;
+    assert.ok(res && res.written === 2, "записано заметок: " + (res && res.written));
+    assert.strictEqual(res.plan.missing.length, 1, "неизвестный id не отмечен: " + JSON.stringify(res.plan.missing));
+
+    const chAfter = fs.readFileSync(chAbs, "utf8");
+    assert.ok(/^name_zh: "度量空间与完备化（импорт）"$/m.test(chAfter), "перевод главы не записан:\n" + chAfter.slice(0, 260));
+    assert.ok(/^name_zh: "向量空间命题（импорт）"$/m.test(fs.readFileSync(blAbs, "utf8")), "перевод блока не записан");
+    // ничего, кроме одной строки name_zh, не поменялось — ни свойства, ни тело с формулами
+    [[chAbs, chBefore], [blAbs, blBefore]].forEach(([abs, before]) => {
+      const after = fs.readFileSync(abs, "utf8");
+      assert.strictEqual(after.replace(/^name_zh:.*$/m, ""), before.replace(/^name_zh:.*$/m, ""),
+        "импорт задел другие поля в " + path.basename(abs));
+      assert.strictEqual(obsidian_stub_parse(after).body, obsidian_stub_parse(before).body,
+        "импорт изменил тело заметки " + path.basename(abs));
+    });
+    // граф увидел новые подписи без ручной пересборки
+    const g = await plugin.getGraph(false);
+    assert.strictEqual(g._byId["Ch01"].nameZh, "度量空间与完备化（импорт）", "модель не обновилась: " + g._byId["Ch01"].nameZh);
+
+    await plugin.undoNamesImport();
+    assert.strictEqual(fs.readFileSync(chAbs, "utf8"), chBefore, "Undo не вернул главу байт-в-байт");
+    assert.strictEqual(fs.readFileSync(blAbs, "utf8"), blBefore, "Undo не вернул блок байт-в-байт");
+  });
+
+  await ok("⤒ JSON: холостой файл ничего не пишет, битый — понятная ошибка", async () => {
+    const chAbs = path.join(TMP, "10 - Chapters", "Ch01 - Metric Spaces and Completion.md");
+    const before = fs.readFileSync(chAbs, "utf8");
+    const mtime = fs.statSync(chAbs).mtimeMs;
+    // тот же файл, что выгрузили: изменений нет — окно не открывается, заметки не трогаются
+    const same = await plugin.importNamesFromText(fs.readFileSync(namesFile, "utf8"), "same.json");
+    assert.ok(same && same.written === 0, "холостой импорт что-то записал: " + JSON.stringify(same && same.written));
+    assert.strictEqual(fs.readFileSync(chAbs, "utf8"), before, "холостой импорт изменил заметку");
+    assert.strictEqual(fs.statSync(chAbs).mtimeMs, mtime, "холостой импорт переписал файл (сдвинулся mtime)");
+    assert.strictEqual(dom.window.document.querySelectorAll(".lg-import__list").length, 0, "для нулевого плана открылось окно");
+    // битый JSON: только уведомление, никаких правок
+    const n0 = obsidian.Notice.all.length;
+    const bad = await plugin.importNamesFromText("{ это не json", "bad.json");
+    assert.strictEqual(bad, null, "битый файл не отклонён");
+    assert.ok(obsidian.Notice.all.slice(n0).join(" | ").indexOf("не удался") >= 0,
+      "нет сообщения об ошибке: " + obsidian.Notice.all.slice(n0).join(" | "));
+    assert.strictEqual(fs.readFileSync(chAbs, "utf8"), before, "битый файл изменил заметку");
+  });
+
+  await ok("команды палитры: экспорт названий, импорт и отмена импорта", async () => {
+    const cmd = (id) => plugin.commands.find((c) => c.id === id);
+    ["export-names-json", "import-names-json", "undo-names-import"].forEach((id) =>
+      assert.ok(cmd(id), "нет команды " + id));
+    assert.ok(/name_zh/.test(cmd("export-names-json").name), "имя команды экспорта: " + cmd("export-names-json").name);
+    // отмена без импорта — сообщение, а не исключение
+    const n0 = obsidian.Notice.all.length;
+    assert.strictEqual(await plugin.undoNamesImport(), null);
+    assert.ok(obsidian.Notice.all.slice(n0).join(" ").indexOf("Отменять нечего") >= 0,
+      obsidian.Notice.all.slice(n0).join(" "));
+    const file = await cmd("export-names-json").callback();
+    assert.ok(file && /lecture-names-/.test(file.path), "команда экспорта не создала файл");
+  });
+
+  await ok("стили импорта есть в поставляемом styles.css", async () => {
+    const css = fs.readFileSync(path.join(PLUGIN_DIR, "styles.css"), "utf8");
+    [".lg-import__list", ".lg-import__row", ".lg-import__sum", ".lg-btn--icon"].forEach((sel) =>
+      assert.ok(css.indexOf(sel) >= 0, "нет правила " + sel));
+    // у кнопки-пиктограммы фиксированная ширина: ⛶ → ✕ не должно дёргать панель
+    assert.ok(/\.lg-btn--icon \{[^}]*min-width:/.test(css), "у .lg-btn--icon нет min-width");
   });
 
   console.log("\n" + pass + " e2e-проверок пройдено; exitCode=" + (process.exitCode || 0));
